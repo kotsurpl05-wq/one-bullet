@@ -7862,22 +7862,12 @@
         if (
           wasWaiting ||
           isNewBullet ||
-          (
-            previousState !== snapshotState &&
-            snapshotState !== "flying"
-          ) ||
-          !Number.isFinite(
-            coopBullet.displayX
-          ) ||
-          !Number.isFinite(
-            coopBullet.displayY
-          )
+          previousState !== snapshotState ||
+          !Number.isFinite(coopBullet.displayX) ||
+          !Number.isFinite(coopBullet.displayY)
         ) {
-          coopBullet.displayX =
-            snapshotX;
-        
-          coopBullet.displayY =
-            snapshotY;
+          coopBullet.displayX = snapshotX;
+          coopBullet.displayY = snapshotY;
         }
       }
     
@@ -8419,7 +8409,7 @@
         }
       
         if (isLocal) {
-          // Локальный игрок управляется мгновенно без сетевых задержек
+          // Мгновенный локальный отклик управления
           coopPlayer.x = coopPlayer.displayX;
           coopPlayer.y = coopPlayer.displayY;
 
@@ -8434,17 +8424,21 @@
           coopPlayer.aimX = localInput.aimX;
           coopPlayer.aimY = localInput.aimY;
 
-          // Мягкая синхронизация только при сильном физическом рассинхроне
-          const correctionDist = Math.hypot(
-            coopPlayer.targetX - coopPlayer.displayX,
-            coopPlayer.targetY - coopPlayer.displayY
-          );
+          // Мягкое подтягивание к серверной координате для исключения рассинхрона
+          const driftX = coopPlayer.targetX - coopPlayer.displayX;
+          const driftY = coopPlayer.targetY - coopPlayer.displayY;
+          const driftDist = Math.hypot(driftX, driftY);
 
-          if (correctionDist > 160) {
-            coopPlayer.displayX = coopPlayer.targetX;
-            coopPlayer.displayY = coopPlayer.targetY;
-            coopPlayer.x = coopPlayer.targetX;
-            coopPlayer.y = coopPlayer.targetY;
+          if (driftDist > 70) {
+            coopPlayer.displayX += driftX * Math.min(1, dt * 10);
+            coopPlayer.displayY += driftY * Math.min(1, dt * 10);
+            coopPlayer.x = coopPlayer.displayX;
+            coopPlayer.y = coopPlayer.displayY;
+          } else if (driftDist > 8) {
+            coopPlayer.displayX += driftX * Math.min(1, dt * 3);
+            coopPlayer.displayY += driftY * Math.min(1, dt * 3);
+            coopPlayer.x = coopPlayer.displayX;
+            coopPlayer.y = coopPlayer.displayY;
           }
         } else {
           /*
@@ -8611,46 +8605,19 @@
           continue;
         }
       
-        if (
-          coopBullet.state === "flying"
-        ) {
-          coopBullet.targetX +=
-            coopBullet.vx * dt;
-        
-          coopBullet.targetY +=
-            coopBullet.vy * dt;
+        if (coopBullet.state === "flying") {
+          coopBullet.displayX += coopBullet.vx * dt;
+          coopBullet.displayY += coopBullet.vy * dt;
+          coopBullet.targetX += coopBullet.vx * dt;
+          coopBullet.targetY += coopBullet.vy * dt;
 
-          coopBullet.displayX +=
-            coopBullet.vx * dt;
-
-          coopBullet.displayY +=
-            coopBullet.vy * dt;
+          // Мягкая синхронизация с серверной траекторией
+          coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 5);
+          coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 5);
+        } else if (coopBullet.state === "ground") {
+          coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 18);
+          coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 18);
         }
-      
-        const interpolationSpeed =
-          coopBullet.state === "flying"
-            ? 12
-            : 16;
-      
-        coopBullet.displayX +=
-          (
-            coopBullet.targetX -
-            coopBullet.displayX
-          ) *
-          Math.min(
-            1,
-            dt * interpolationSpeed
-          );
-      
-        coopBullet.displayY +=
-          (
-            coopBullet.targetY -
-            coopBullet.displayY
-          ) *
-          Math.min(
-            1,
-            dt * interpolationSpeed
-          );
       }
       for (
         const coopEnemy of
