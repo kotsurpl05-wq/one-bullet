@@ -6728,6 +6728,8 @@
       };
     }
 
+    let teammateReturnedToLobby = false;
+
     function showCoopGameOverScreen() {
       if (!coopSession.active) {
         return;
@@ -6782,7 +6784,13 @@
         </div>
 
         ${
-          isCountdownActive
+          teammateReturnedToLobby
+            ? `
+              <div class="lobby-notice" style="margin-bottom: 14px; color: #ffaa55; border-color: rgba(255, 170, 85, 0.4);">
+                Напарник вышел в лобби. Нажмите «Вернуться в лобби», чтобы присоединиться к нему.
+              </div>
+            `
+            : isCountdownActive
             ? `
               <div class="lobby-countdown-banner" style="margin-bottom: 14px;">
                 🚀 ПЕРЕЗАПУСК ЧЕРЕЗ ${networkRoom.countdown} СЕК...
@@ -6797,7 +6805,18 @@
 
         <div class="menu-actions">
           ${
-            isMeReady
+            teammateReturnedToLobby
+              ? `
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled
+                  style="opacity: 0.4; cursor: not-allowed;"
+                >
+                  Начать заново ❌
+                </button>
+              `
+              : isMeReady
               ? `
                 <button
                   type="button"
@@ -8434,53 +8453,32 @@
         }
       
         if (isLocal) {
-          const isMoving = localInput.up || localInput.down || localInput.left || localInput.right;
-          const predictedPlayer = {
-            ...coopPlayer,
-            x: coopPlayer.displayX,
-            y: coopPlayer.displayY
-          };
-        
+          // Локальный игрок управляется мгновенно без сетевых задержек
+          coopPlayer.x = coopPlayer.displayX;
+          coopPlayer.y = coopPlayer.displayY;
+
           moveCoopPlayer(
-            predictedPlayer,
+            coopPlayer,
             localInput,
             dt
           );
-        
-          coopPlayer.displayX =
-            predictedPlayer.x;
-        
-          coopPlayer.displayY =
-            predictedPlayer.y;
-        
-          coopPlayer.aimX =
-            localInput.aimX;
-        
-          coopPlayer.aimY =
-            localInput.aimY;
-        
-          const correctionX =
-            coopPlayer.targetX -
-            coopPlayer.displayX;
-        
-          const correctionY =
-            coopPlayer.targetY -
-            coopPlayer.displayY;
-        
-          const correctionDistance =
-            Math.hypot(
-              correctionX,
-              correctionY
-            );
-        
-          if (correctionDistance > 140) {
-            // Резкий рассинхрон — мгновенно выравниваем
+
+          coopPlayer.displayX = coopPlayer.x;
+          coopPlayer.displayY = coopPlayer.y;
+          coopPlayer.aimX = localInput.aimX;
+          coopPlayer.aimY = localInput.aimY;
+
+          // Мягкая синхронизация только при сильном физическом рассинхроне
+          const correctionDist = Math.hypot(
+            coopPlayer.targetX - coopPlayer.displayX,
+            coopPlayer.targetY - coopPlayer.displayY
+          );
+
+          if (correctionDist > 160) {
             coopPlayer.displayX = coopPlayer.targetX;
             coopPlayer.displayY = coopPlayer.targetY;
-          } else if (!isMoving && correctionDistance > 1.5) {
-            // При остановке плавно подтягиваем к серверной позиции
-            coopPlayer.displayX += correctionX * Math.min(1, dt * 12);
-            coopPlayer.displayY += correctionY * Math.min(1, dt * 12);
+            coopPlayer.x = coopPlayer.targetX;
+            coopPlayer.y = coopPlayer.targetY;
           }
         } else {
           /*

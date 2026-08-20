@@ -178,9 +178,8 @@ function leaveRoom(socket, reason = "Игрок вышел") {
     return;
   }
 
-  const wasHost =
-    room.hostId === socket.id;
-
+  const wasHost = room.hostId === socket.id;
+  cancelRoomCountdown(room);
   room.players.delete(socket.id);
 
   socket.leave(room.code);
@@ -190,18 +189,21 @@ function leaveRoom(socket, reason = "Игрок вышел") {
   if (wasHost) {
     closeRoom(
       room,
-      "Хозяин комнаты отключился"
+      "Хозяин закрыл комнату"
     );
-
     return;
   }
 
+  // Гость вышел: комната остаётся у хоста, сбрасываем статус готовности и мир
   room.started = false;
   room.world = null;
+  for (const p of room.players.values()) {
+    p.ready = false;
+  }
 
   io.to(room.hostId).emit("room:peer-left", {
     playerId: socket.id,
-    reason
+    reason: "Гость покинул комнату"
   });
 
   emitRoomState(room);
@@ -3691,7 +3693,8 @@ io.on("connection", socket => {
     }
 
     io.to(room.code).emit("room:returned-to-lobby", {
-      room: getPublicRoomState(room)
+      room: getPublicRoomState(room),
+      returnedPlayerId: socket.id
     });
 
     emitRoomState(room);
