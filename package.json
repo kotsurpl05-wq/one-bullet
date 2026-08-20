@@ -1,0 +1,15 @@
+{
+  "name": "one-bullet-coop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Кооперативная версия игры Один патрон",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
