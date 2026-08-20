@@ -2391,6 +2391,12 @@ function killServerEnemy(
     }
   }
 
+  if (enemy.type === "boss") {
+    for (const player of world.players.values()) {
+      player.rerolls = (player.rerolls || 0) + 1;
+    }
+  }
+
   world.score +=
     enemy.type === "boss"
       ? 250 * world.wave
@@ -3412,8 +3418,10 @@ function addServerExperience(
 
     world.level += 1;
     world.pendingLevelUps += 1;
-    for (const p of world.players.values()) {
-      p.rerolls = (p.rerolls || 0) + 1;
+    if (world.level % 2 === 0) {
+      for (const p of world.players.values()) {
+        p.rerolls = (p.rerolls || 0) + 1;
+      }
     }
 
     world.experienceToNext =

@@ -3143,7 +3143,9 @@
         experience -= experienceToNext;
         playerLevel += 1;
         pendingLevelUps += 1;
-        soloRerolls += 1;
+        if (playerLevel % 2 === 0) {
+          soloRerolls += 1;
+        }
       
         experienceToNext =
           getExperienceRequirement(
@@ -3262,6 +3264,10 @@
     
       const shouldSplit = enemy.type === "splitter";
       const isBoss = enemy.type === "boss";
+
+      if (isBoss) {
+        soloRerolls += 1;
+      }
     
       const deathX = enemy.x;
       const deathY = enemy.y;
@@ -4124,6 +4130,53 @@
         screenShake,
         6
       );
+    }
+
+    function shootBossShockwave(enemy) {
+      const count = 8;
+      const speed = 190;
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count;
+        createEnemyProjectile(
+          enemy.x + Math.cos(angle) * (enemy.r + 6),
+          enemy.y + Math.sin(angle) * (enemy.r + 6),
+          angle,
+          speed,
+          6.5,
+          "#ff496c",
+          1
+        );
+      }
+      createRing(enemy.x, enemy.y, 70, "#ff496c");
+      screenShake = Math.max(screenShake, 5);
+    }
+
+    function shootBossSniperBolt(enemy, targetX, targetY) {
+      const angle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
+      createEnemyProjectile(
+        enemy.x + Math.cos(angle) * (enemy.r + 10),
+        enemy.y + Math.sin(angle) * (enemy.r + 10),
+        angle,
+        750,
+        9,
+        "#ff1744",
+        2
+      );
+      screenShake = Math.max(screenShake, 7);
+    }
+
+    function spawnBossDrones(boss) {
+      boss.shieldActive = true;
+      boss.shieldTriggered = true;
+      const droneCount = 2;
+      for (let i = 0; i < droneCount; i++) {
+        const drone = createEnemy("boss_drone", boss.x, boss.y);
+        drone.bossId = boss.id;
+        drone.orbitAngle = (Math.PI * 2 * i) / droneCount;
+        drone.orbitRadius = 90;
+        drone.hasEnteredArena = true;
+        enemies.push(drone);
+      }
     }
 
     function updateEnemyProjectiles(dt) {

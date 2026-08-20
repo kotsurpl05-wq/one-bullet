@@ -159,13 +159,49 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     assert.ok(html.includes("shootBossShockwave(enemy)"), "index.html calls shootBossShockwave");
     assert.ok(html.includes("shootBossSniperBolt(enemy"), "index.html calls shootBossSniperBolt");
 
-    // Verify definitions are missing in index.html (causing ReferenceError in solo mode)
+    // Verify definitions are present in index.html
     const hasSpawnBossDronesDef = /function\s+spawnBossDrones\s*\(/.test(html);
     const hasShootBossShockwaveDef = /function\s+shootBossShockwave\s*\(/.test(html);
     const hasShootBossSniperBoltDef = /function\s+shootBossSniperBolt\s*\(/.test(html);
 
-    assert.equal(hasSpawnBossDronesDef, false, "Solo mode lacks spawnBossDrones definition (Critical parity defect)");
-    assert.equal(hasShootBossShockwaveDef, false, "Solo mode lacks shootBossShockwave definition (Critical parity defect)");
-    assert.equal(hasShootBossSniperBoltDef, false, "Solo mode lacks shootBossSniperBolt definition (Critical parity defect)");
+    assert.equal(hasSpawnBossDronesDef, true, "Solo mode has spawnBossDrones definition");
+    assert.equal(hasShootBossShockwaveDef, true, "Solo mode has shootBossShockwave definition");
+    assert.equal(hasShootBossSniperBoltDef, true, "Solo mode has shootBossSniperBolt definition");
+  });
+
+  await t.test("7. Reroll Rules: Grant every 2 levels and on Boss kill", () => {
+    const { room, world, player1: player } = createTestWorld(ctx);
+    player.rerolls = 1;
+
+    // Level 1 -> 2 (Even level: +1 reroll)
+    world.experience = 0;
+    world.experienceToNext = 10;
+    ctx.addServerExperience(room, 10);
+    assert.equal(world.level, 2);
+    assert.equal(player.rerolls, 2, "Level 2 (even) must grant +1 reroll (total: 2)");
+
+    // Level 2 -> 3 (Odd level: 0 reroll)
+    world.experienceToNext = 10;
+    ctx.addServerExperience(room, 10);
+    assert.equal(world.level, 3);
+    assert.equal(player.rerolls, 2, "Level 3 (odd) must NOT grant reroll (total remains: 2)");
+
+    // Level 3 -> 4 (Even level: +1 reroll)
+    world.experienceToNext = 10;
+    ctx.addServerExperience(room, 10);
+    assert.equal(world.level, 4);
+    assert.equal(player.rerolls, 3, "Level 4 (even) must grant +1 reroll (total: 3)");
+
+    // Killing a normal enemy does NOT grant rerolls
+    const normalEnemy = ctx.createServerEnemy(world, "runner", 100, 100);
+    world.enemies.set(normalEnemy.id, normalEnemy);
+    ctx.killServerEnemy(world, normalEnemy, player);
+    assert.equal(player.rerolls, 3, "Normal kill must NOT grant rerolls");
+
+    // Killing a BOSS grants +1 reroll
+    const bossEnemy = ctx.createServerEnemy(world, "boss", 200, 200);
+    world.enemies.set(bossEnemy.id, bossEnemy);
+    ctx.killServerEnemy(world, bossEnemy, player);
+    assert.equal(player.rerolls, 4, "Boss kill must grant +1 reroll (total: 4)");
   });
 });
