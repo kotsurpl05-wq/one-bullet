@@ -7031,6 +7031,8 @@
       
         x: position.x,
         y: position.y,
+        serverX: position.x,
+        serverY: position.y,
       
         targetX: position.x,
         targetY: position.y,
@@ -7488,6 +7490,8 @@
           
             x: snapshotX,
             y: snapshotY,
+            serverX: snapshotX,
+            serverY: snapshotY,
           
             targetX: snapshotX,
             targetY: snapshotY,
@@ -7552,6 +7556,8 @@
       
         coopPlayer.x = snapshotX;
         coopPlayer.y = snapshotY;
+        coopPlayer.serverX = snapshotX;
+        coopPlayer.serverY = snapshotY;
       
         coopPlayer.targetX = snapshotX;
         coopPlayer.targetY = snapshotY;
@@ -8383,14 +8389,13 @@
         coopSession.inputTimer >=
         COOP_INPUT_INTERVAL
       ) {
-        coopSession.inputTimer = 0;
+        coopSession.inputTimer = Math.max(
+          0,
+          coopSession.inputTimer - COOP_INPUT_INTERVAL
+        );
         net.sendInput(localInput);
       }
-      
-      if (coopSession.waitingForSnapshot) {
-        return;
-      }
-    
+
       for (
         const [
           playerId,
@@ -8416,6 +8421,28 @@
             localInput,
             dt
           );
+
+          if (
+            Number.isFinite(coopPlayer.serverX) &&
+            Number.isFinite(coopPlayer.serverY)
+          ) {
+            const desyncDist = Math.hypot(
+              coopPlayer.serverX - coopPlayer.x,
+              coopPlayer.serverY - coopPlayer.y
+            );
+            if (desyncDist > 50) {
+              if (desyncDist > 300) {
+                coopPlayer.x = coopPlayer.serverX;
+                coopPlayer.y = coopPlayer.serverY;
+              } else {
+                const lerpFactor = Math.min(1, dt * 6.0);
+                coopPlayer.x +=
+                  (coopPlayer.serverX - coopPlayer.x) * lerpFactor;
+                coopPlayer.y +=
+                  (coopPlayer.serverY - coopPlayer.y) * lerpFactor;
+              }
+            }
+          }
 
           coopPlayer.displayX = coopPlayer.x;
           coopPlayer.displayY = coopPlayer.y;

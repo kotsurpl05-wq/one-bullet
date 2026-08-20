@@ -145,6 +145,12 @@ function cancelRoomCountdown(room) {
   emitRoomState(room);
 }
 
+function touchRoom(room) {
+  if (room) {
+    room.lastActivity = Date.now();
+  }
+}
+
 function emitRoomState(room) {
   io.to(room.code).emit(
     "room:state",
@@ -232,6 +238,11 @@ const COOP_SNAPSHOT_RATE = 20;
 
 const COOP_INPUT_TIMEOUT = 500;
 
+const COOP_SHOOT_MAX_POSITION_DRIFT = 60;
+const COOP_REPAIR_HEAL_COOLDOWN = 1.75;
+const ROOM_INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+const ROOM_CLEANUP_INTERVAL_MS = 60 * 1000;
+
 const COOP_BULLET_SPEED = 650;
 const COOP_BULLET_RADIUS = 7;
 const COOP_BULLET_BOUNCES = 1;
@@ -278,19 +289,14 @@ const COOP_DIFFICULTY = {
 function getServerExperienceRequirement(level) {
   const progression = Math.max(
     0,
-    level - 1
+    Math.min(level - 1, 10)
   );
 
-  const baseRequirement =
-    5 +
-    progression * 1.1 +
-    progression * progression * 0.12;
-
-  return Math.max(
-    1,
+  return (
+    12 +
+    progression * 6 +
     Math.floor(
-      baseRequirement *
-      COOP_EXPERIENCE_MULTIPLIER
+      Math.max(0, level - 11) * 8
     )
   );
 }
@@ -323,36 +329,18 @@ function distance(
 }
 
 
-function getServerAimDirection(
-  coopPlayer,
-  aimX = coopPlayer.aimX,
-  aimY = coopPlayer.aimY
-) {
-  let dx =
-    Number(aimX) - coopPlayer.x;
+function getServerAimDirection(player) {
+  const dx = player.aimX - player.x;
+  const dy = player.aimY - player.y;
+  const dist = Math.hypot(dx, dy);
 
-  let dy =
-    Number(aimY) - coopPlayer.y;
-
-  const length =
-    Math.hypot(dx, dy);
-
-  if (
-    !Number.isFinite(length) ||
-    length < 0.001
-  ) {
-    return {
-      x: 1,
-      y: 0
-    };
+  if (dist < 0.001) {
+    return { x: 1, y: 0 };
   }
 
-  dx /= length;
-  dy /= length;
-
   return {
-    x: dx,
-    y: dy
+    x: dx / dist,
+    y: dy / dist
   };
 }
 
@@ -416,37 +404,45 @@ function createServerBullet(
   return bullet;
 }
 
-function ensureServerMagazine(
-  world,
-  player
-) {
-  const currentCount = [
-    ...world.bullets.values()
-  ].filter(
-    bullet =>
-      bullet.ownerId === player.id
-  ).length;
-
-  const requiredCount =
-    player.stats.magazineSize;
-
-  for (
-    let count = currentCount;
-    count < requiredCount;
-    count++
-  ) {
-    createServerBullet(
-      world,
-      player
-    );
+function ensureServerMagazine(world, player) {
+  if (!world || !player) {
+    return;
   }
 
+  const desiredCount =
+    player.stats?.magazineSize || 1;
+
+  let existingBullets = [];
   for (
     const bullet of
     world.bullets.values()
   ) {
+    if (bullet.ownerId === player.id) {
+      existingBullets.push(bullet);
+    }
+  }
+
+  while (
+    existingBullets.length <
+    desiredCount
+  ) {
+    const newBullet =
+      createServerBullet(
+        world,
+        player
+      );
+
+    existingBullets.push(newBullet);
+  }
+
+  for (
+    const bullet of
+    existingBullets
+  ) {
     if (
-      bullet.ownerId === player.id
+      Number.isFinite(
+        player.stats?.bulletRadius
+      )
     ) {
       bullet.r =
         player.stats.bulletRadius;
@@ -463,7 +459,8 @@ function dropServerBullet(bullet) {
 
 function catchServerBullet(
   bullet,
-  owner
+  owner,
+  world
 ) {
   bullet.hitEnemies.clear();
   bullet.state = "held";
@@ -491,6 +488,16 @@ function catchServerBullet(
         bullet.r +
         2
       );
+
+  if (world && (owner?.stats?.catchBlast || 0) > 0) {
+    for (const enemy of world.enemies.values()) {
+      if (enemy && enemy.hasEnteredArena) {
+        if (Math.hypot(owner.x - enemy.x, owner.y - enemy.y) <= owner.stats.catchBlast + enemy.r) {
+          damageServerEnemy(world, enemy.id, 1, owner);
+        }
+      }
+    }
+  }
 }
 
 function shootServerBullet(
@@ -516,7 +523,7 @@ function shootServerBullet(
 
   if (Number.isFinite(clientShootX) && Number.isFinite(clientShootY)) {
     const dist = Math.hypot(clientShootX - owner.x, clientShootY - owner.y);
-    if (dist < 180) {
+    if (dist <= COOP_SHOOT_MAX_POSITION_DRIFT) {
       owner.x = clamp(clientShootX, owner.r, COOP_WORLD_WIDTH - owner.r);
       owner.y = clamp(clientShootY, owner.r, COOP_WORLD_HEIGHT - owner.r);
     }
@@ -983,7 +990,8 @@ function updateServerBullet(
     damageServerEnemy(
       world,
       enemy.id,
-      hitDamage
+      hitDamage,
+      owner
     );
 
     /*
@@ -995,7 +1003,7 @@ function updateServerBullet(
       for (const nearby of world.enemies.values()) {
         if (!nearby || nearby.id === enemy.id || !nearby.hasEnteredArena) continue;
         if (distance(enemy.x, enemy.y, nearby.x, nearby.y) <= expRadius + nearby.r) {
-          damageServerEnemy(world, nearby.id, expDmg);
+          damageServerEnemy(world, nearby.id, expDmg, owner);
         }
       }
     }
@@ -1026,7 +1034,7 @@ function updateServerBullet(
 
         if (!nextTarget) break;
         chainedSet.add(nextTarget.id);
-        damageServerEnemy(world, nextTarget.id, 1);
+        damageServerEnemy(world, nextTarget.id, 1, owner);
         lastX = nextTarget.x;
         lastY = nextTarget.y;
         chained++;
@@ -1057,7 +1065,8 @@ function updateServerBullet(
   ) {
     catchServerBullet(
       bullet,
-      owner
+      owner,
+      world
     );
 
     return;
@@ -1077,18 +1086,6 @@ function updateServerBullet(
 
 
 function reviveServerPlayers(world) {
-  const spawnPositions = [
-    {
-      x: COOP_WORLD_WIDTH / 2 - 70,
-      y: COOP_WORLD_HEIGHT / 2
-    },
-
-    {
-      x: COOP_WORLD_WIDTH / 2 + 70,
-      y: COOP_WORLD_HEIGHT / 2
-    }
-  ];
-
   let index = 0;
 
   for (
@@ -1096,9 +1093,10 @@ function reviveServerPlayers(world) {
     world.players.values()
   ) {
     if (!coopPlayer.alive) {
-      const position =
-        spawnPositions[index] ||
-        spawnPositions[0];
+      const position = getPlayerSpawnPosition(
+        index,
+        world.players.size
+      );
 
       coopPlayer.alive = true;
 
@@ -1123,7 +1121,8 @@ function reviveServerPlayers(world) {
         ) {
           catchServerBullet(
             bullet,
-            coopPlayer
+            coopPlayer,
+            world
           );
         }
       }
@@ -1195,6 +1194,12 @@ function updateServerCoopWorld(
       Math.max(
         0,
         coopPlayer.invulnerability - dt
+      );
+
+    coopPlayer.repairHealCooldown =
+      Math.max(
+        0,
+        (coopPlayer.repairHealCooldown || 0) - dt
       );
 
     if (!coopPlayer.alive) {
@@ -1293,6 +1298,13 @@ function createServerEnemy(
     color = "#79d7ff";
   }
 
+  if (type === "shooter") {
+    radius = 14;
+    speed = 48 + level * 1.3;
+    baseHp = 2 + Math.floor(level / 6);
+    color = "#50d890";
+  }
+
   if (type === "boss") {
     const bossTier = Math.max(
       1,
@@ -1359,9 +1371,9 @@ function createServerEnemy(
 
     contactCooldown: 0,
     isCharging: false,
+    preferredDistance,
     shootCooldown,
     radialCooldown,
-    preferredDistance,
     strafeDirection,
     phase: 0
   };
@@ -1538,6 +1550,11 @@ function spawnServerWave(world) {
       roll < 0.1
     ) {
       type = "splitter";
+    } else if (
+      world.wave >= 5 &&
+      roll < 0.22
+    ) {
+      type = "shooter";
     } else if (
       world.wave >= 4 &&
       roll < 0.27
@@ -2037,6 +2054,7 @@ function createCoopWorld(room) {
       
         alive: true,
         invulnerability: 0,
+        repairHealCooldown: 0,
       
         stats: {
           playerSpeed:
@@ -2055,7 +2073,10 @@ function createCoopWorld(room) {
           pierce: 0,
           pickupRadius: 0,
           critChance: 0,
-          magazineSize: 1
+          magazineSize: 1,
+          catchBlast: 0,
+          healEvery: 0,
+          repairKillProgress: 0
         },
       
         selectedUpgrades: [],
@@ -2235,7 +2256,8 @@ function getServerEnemyExperience(enemy) {
   if (
     enemy.type === "tank" ||
     enemy.type === "charger" ||
-    enemy.type === "splitter"
+    enemy.type === "splitter" ||
+    enemy.type === "shooter"
   ) {
     return 2;
   }
@@ -2299,9 +2321,28 @@ function dropServerExperience(
   }
 }
 
+function registerServerRepairKill(player) {
+  if (!player || !player.alive || (player.stats?.healEvery || 0) <= 0 || (player.repairHealCooldown || 0) > 0) {
+    return;
+  }
+
+  player.stats.repairKillProgress = (player.stats.repairKillProgress || 0) + 1;
+
+  if (player.stats.repairKillProgress >= player.stats.healEvery) {
+    if (player.hp >= player.maxHp) {
+      player.stats.repairKillProgress = Math.max(0, player.stats.healEvery - 1);
+    } else {
+      player.stats.repairKillProgress = 0;
+      player.repairHealCooldown = COOP_REPAIR_HEAL_COOLDOWN;
+      player.hp = Math.min(player.maxHp, player.hp + 1);
+    }
+  }
+}
+
 function killServerEnemy(
   world,
-  enemy
+  enemy,
+  killerPlayer
 ) {
   if (!world.enemies.has(enemy.id)) {
     return;
@@ -2315,6 +2356,14 @@ function killServerEnemy(
   world.enemies.delete(enemy.id);
 
   world.kills += 1;
+
+  if (killerPlayer) {
+    registerServerRepairKill(killerPlayer);
+  } else {
+    for (const player of world.players.values()) {
+      registerServerRepairKill(player);
+    }
+  }
 
   world.score +=
     enemy.type === "boss"
@@ -2347,7 +2396,8 @@ function killServerEnemy(
 function damageServerEnemy(
   world,
   enemyId,
-  amount
+  amount,
+  killerPlayer
 ) {
   const enemy =
     world.enemies.get(enemyId);
@@ -2361,7 +2411,8 @@ function damageServerEnemy(
   if (enemy.hp <= 0) {
     killServerEnemy(
       world,
-      enemy
+      enemy,
+      killerPlayer
     );
 
     return true;
@@ -3529,6 +3580,7 @@ io.on("connection", socket => {
     ) {
       return;
     }
+    touchRoom(room);
   
     socket.emit(
       "net:snapshot",
@@ -3548,8 +3600,10 @@ io.on("connection", socket => {
         const room = {
           code,
           hostId: socket.id,
+          difficulty: "normal",
           started: false,
           createdAt: Date.now(),
+          lastActivity: Date.now(),
           players: new Map()
         };
 
@@ -3557,7 +3611,7 @@ io.on("connection", socket => {
           id: socket.id,
           name,
           role: "host",
-          ready: true
+          ready: false
         });
 
         rooms.set(code, room);
@@ -3599,6 +3653,8 @@ io.on("connection", socket => {
 
         return;
       }
+
+      touchRoom(room);
 
       if (room.started) {
         acknowledge?.({
@@ -3664,10 +3720,11 @@ io.on("connection", socket => {
 
   socket.on("room:restart", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
-    if (!room) {
-      acknowledge?.({ success: false, message: "Комната не найдена" });
+    if (!room || room.hostId !== socket.id) {
+      acknowledge?.({ success: false, message: "Только хозяин может перезапустить игру" });
       return;
     }
+    touchRoom(room);
 
     room.started = true;
     room.world = createCoopWorld(room);
@@ -3687,10 +3744,11 @@ io.on("connection", socket => {
 
   socket.on("room:return-to-lobby", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
-    if (!room) {
-      acknowledge?.({ success: false, message: "Комната не найдена" });
+    if (!room || room.hostId !== socket.id) {
+      acknowledge?.({ success: false, message: "Только хозяин может вернуть комнату в лобби" });
       return;
     }
+    touchRoom(room);
 
     cancelRoomCountdown(room);
     room.started = false;
@@ -3714,6 +3772,7 @@ io.on("connection", socket => {
       acknowledge?.({ success: false, message: "Комната не найдена или игра уже начата" });
       return;
     }
+    touchRoom(room);
 
     const player = room.players.get(socket.id);
     if (!player) {
@@ -3733,16 +3792,28 @@ io.on("connection", socket => {
     sendAcknowledgement(acknowledge, { success: true, ready: player.ready });
   });
 
+  const ALLOWED_COOP_DIFFICULTIES = ["easy", "normal", "hard"];
+
   socket.on("room:set-difficulty", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
     if (!room || room.hostId !== socket.id) {
-      acknowledge?.({ success: false });
+      acknowledge?.({ success: false, message: "Только хозяин может менять сложность" });
       return;
     }
-    if (payload?.difficulty) {
-      room.difficulty = String(payload.difficulty);
-      emitRoomState(room);
+    if (room.started) {
+      acknowledge?.({ success: false, message: "Нельзя менять сложность во время игры" });
+      return;
     }
+    touchRoom(room);
+
+    const diff = String(payload?.difficulty);
+    if (!ALLOWED_COOP_DIFFICULTIES.includes(diff)) {
+      acknowledge?.({ success: false, message: "Недопустимый уровень сложности" });
+      return;
+    }
+
+    room.difficulty = diff;
+    emitRoomState(room);
     sendAcknowledgement(acknowledge, { success: true });
   });
 
@@ -3759,6 +3830,7 @@ io.on("connection", socket => {
 
         return;
       }
+      touchRoom(room);
 
       if (room.players.size !== 2) {
         acknowledge?.({
@@ -3812,6 +3884,7 @@ io.on("connection", socket => {
     ) {
       return;
     }
+    touchRoom(room);
   
     const coopPlayer =
       room.world.players.get(
@@ -3834,6 +3907,7 @@ io.on("connection", socket => {
     if (!room || !room.started || !room.world || room.world.gameOver) {
       return;
     }
+    touchRoom(room);
     room.world.manualPaused = !room.world.manualPaused;
   });
 
@@ -3848,6 +3922,7 @@ io.on("connection", socket => {
     ) {
       return;
     }
+    touchRoom(room);
   
     shootServerBullet(
       room,
@@ -3867,6 +3942,7 @@ io.on("connection", socket => {
       acknowledge?.({ success: false });
       return;
     }
+    touchRoom(room);
 
     const player = world.players.get(socket.id);
     if (!player || (player.rerolls || 0) <= 0) {
@@ -3913,6 +3989,7 @@ io.on("connection", socket => {
       ) {
         return;
       }
+      touchRoom(room);
 
       const offers =
         round.offersByPlayer.get(
@@ -3978,6 +4055,7 @@ io.on("connection", socket => {
     ) {
       return;
     }
+    touchRoom(room);
 
     socket
       .to(room.code)
@@ -4043,6 +4121,19 @@ setInterval(() => {
     }
   }
 }, 1000 / COOP_SIMULATION_RATE);
+
+setInterval(() => {
+  const now = Date.now();
+  for (const room of [...rooms.values()]) {
+    const lastActive = room.lastActivity || room.createdAt || now;
+    const isExpired = now - lastActive > ROOM_INACTIVITY_TIMEOUT_MS;
+    const isEmpty = !room.players || room.players.size === 0;
+    if (isEmpty || isExpired) {
+      cancelRoomCountdown(room);
+      closeRoom(room, isEmpty ? "Комната пуста" : "Комната закрыта из-за неактивности");
+    }
+  }
+}, 60000);
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(

@@ -113,18 +113,33 @@ class OneBulletNetwork extends EventTarget {
     );
   }
 
-  request(eventName, payload = {}) {
+  request(eventName, payload = {}, timeoutMs = 6000) {
     return new Promise(resolve => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve({
+            success: false,
+            message: "Превышено время ожидания ответа сервера"
+          });
+        }
+      }, timeoutMs);
+
       this.socket.emit(
         eventName,
         payload,
         result => {
-          resolve(
-            result || {
-              success: false,
-              message: "Сервер не ответил"
-            }
-          );
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve(
+              result || {
+                success: false,
+                message: "Сервер не ответил"
+              }
+            );
+          }
         }
       );
     });
@@ -206,7 +221,7 @@ class OneBulletNetwork extends EventTarget {
       return;
     }
   
-    this.socket.emit(
+    this.socket.volatile.emit(
       "net:input",
       input
     );
