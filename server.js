@@ -251,14 +251,14 @@ const COOP_BULLET_CATCH_DELAY = 0.24;
 
 const COOP_ENEMY_COUNT_MULTIPLIER = 1.55;
 const COOP_ENEMY_HP_MULTIPLIER = 1.35;
-const COOP_BOSS_HP_MULTIPLIER = 2.4;
+const COOP_BOSS_HP_MULTIPLIER = 2.2;
 
 const COOP_WAVE_BREAK = 3.5;
 
 const COOP_PLAYER_INVULNERABILITY = 0.22;
 const COOP_ENEMY_CONTACT_COOLDOWN = 0.85;
 
-const COOP_EXPERIENCE_MULTIPLIER = 1.45;
+const COOP_EXPERIENCE_MULTIPLIER = 1.7;
 
 const COOP_CRYSTAL_RADIUS = 5;
 const COOP_CRYSTAL_ATTRACTION_RADIUS = 180;
@@ -286,20 +286,46 @@ const COOP_DIFFICULTY = {
   }
 };
 
+
+
 function getServerExperienceRequirement(level) {
   const progression = Math.max(
     0,
-    Math.min(level - 1, 10)
+    level - 1
   );
 
-  return (
-    12 +
-    progression * 6 +
+  const baseRequirement =
+    5 +
+    progression * 1.1 +
+    progression * progression * 0.12;
+
+  return Math.max(
+    1,
     Math.floor(
-      Math.max(0, level - 11) * 8
+      baseRequirement *
+      COOP_EXPERIENCE_MULTIPLIER
     )
   );
 }
+
+
+
+// new balance - unbalanced
+
+//function getServerExperienceRequirement(level) {
+//  const progression = Math.max(
+//    0,
+//    Math.min(level - 1, 10)
+//  );
+//
+//  return (
+//    12 +
+//    progression * 6 +
+//    Math.floor(
+//      Math.max(0, level - 11) * 6
+//    )
+//  );
+//}
 
 
 function clamp(value, min, max) {
