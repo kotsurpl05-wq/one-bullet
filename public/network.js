@@ -4,7 +4,11 @@ class OneBulletNetwork extends EventTarget {
   constructor() {
     super();
 
-    this.socket = io();
+    this.socket = io({
+      transports: ["websocket", "polling"],
+      upgrade: true,
+      rememberUpgrade: true
+    });
 
     this.connected = false;
     this.room = null;

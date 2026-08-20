@@ -11,14 +11,24 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
+  cors: { origin: "*" },
+  transports: ["websocket", "polling"],
   maxHttpBufferSize: 1e6,
   pingInterval: 10000,
-  pingTimeout: 15000
+  pingTimeout: 15000,
+  perMessageDeflate: {
+    threshold: 512
+  }
+});
+
+app.get("/healthz", (req, res) => {
+  res.status(200).send("OK");
 });
 
 app.use(
   express.static(
-    path.join(__dirname, "public")
+    path.join(__dirname, "public"),
+    { maxAge: "1h", etag: true }
   )
 );
 
@@ -219,7 +229,7 @@ const COOP_WORLD_HEIGHT = 1374;
 
 const COOP_PLAYER_SPEED = 285;
 const COOP_SIMULATION_RATE = 60;
-const COOP_SNAPSHOT_RATE = 25;
+const COOP_SNAPSHOT_RATE = 20;
 
 const COOP_INPUT_TIMEOUT = 500;
 
@@ -3386,27 +3396,23 @@ function createServerCoopSnapshot(room) {
       id: coopPlayer.id,
       name: coopPlayer.name,
 
-      x: coopPlayer.x,
-      y: coopPlayer.y,
+      x: Math.round(coopPlayer.x * 10) / 10,
+      y: Math.round(coopPlayer.y * 10) / 10,
 
-      aimX: coopPlayer.aimX,
-      aimY: coopPlayer.aimY,
+      aimX: Math.round(coopPlayer.aimX),
+      aimY: Math.round(coopPlayer.aimY),
 
       r: coopPlayer.r,
-      colorIndex:
-        coopPlayer.colorIndex,
+      colorIndex: coopPlayer.colorIndex,
 
       hp: coopPlayer.hp,
       maxHp: coopPlayer.maxHp,
 
       alive: coopPlayer.alive,
-
-      invulnerability:
-        coopPlayer.invulnerability,
+      invulnerability: coopPlayer.invulnerability > 0 ? Number(coopPlayer.invulnerability.toFixed(2)) : 0,
 
       stats: coopPlayer.stats,
-      selectedUpgrades:
-        coopPlayer.selectedUpgrades
+      selectedUpgrades: coopPlayer.selectedUpgrades
     })),
 
     bullets: [
@@ -3415,21 +3421,18 @@ function createServerCoopSnapshot(room) {
       id: bullet.id,
       ownerId: bullet.ownerId,
 
-      x: bullet.x,
-      y: bullet.y,
+      x: Math.round(bullet.x * 10) / 10,
+      y: Math.round(bullet.y * 10) / 10,
 
-      vx: bullet.vx,
-      vy: bullet.vy,
+      vx: Math.round(bullet.vx),
+      vy: Math.round(bullet.vy),
 
       r: bullet.r,
       state: bullet.state,
-      age: bullet.age,
+      age: Number(bullet.age.toFixed(2)),
 
-      bouncesLeft:
-        bullet.bouncesLeft,
-
-      colorIndex:
-        bullet.colorIndex
+      bouncesLeft: bullet.bouncesLeft,
+      colorIndex: bullet.colorIndex
     })),
 
     enemies: [
