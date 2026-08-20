@@ -159,6 +159,7 @@ function emitRoomState(room) {
 }
 
 function closeRoom(room, reason) {
+  cancelRoomCountdown(room);
   io.to(room.code).emit("room:closed", {
     reason
   });
@@ -2237,6 +2238,7 @@ function damageServerPlayer(
       const r = [...rooms.values()].find(rm => rm.world === world);
       if (r) {
         cancelRoomCountdown(r);
+        r.started = false;
         for (const p of r.players.values()) {
           p.ready = false;
         }
@@ -4036,13 +4038,11 @@ io.on("connection", socket => {
         return;
       }
 
+      cancelRoomCountdown(room);
+      const diff = String(payload?.difficulty || room.difficulty || "normal");
+      room.difficulty = ALLOWED_COOP_DIFFICULTIES.includes(diff) ? diff : "normal";
       room.started = true;
-      
-      room.difficulty =
-        String(
-          payload?.difficulty ||
-          "normal"
-        );
+      for (const p of room.players.values()) p.ready = false;
       
       room.world =
         createCoopWorld(room);

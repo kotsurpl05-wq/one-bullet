@@ -7049,7 +7049,11 @@
         if (gameState === "network-lobby") {
           renderNetworkLobby();
         } else if (coopSession.active) {
-          showToast("Напарник покинул игру");
+          if (typeof showToast === "function") {
+            showToast("Напарник покинул игру");
+          } else {
+            console.log("Напарник покинул игру");
+          }
         }
       });
       

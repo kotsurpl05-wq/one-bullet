@@ -1,4 +1,4 @@
-﻿function createTestRoom(ctx, { code = "TEST01", hostId = "p1", guestId = "p2", difficulty = "normal" } = {}) {
+function createTestRoom(ctx, { code = "TEST01", hostId = "p1", guestId = "p2", difficulty = "normal" } = {}) {
   const room = {
     code,
     hostId,
@@ -20,6 +20,7 @@
 function createTestWorld(ctx, options = {}) {
   const room = createTestRoom(ctx, options);
   const world = ctx.createCoopWorld(room);
+  room.world = world;
   world.enemies.clear(); // Clear initial wave for controlled tests
   world.experienceCrystals.clear();
   return {
