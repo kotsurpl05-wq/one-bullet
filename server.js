@@ -1529,25 +1529,23 @@ function spawnServerWave(world) {
       Math.floor(world.wave / 5)
     );
 
-    const escortCount = Math.min(
-      1 + Math.floor(bossTier / 2),
-      4
-    );
+    let escortPool = ["runner"];
+    let escortCount = 2;
 
-    for (
-      let i = 0;
-      i < escortCount;
-      i++
-    ) {
-      const escortType =
-        Math.random() < 0.5
-          ? "runner"
-          : "normal";
+    if (bossTier === 2) {
+      escortPool = ["tank", "shooter"];
+      escortCount = 4;
+    } else if (bossTier === 3) {
+      escortPool = ["splitter", "charger", "shooter"];
+      escortCount = 5;
+    } else if (bossTier >= 4) {
+      escortPool = ["splitter", "charger", "tank", "runner", "shooter"];
+      escortCount = 6 + Math.min(bossTier, 4);
+    }
 
-      spawnServerEnemyFromEdge(
-        world,
-        escortType
-      );
+    for (let i = 0; i < escortCount; i++) {
+      const escortType = escortPool[i % escortPool.length];
+      spawnServerEnemyFromEdge(world, escortType);
     }
 
     return;
@@ -2432,6 +2430,10 @@ function damageServerEnemy(
     return false;
   }
 
+  if (enemy.type === "boss" && enemy.shieldActive) {
+    amount = Math.max(1, Math.floor(amount * 0.2));
+  }
+
   enemy.hp -= amount;
 
   if (enemy.hp <= 0) {
@@ -2594,10 +2596,10 @@ function shootServerBossSpread(world, enemy, target, phase) {
     target.x - enemy.x
   );
 
-  const projectileCount = 3 + phase;
-  const spread = 0.19;
-  const progressionWaves = Math.max(0, world.wave - 5);
-  const speed = 225 + progressionWaves * 3 * 1.3;
+  const progressionTier = Math.max(0, (enemy.bossTier || 1) - 1);
+  const projectileCount = 3 + phase + Math.min(progressionTier, 3);
+  const spread = 0.18;
+  const speed = 235 + progressionTier * 22;
 
   for (let i = 0; i < projectileCount; i++) {
     const offset = (i - (projectileCount - 1) / 2) * spread;
@@ -2609,13 +2611,13 @@ function shootServerBossSpread(world, enemy, target, phase) {
       enemy.y + Math.sin(angle) * (enemy.r + 8),
       angle,
       speed,
-      7,
+      7.5,
       "#ff4f91",
       1
     );
   }
 
-  // На 2 и 3 фазе босс также стреляет в другого живого игрока
+  // На 2 и 3 фазе босс также стреляет во второго игрока
   if (phase >= 1) {
     const otherPlayer = [...world.players.values()].find(p => p.alive && p.id !== target.id);
     if (otherPlayer) {
@@ -2629,7 +2631,7 @@ function shootServerBossSpread(world, enemy, target, phase) {
           enemy.y + Math.sin(angle) * (enemy.r + 8),
           angle,
           speed,
-          7,
+          7.5,
           "#ff4f91",
           1
         );
@@ -2639,13 +2641,13 @@ function shootServerBossSpread(world, enemy, target, phase) {
 }
 
 function shootServerBossRadial(world, enemy, phase) {
-  const projectileCount = 8 + phase * 2;
-  const progressionWaves = Math.max(0, world.wave - 5);
-  const speed = 145 + phase * 20 + progressionWaves * 2 * 1.3;
-  const rotation = Date.now() * 0.0009;
+  const progressionTier = Math.max(0, (enemy.bossTier || 1) - 1);
+  const projectileCount = 8 + phase * 2 + Math.min(progressionTier * 2, 6);
+  const speed = 155 + phase * 20 + progressionTier * 18;
+  const rotation = Date.now() * 0.001;
 
   for (let i = 0; i < projectileCount; i++) {
-    const angle = rotation + Math.PI * 2 * i / projectileCount;
+    const angle = rotation + (Math.PI * 2 * i) / projectileCount;
 
     createServerEnemyProjectile(
       world,
@@ -2653,10 +2655,57 @@ function shootServerBossRadial(world, enemy, phase) {
       enemy.y + Math.sin(angle) * (enemy.r + 5),
       angle,
       speed,
-      6.5,
+      7,
       "#ff9b45",
       1
     );
+  }
+}
+
+function shootServerBossShockwave(world, enemy) {
+  const count = 8;
+  const speed = 190;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count;
+    createServerEnemyProjectile(
+      world,
+      enemy.x + Math.cos(angle) * (enemy.r + 6),
+      enemy.y + Math.sin(angle) * (enemy.r + 6),
+      angle,
+      speed,
+      6.5,
+      "#ff496c",
+      1
+    );
+  }
+}
+
+function shootServerBossSniperBolt(world, enemy, targetX, targetY) {
+  const angle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
+  createServerEnemyProjectile(
+    world,
+    enemy.x + Math.cos(angle) * (enemy.r + 10),
+    enemy.y + Math.sin(angle) * (enemy.r + 10),
+    angle,
+    750,
+    9,
+    "#ff1744",
+    2
+  );
+}
+
+function spawnServerBossDrones(world, boss) {
+  boss.shieldActive = true;
+  boss.shieldTriggered = true;
+
+  const droneCount = 2;
+  for (let i = 0; i < droneCount; i++) {
+    const drone = createServerEnemy(world, "boss_drone", boss.x, boss.y);
+    drone.bossId = boss.id;
+    drone.orbitAngle = (Math.PI * 2 * i) / droneCount;
+    drone.orbitRadius = 90;
+    drone.hasEnteredArena = true;
+    world.enemies.set(drone.id, drone);
   }
 }
 
@@ -2779,10 +2828,121 @@ function updateServerEnemies(
     dx /= targetDistance;
     dy /= targetDistance;
 
-    if (enemy.type === "boss") {
+    if (enemy.type === "boss_drone") {
+      const boss = world.enemies.get(enemy.bossId);
+      if (boss && boss.hp > 0) {
+        enemy.orbitAngle += dt * 2.3;
+        enemy.x = boss.x + Math.cos(enemy.orbitAngle) * enemy.orbitRadius;
+        enemy.y = boss.y + Math.sin(enemy.orbitAngle) * enemy.orbitRadius;
+
+        enemy.shootCooldown -= dt;
+        if (enemy.shootCooldown <= 0) {
+          shootServerEnemyProjectile(world, enemy, target);
+          enemy.shootCooldown = random(2.0, 3.2);
+        }
+      } else {
+        damageServerEnemy(world, enemy.id, 999);
+      }
+      continue;
+    } else if (enemy.type === "boss") {
       const hpRatio = enemy.hp / (enemy.maxHp || 1);
       const phase = hpRatio < 0.33 ? 2 : hpRatio < 0.66 ? 1 : 0;
       enemy.phase = phase;
+
+      if (!enemy.shieldTriggered && hpRatio <= 0.5 && (enemy.bossTier || 1) >= 2) {
+        spawnServerBossDrones(world, enemy);
+      }
+
+      if (enemy.stunTimer > 0) {
+        enemy.stunTimer -= dt;
+        continue;
+      }
+
+      // 1. Dash
+      if (phase >= 1 && enemy.hasEnteredArena) {
+        if (enemy.dashState === "none") {
+          enemy.dashCooldown -= dt;
+          if (enemy.dashCooldown <= 0) {
+            enemy.dashState = "telegraph";
+            enemy.dashTimer = 0.7;
+            enemy.dashDx = dx;
+            enemy.dashDy = dy;
+          }
+        } else if (enemy.dashState === "telegraph") {
+          enemy.dashTimer -= dt;
+          if (enemy.dashTimer <= 0) {
+            enemy.dashState = "dashing";
+            enemy.dashTimer = 0.45;
+          }
+        } else if (enemy.dashState === "dashing") {
+          enemy.dashTimer -= dt;
+          enemy.x += enemy.dashDx * 430 * dt;
+          enemy.y += enemy.dashDy * 430 * dt;
+          enemy.x = clamp(enemy.x, enemy.r, COOP_WORLD_WIDTH - enemy.r);
+          enemy.y = clamp(enemy.y, enemy.r, COOP_WORLD_HEIGHT - enemy.r);
+
+          if (enemy.dashTimer <= 0) {
+            enemy.dashState = "none";
+            enemy.dashCooldown = random(6.5, 8.5);
+            shootServerBossShockwave(world, enemy);
+          }
+          continue;
+        }
+      }
+
+      // 2. Sniper Beam
+      if ((enemy.bossTier || 1) >= 2 && enemy.hasEnteredArena && enemy.dashState === "none") {
+        if (enemy.sniperState === "none") {
+          enemy.sniperCooldown -= dt;
+          if (enemy.sniperCooldown <= 0) {
+            enemy.sniperState = "tracking";
+            enemy.sniperTimer = 1.0;
+            enemy.sniperTargetX = target.x;
+            enemy.sniperTargetY = target.y;
+          }
+        } else if (enemy.sniperState === "tracking") {
+          enemy.sniperTargetX = target.x;
+          enemy.sniperTargetY = target.y;
+          enemy.sniperTimer -= dt;
+          if (enemy.sniperTimer <= 0) {
+            enemy.sniperState = "locked";
+            enemy.sniperTimer = 0.35;
+          }
+        } else if (enemy.sniperState === "locked") {
+          enemy.sniperTimer -= dt;
+          if (enemy.sniperTimer <= 0) {
+            shootServerBossSniperBolt(world, enemy, enemy.sniperTargetX, enemy.sniperTargetY);
+            enemy.sniperState = "none";
+            enemy.sniperCooldown = random(7.5, 9.5);
+          }
+        }
+      }
+
+      // 3. Spiral Bullet Hell
+      if (phase === 2 && enemy.hasEnteredArena) {
+        if (!enemy.spiralActive) {
+          enemy.spiralCooldown -= dt;
+          if (enemy.spiralCooldown <= 0) {
+            enemy.spiralActive = true;
+            enemy.spiralTimer = 1.8;
+            enemy.spiralTicks = 0;
+            enemy.spiralBaseAngle = 0;
+          }
+        } else {
+          enemy.spiralTimer -= dt;
+          enemy.spiralBaseAngle += dt * 3.5;
+          enemy.spiralTicks += dt;
+          if (enemy.spiralTicks >= 0.14) {
+            enemy.spiralTicks = 0;
+            createServerEnemyProjectile(world, enemy.x + Math.cos(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.spiralBaseAngle, 175, 6, "#ff0077", 1);
+            createServerEnemyProjectile(world, enemy.x + Math.cos(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.spiralBaseAngle + Math.PI, 175, 6, "#ff0077", 1);
+          }
+          if (enemy.spiralTimer <= 0) {
+            enemy.spiralActive = false;
+            enemy.spiralCooldown = random(6.0, 8.5);
+          }
+        }
+      }
 
       const forwardMovement = targetDistance > 320 ? 0.95 : targetDistance < 220 ? -0.4 : 0.25;
       const strafeStrength = 0.5 + phase * 0.12;
@@ -2799,18 +2959,18 @@ function updateServerEnemies(
         difficulty.enemySpeed *
         dt;
 
-      if (enemy.hasEnteredArena) {
+      if (enemy.hasEnteredArena && enemy.dashState === "none") {
         enemy.shootCooldown -= dt;
         enemy.radialCooldown -= dt;
 
         if (enemy.shootCooldown <= 0) {
           shootServerBossSpread(world, enemy, target, phase);
-          enemy.shootCooldown = Math.max(0.9, 1.4 - phase * 0.16);
+          enemy.shootCooldown = Math.max(0.85, 1.35 - phase * 0.16);
         }
 
         if (enemy.radialCooldown <= 0) {
           shootServerBossRadial(world, enemy, phase);
-          enemy.radialCooldown = Math.max(2.8, 4.0 - phase * 0.4);
+          enemy.radialCooldown = Math.max(2.6, 3.8 - phase * 0.4);
         }
       }
     } else if (enemy.type === "shooter") {
@@ -3552,7 +3712,16 @@ function createServerCoopSnapshot(room) {
         enemy.hasEnteredArena,
 
       isCharging:
-        enemy.isCharging
+        enemy.isCharging,
+
+      dashState: enemy.dashState || "none",
+      dashTimer: enemy.dashTimer ? Number(enemy.dashTimer.toFixed(2)) : 0,
+      sniperState: enemy.sniperState || "none",
+      sniperTargetX: Math.round(enemy.sniperTargetX || 0),
+      sniperTargetY: Math.round(enemy.sniperTargetY || 0),
+      shieldActive: Boolean(enemy.shieldActive),
+      stunTimer: enemy.stunTimer ? Number(enemy.stunTimer.toFixed(2)) : 0,
+      phase: enemy.phase || 0
     })),
 
     enemyProjectiles: [

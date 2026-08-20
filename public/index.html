@@ -448,40 +448,119 @@
       box-shadow: 0 0 32px rgba(255, 190, 72, 0.6), inset 0 0 28px rgba(255, 190, 72, 0.3) !important;
     }
 
+    /* Шапка выбора улучшений с кнопкой реролла */
+    .upgrade-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(126, 231, 255, 0.12);
+      text-align: left;
+    }
+
+    .upgrade-header-bar h1 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 32px);
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+      text-align: left !important;
+    }
+
+    .upgrade-header-bar p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #94a3b8;
+      text-align: left !important;
+    }
+
+    .upgrade-reroll-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #ffe699;
+      background: linear-gradient(135deg, rgba(255, 190, 72, 0.18), rgba(255, 140, 0, 0.1));
+      border: 1.5px solid rgba(255, 190, 72, 0.45);
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(255, 171, 49, 0.18);
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .upgrade-reroll-badge:hover:not(.disabled):not(:disabled) {
+      background: linear-gradient(135deg, rgba(255, 190, 72, 0.3), rgba(255, 140, 0, 0.22));
+      border-color: #ffd060;
+      box-shadow: 0 6px 24px rgba(255, 190, 72, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .upgrade-reroll-badge.disabled,
+    .upgrade-reroll-badge:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #64748b;
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: none;
+      transform: none !important;
+    }
+
+    .reroll-count-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 7px;
+      font-size: 12px;
+      font-weight: 900;
+      border-radius: 11px;
+      background: rgba(255, 190, 72, 0.3);
+      color: #ffffff;
+      border: 1px solid #ffbe48;
+    }
+
     .upgrade-confirm-container {
       margin-top: 24px;
       display: flex;
       justify-content: center;
-      gap: 16px;
     }
 
     .upgrade-confirm-btn {
-      min-width: 220px;
-      padding: 14px 28px;
+      min-width: 260px;
+      padding: 14px 34px;
       font-size: 16px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.5px;
-      color: #0d1321;
-      background: linear-gradient(135deg, #7ee7ff, #55d8ff);
+      color: #061528;
+      background: linear-gradient(135deg, #00f2fe, #4facfe);
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(85, 216, 255, 0.4);
+      box-shadow: 0 6px 24px rgba(79, 172, 254, 0.45);
       transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
     }
 
     .upgrade-confirm-btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
-      background: #334155;
-      color: #94a3b8;
+      background: #1e293b;
+      color: #64748b;
+      border: 1px solid #334155;
       box-shadow: none;
       transform: none !important;
     }
 
     .upgrade-confirm-btn:not(:disabled):hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(85, 216, 255, 0.6);
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 30px rgba(79, 172, 254, 0.7);
     }
 
     .upgrade-card.legendary:hover {
@@ -4283,74 +4362,161 @@
         dx /= length;
         dy /= length;
       
-        if (enemy.type === "boss") {
-          const healthRatio = enemy.hp / enemy.maxHp;
-        
-          let phase = 1;
-        
-          if (healthRatio <= 0.35) {
-            phase = 3;
-          } else if (healthRatio <= 0.7) {
-            phase = 2;
+        if (enemy.type === "boss_drone") {
+          const boss = enemies.find(e => e.id === enemy.bossId && e.hp > 0);
+          if (boss) {
+            enemy.orbitAngle += dt * 2.3;
+            enemy.x = boss.x + Math.cos(enemy.orbitAngle) * enemy.orbitRadius;
+            enemy.y = boss.y + Math.sin(enemy.orbitAngle) * enemy.orbitRadius;
+
+            enemy.shootCooldown -= dt;
+            if (enemy.shootCooldown <= 0 && enemyCanAttack) {
+              shootEnemyProjectile(enemy);
+              enemy.shootCooldown = random(2.0, 3.2);
+            }
+          } else {
+            enemy.hp = 0;
           }
-        
+          continue;
+        } else if (enemy.type === "boss") {
+          const healthRatio = enemy.hp / (enemy.maxHp || 1);
+          let phase = 0;
+          if (healthRatio <= 0.33) {
+            phase = 2;
+          } else if (healthRatio <= 0.66) {
+            phase = 1;
+          }
+          enemy.phase = phase;
+
+          // Щит и дроны при 50% HP (Tier >= 2)
+          if (!enemy.shieldTriggered && healthRatio <= 0.5 && (enemy.bossTier || 1) >= 2) {
+            spawnBossDrones(enemy);
+          }
+
+          // Оглушение
+          if (enemy.stunTimer > 0) {
+            enemy.stunTimer -= dt;
+            continue;
+          }
+
+          // 1. Рывок (Dash) в фазах 1 и 2
+          if (phase >= 1 && enemyCanAttack) {
+            if (enemy.dashState === "none") {
+              enemy.dashCooldown -= dt;
+              if (enemy.dashCooldown <= 0) {
+                enemy.dashState = "telegraph";
+                enemy.dashTimer = 0.7;
+                enemy.dashDx = dx;
+                enemy.dashDy = dy;
+              }
+            } else if (enemy.dashState === "telegraph") {
+              enemy.dashTimer -= dt;
+              if (enemy.dashTimer <= 0) {
+                enemy.dashState = "dashing";
+                enemy.dashTimer = 0.45;
+              }
+            } else if (enemy.dashState === "dashing") {
+              enemy.dashTimer -= dt;
+              enemy.x += enemy.dashDx * 430 * dt;
+              enemy.y += enemy.dashDy * 430 * dt;
+              enemy.x = clamp(enemy.x, enemy.r, arena.width - enemy.r);
+              enemy.y = clamp(enemy.y, enemy.r, arena.height - enemy.r);
+
+              if (enemy.dashTimer <= 0) {
+                enemy.dashState = "none";
+                enemy.dashCooldown = random(6.5, 8.5);
+                shootBossShockwave(enemy);
+              }
+              continue;
+            }
+          }
+
+          // 2. Прицельный лазер (Sniper Beam - Tier >= 2)
+          if ((enemy.bossTier || 1) >= 2 && enemyCanAttack && enemy.dashState === "none") {
+            if (enemy.sniperState === "none") {
+              enemy.sniperCooldown -= dt;
+              if (enemy.sniperCooldown <= 0) {
+                enemy.sniperState = "tracking";
+                enemy.sniperTimer = 1.0;
+                enemy.sniperTargetX = player.x;
+                enemy.sniperTargetY = player.y;
+              }
+            } else if (enemy.sniperState === "tracking") {
+              enemy.sniperTargetX = player.x;
+              enemy.sniperTargetY = player.y;
+              enemy.sniperTimer -= dt;
+              if (enemy.sniperTimer <= 0) {
+                enemy.sniperState = "locked";
+                enemy.sniperTimer = 0.35;
+              }
+            } else if (enemy.sniperState === "locked") {
+              enemy.sniperTimer -= dt;
+              if (enemy.sniperTimer <= 0) {
+                shootBossSniperBolt(enemy, enemy.sniperTargetX, enemy.sniperTargetY);
+                enemy.sniperState = "none";
+                enemy.sniperCooldown = random(7.5, 9.5);
+              }
+            }
+          }
+
+          // 3. Спиральный шторм в Phase 3 (<33% HP)
+          if (phase === 2 && enemyCanAttack) {
+            if (!enemy.spiralActive) {
+              enemy.spiralCooldown -= dt;
+              if (enemy.spiralCooldown <= 0) {
+                enemy.spiralActive = true;
+                enemy.spiralTimer = 1.8;
+                enemy.spiralTicks = 0;
+                enemy.spiralBaseAngle = 0;
+              }
+            } else {
+              enemy.spiralTimer -= dt;
+              enemy.spiralBaseAngle += dt * 3.5;
+              enemy.spiralTicks += dt;
+              if (enemy.spiralTicks >= 0.14) {
+                enemy.spiralTicks = 0;
+                createEnemyProjectile(enemy.x + Math.cos(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.spiralBaseAngle, 175, 6, "#ff0077", 1);
+                createEnemyProjectile(enemy.x + Math.cos(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.spiralBaseAngle + Math.PI, 175, 6, "#ff0077", 1);
+              }
+              if (enemy.spiralTimer <= 0) {
+                enemy.spiralActive = false;
+                enemy.spiralCooldown = random(6.0, 8.5);
+              }
+            }
+          }
+
           let forwardMovement = 0;
-        
           if (length > enemy.preferredDistance + 45) {
             forwardMovement = 1;
           } else if (length < enemy.preferredDistance - 45) {
             forwardMovement = -0.75;
           }
         
-          const strafeStrength =
-            0.5 + phase * 0.12;
+          const strafeStrength = 0.5 + phase * 0.12;
         
           enemy.x +=
-            (
-              dx * forwardMovement -
-              dy * enemy.strafeDirection * strafeStrength
-            ) *
+            (dx * forwardMovement - dy * enemy.strafeDirection * strafeStrength) *
             enemySpeed *
             dt;
         
           enemy.y +=
-            (
-              dy * forwardMovement +
-              dx * enemy.strafeDirection * strafeStrength
-            ) *
+            (dy * forwardMovement + dx * enemy.strafeDirection * strafeStrength) *
             enemySpeed *
             dt;
         
-            if (enemyCanAttack) {
-              enemy.shootCooldown -= dt;
-              enemy.radialCooldown -= dt;
+          if (enemyCanAttack && enemy.dashState === "none") {
+            enemy.shootCooldown -= dt;
+            enemy.radialCooldown -= dt;
+
+            if (enemy.shootCooldown <= 0) {
+              shootBossSpread(enemy, phase);
+              enemy.shootCooldown = Math.max(0.85, 1.35 - phase * 0.16);
             }
-
-            if (
-              enemyCanAttack &&
-              enemy.shootCooldown <= 0
-            ) {
-
-            shootBossSpread(enemy, phase);
           
-            enemy.shootCooldown =
-              Math.max(
-                1,
-                1.75 - phase * 0.18
-              );
-          }
-        
-          if (
-            enemyCanAttack &&
-            enemy.radialCooldown <= 0
-          ) {
-            shootBossRadial(enemy, phase);
-          
-            enemy.radialCooldown =
-              Math.max(
-                3.2,
-                5 - phase * 0.45
-              );
+            if (enemy.radialCooldown <= 0) {
+              shootBossRadial(enemy, phase);
+              enemy.radialCooldown = Math.max(2.6, 3.8 - phase * 0.4);
+            }
           }
         } else if (enemy.type === "shooter") {
           let movement = 0;
@@ -5360,7 +5526,7 @@
 
     function showUpgradeSelection() {
       if (
-        gameState !== "playing" ||
+        (gameState !== "playing" && gameState !== "choosing") ||
         pendingLevelUps <= 0
       ) {
         return;
