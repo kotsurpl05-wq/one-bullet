@@ -164,9 +164,9 @@ test("R3 Lobby & Game Lifecycle State Integrity Suite", async (t) => {
     // Note: Empirical security observation: server does not strip HTML tags like <script>
     assert.equal(ctx.sanitizeName("<script>"), "<script>", "Server does not escape HTML brackets (Security gap)");
 
-    // Code sanitization
-    assert.equal(ctx.sanitizeCode("  ab-12_cd  "), "AB12CD");
-    assert.equal(ctx.sanitizeCode("room#999!"), "ROOM99");
+    // Code sanitization (5-character room code limit)
+    assert.equal(ctx.sanitizeCode("  ab-12_cd  "), "AB12C");
+    assert.equal(ctx.sanitizeCode("room#999!"), "ROOM9");
     assert.equal(ctx.sanitizeCode(""), "");
     assert.equal(ctx.sanitizeCode(null), "");
   });

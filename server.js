@@ -47,7 +47,7 @@ function sanitizeCode(value) {
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 6);
+    .slice(0, 5);
 }
 
 function generateRoomCode() {

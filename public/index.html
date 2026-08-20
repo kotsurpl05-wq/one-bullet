@@ -6192,7 +6192,7 @@
       return String(value || "")
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "")
-        .slice(0, 6);
+        .slice(0, 5);
     }
 
     function setNetworkMessage(
@@ -6497,7 +6497,7 @@
               id="networkRoomCode"
               class="network-input room-code-input"
               type="text"
-              maxlength="6"
+              maxlength="5"
               autocomplete="off"
               placeholder="ABCDE"
             >
@@ -6537,12 +6537,63 @@
         </div>
       `;
       
-      const codeInput =
-        panel.querySelector("#networkRoomCode");
+      const nameInput = panel.querySelector("#networkPlayerName");
+      const codeInput = panel.querySelector("#networkRoomCode");
       
       codeInput.addEventListener("input", () => {
-        codeInput.value =
-          normalizeRoomCode(codeInput.value);
+        codeInput.value = normalizeRoomCode(codeInput.value);
+      });
+
+      const handleJoinRoom = async () => {
+        if (!window.net?.connected) {
+          setNetworkMessage("Соединение с сервером отсутствует");
+          showNetworkMenu();
+          return;
+        }
+
+        savePlayerName(nameInput?.value);
+        const code = normalizeRoomCode(codeInput?.value);
+
+        if (!code) {
+          setNetworkMessage("Введите код комнаты");
+          showNetworkMenu();
+          return;
+        }
+
+        const joinBtn = panel.querySelector('[data-network-action="join"]');
+        if (joinBtn) joinBtn.disabled = true;
+
+        const result = await net.joinRoom(code, playerName);
+
+        if (!result.success) {
+          setNetworkMessage(
+            result.message || "Не удалось войти в комнату"
+          );
+          showNetworkMenu();
+          return;
+        }
+
+        networkRoom = result.room;
+        setNetworkMessage("", false);
+        renderNetworkLobby();
+      };
+
+      codeInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          handleJoinRoom();
+        }
+      });
+
+      nameInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          if (codeInput.value.trim().length > 0) {
+            handleJoinRoom();
+          } else {
+            codeInput.focus();
+          }
+        }
       });
     
       panel.onclick = async event => {
@@ -6572,16 +6623,6 @@
           return;
         }
       
-        const nameInput =
-          panel.querySelector(
-            "#networkPlayerName"
-          );
-      
-        const roomCodeInput =
-          panel.querySelector(
-            "#networkRoomCode"
-          );
-      
         savePlayerName(nameInput?.value);
       
         button.disabled = true;
@@ -6607,39 +6648,8 @@
         }
       
         if (action === "join") {
-          const code =
-            normalizeRoomCode(
-              roomCodeInput?.value
-            );
-        
-          if (!code) {
-            setNetworkMessage(
-              "Введите код комнаты"
-            );
-          
-            showNetworkMenu();
-            return;
-          }
-        
-          const result =
-            await net.joinRoom(
-              code,
-              playerName
-            );
-        
-          if (!result.success) {
-            setNetworkMessage(
-              result.message ||
-              "Не удалось войти в комнату"
-            );
-          
-            showNetworkMenu();
-            return;
-          }
-        
-          networkRoom = result.room;
-          setNetworkMessage("", false);
-          renderNetworkLobby();
+          await handleJoinRoom();
+          return;
         }
       };
     }
