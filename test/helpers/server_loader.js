@@ -77,6 +77,7 @@ function loadServerInstance() {
   if (typeof shootServerBossShockwave !== 'undefined') this.shootServerBossShockwave = shootServerBossShockwave;
   if (typeof shootServerBossSniperBolt !== 'undefined') this.shootServerBossSniperBolt = shootServerBossSniperBolt;
   if (typeof spawnServerBossDrones !== 'undefined') this.spawnServerBossDrones = spawnServerBossDrones;
+  if (typeof refreshServerBulletContacts !== 'undefined') this.refreshServerBulletContacts = refreshServerBulletContacts;
   `;
 
   const intervals = [];

@@ -135,4 +135,49 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
     assert.equal(bullet.vy, 0);
     assert.equal(bullet.hitEnemies.size, 0, "hitEnemies must be cleared on catch");
   });
+
+  await t.test("7. Pierce & Ricochet Re-hit: Enemy is released after bullet exits radius or bounces", () => {
+    const { room, world, player1: player } = createTestWorld(ctx);
+    const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
+    bullet.state = "flying";
+    bullet.hitsLeft = 3;
+    bullet.bouncesLeft = 2;
+    bullet.hitEnemies.clear();
+
+    const enemy = ctx.createServerEnemy(world, "normal", 400, 400, true);
+    enemy.hp = 10;
+    world.enemies.set(enemy.id, enemy);
+
+    // Initial state: bullet hits enemy at (400, 400)
+    bullet.x = 400;
+    bullet.y = 400;
+    bullet.hitEnemies.add(enemy.id);
+
+    // Refresh contacts while bullet is still at (400, 400) (inside enemy)
+    ctx.refreshServerBulletContacts(world, bullet);
+    assert.ok(bullet.hitEnemies.has(enemy.id), "Enemy must remain in hitEnemies while overlapping");
+
+    // Bullet flies past enemy and exits collision radius (distance > bullet.r + enemy.r + 3)
+    bullet.x = 400 + enemy.r + bullet.r + 10;
+    bullet.y = 400;
+    ctx.refreshServerBulletContacts(world, bullet);
+    assert.equal(
+      bullet.hitEnemies.has(enemy.id),
+      false,
+      "Enemy must be released from hitEnemies once bullet exits collision radius"
+    );
+
+    // Simulate bullet hitting a wall and bouncing
+    bullet.hitEnemies.add(enemy.id); // was hit again
+    bullet.x = ctx.COOP_WORLD_WIDTH;
+    bullet.y = 500;
+    bullet.vx = 400;
+    bullet.vy = 0;
+    ctx.updateServerBullet(room, bullet, 0.016); // Will trigger wall bounce
+    assert.equal(
+      bullet.hitEnemies.has(enemy.id),
+      false,
+      "Wall bounce must clear hitEnemies to allow striking enemies on return path"
+    );
+  });
 });
