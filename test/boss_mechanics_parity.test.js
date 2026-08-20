@@ -81,8 +81,8 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     boss.hasEnteredArena = true;
     world.enemies.set(boss.id, boss);
 
-    assert.equal(boss.shieldActive, undefined);
-    assert.equal(boss.shieldTriggered, undefined);
+    assert.equal(boss.shieldActive, false);
+    assert.equal(boss.shieldTriggered, false);
 
     // Trigger drone spawn
     ctx.spawnServerBossDrones(world, boss);

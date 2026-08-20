@@ -1410,7 +1410,29 @@ function createServerEnemy(
     shootCooldown,
     radialCooldown,
     strafeDirection,
-    phase: 0
+    phase: 0,
+
+    dashState: "none",
+    dashCooldown: 3.5,
+    dashTimer: 0,
+    dashDx: 0,
+    dashDy: 0,
+
+    sniperState: "none",
+    sniperCooldown: 4.5,
+    sniperTimer: 0,
+    sniperTargetX: 0,
+    sniperTargetY: 0,
+
+    spiralActive: false,
+    spiralCooldown: 6.0,
+    spiralTimer: 0,
+    spiralTicks: 0,
+    spiralBaseAngle: 0,
+
+    shieldActive: false,
+    shieldTriggered: false,
+    stunTimer: 0
   };
 }
 
@@ -2975,7 +2997,7 @@ function updateServerEnemies(
         difficulty.enemySpeed *
         dt;
 
-      if (enemy.hasEnteredArena && enemy.dashState === "none") {
+      if (enemy.hasEnteredArena && (enemy.dashState || "none") === "none") {
         enemy.shootCooldown -= dt;
         enemy.radialCooldown -= dt;
 
