@@ -3606,50 +3606,14 @@
        */
       const releasePadding = 3;
     
-      for (
-        const enemyId of [...bullet.hitEnemies]
-      ) {
-        const enemyIndex =
-          getEnemyIndexById(enemyId);
-      
-        /*
-         * Если враг уже уничтожен, его ID больше
-         * не должен блокировать другие контакты.
-         */
+      for (const enemyId of [...bullet.hitEnemies]) {
+        const enemyIndex = getEnemyIndexById(enemyId);
         if (enemyIndex === -1) {
           bullet.hitEnemies.delete(enemyId);
           continue;
         }
-      
-        const enemy =
-          enemies[enemyIndex];
-      
-        if (!enemy) {
-          bullet.hitEnemies.delete(enemyId);
-          continue;
-        }
-      
-        const releaseDistance =
-          bullet.r +
-          enemy.r +
-          releasePadding;
-      
-        const currentDistance = distance(
-          bullet.x,
-          bullet.y,
-          enemy.x,
-          enemy.y
-        );
-      
-        /*
-         * Пуля полностью покинула тело врага.
-         * При следующем пересечении она снова сможет
-         * нанести ему урон.
-         */
-        if (
-          currentDistance >
-          releaseDistance
-        ) {
+        const enemy = enemies[enemyIndex];
+        if (!enemy || enemy.hp <= 0) {
           bullet.hitEnemies.delete(enemyId);
         }
       }
@@ -6301,11 +6265,15 @@
     
       const roomIsReady =
         players.length === 2;
+
+      const myId = window.net?.playerId;
+      const me = players.find(p => p.id === myId);
+      const isMeReady = Boolean(me?.ready);
+      const isCountdownActive = typeof networkRoom.countdown === "number";
     
       const playerSlots = [0, 1]
         .map(index => {
-          const roomPlayer =
-            players[index];
+          const roomPlayer = players[index];
         
           if (!roomPlayer) {
             return `
@@ -6315,6 +6283,8 @@
             `;
           }
         
+          const isReady = Boolean(roomPlayer.ready);
+
           return `
             <div class="lobby-player connected">
               <div class="lobby-player-role">
@@ -6329,8 +6299,8 @@
                 ${escapeHtml(roomPlayer.name)}
               </div>
             
-              <div class="lobby-player-status">
-                ПОДКЛЮЧЁН
+              <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}">
+                ${isReady ? '✅ ГОТОВ' : '⏳ НЕ ГОТОВ'}
               </div>
             </div>
           `;
@@ -6341,8 +6311,7 @@
         <h1>Комната</h1>
       
         <p>
-          Передайте код другу. Забег начнётся,
-          когда подключатся два игрока.
+          Передайте код напарнику. Игра автоматически начнётся через 3 секунды после готовности обоих игроков.
         </p>
       
         <div class="lobby-code">
@@ -6383,7 +6352,7 @@
                       <button
                         type="button"
                         class="difficulty-button ${
-                          key === difficulty
+                          key === (networkRoom.difficulty || difficulty)
                             ? "selected"
                             : ""
                         }"
@@ -6399,21 +6368,23 @@
             : ""
         }
             
-        <div
-          class="lobby-notice ${
-            roomIsReady ? "ready" : ""
-          }"
-        >
-          ${
-            roomIsReady
-              ? (
-                  isHost
-                    ? "Оба игрока подключены. Можно начинать забег."
-                    : "Ожидайте запуска игры хозяином комнаты."
-                )
-              : "Для начала игры нужен второй игрок."
-          }
-        </div>
+        ${
+          isCountdownActive
+            ? `
+              <div class="lobby-countdown-banner">
+                🚀 СТАРТ ЧЕРЕЗ ${networkRoom.countdown} СЕК...
+              </div>
+            `
+            : `
+              <div class="lobby-notice ${roomIsReady ? "ready" : ""}">
+                ${
+                  roomIsReady
+                    ? "Оба игрока подключены. Нажмите «Готов», чтобы запустить обратный отсчёт."
+                    : "Для начала игры нужен второй игрок."
+                }
+              </div>
+            `
+        }
       
         ${getNetworkMessageHtml()}
       
@@ -6427,18 +6398,27 @@
           </button>
         
           ${
-            isHost
+            isMeReady
               ? `
                 <button
                   type="button"
-                  class="action-button"
-                  data-lobby-action="start"
-                  ${roomIsReady ? "" : "disabled"}
+                  class="secondary-button"
+                  data-lobby-action="unready"
+                  style="border-color: #ff7992; color: #ff99aa;"
                 >
-                  Начать совместную игру
+                  Отмена ❌
                 </button>
               `
-              : ""
+              : `
+                <button
+                  type="button"
+                  class="action-button"
+                  data-lobby-action="ready"
+                  ${roomIsReady ? "" : "disabled"}
+                >
+                  Готов ✅
+                </button>
+              `
           }
         </div>
       `;
@@ -6450,9 +6430,10 @@
           );
       
         if (difficultyButton && isHost) {
-          difficulty =
-            difficultyButton.dataset.lobbyDifficulty;
-        
+          difficulty = difficultyButton.dataset.lobbyDifficulty;
+          if (window.net?.isMultiplayer) {
+            await net.setDifficulty(difficulty);
+          }
           renderNetworkLobby();
           return;
         }
@@ -6487,10 +6468,6 @@
               false
             );
           
-            /*
-             * Последний резервный вариант:
-             * браузер покажет поле для ручного копирования.
-             */
             window.prompt(
               "Скопируйте код комнаты:",
               roomCode
@@ -6502,33 +6479,27 @@
         }
       
         if (action === "leave") {
-          button.disabled = true;
-        
           await returnToMainMenu();
           return;
         }
       
-        if (
-          action === "start" &&
-          isHost &&
-          roomIsReady
-        ) {
-          networkStartPending = true;
+        if (action === "ready") {
+          if (!roomIsReady) return;
           button.disabled = true;
-        
-          const result =
-            await net.startRoom(difficulty);
-        
-          if (!result.success) {
-            networkStartPending = false;
-          
-            setNetworkMessage(
-              result.message ||
-              "Не удалось начать игру"
-            );
-          
-            renderNetworkLobby();
+          button.textContent = "Отправка...";
+          if (window.net?.isMultiplayer) {
+            await net.sendReady(true);
           }
+          return;
+        }
+
+        if (action === "unready") {
+          button.disabled = true;
+          button.textContent = "Отмена...";
+          if (window.net?.isMultiplayer) {
+            await net.sendReady(false);
+          }
+          return;
         }
       };
     }
@@ -8351,7 +8322,7 @@
         panel.onclick = null;
       }
 
-      if (coopSession.gameOver) {
+      if (coopSession.gameOver && !coopGameOverUiActive) {
         showCoopGameOverScreen();
       }
 

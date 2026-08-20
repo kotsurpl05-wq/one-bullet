@@ -617,39 +617,11 @@ function refreshServerBulletContacts(
   world,
   bullet
 ) {
-  const releasePadding = 3;
-
-  for (
-    const enemyId of
-    [...bullet.hitEnemies]
-  ) {
-    const enemy =
-      world.enemies.get(enemyId);
-
-    if (!enemy) {
-      bullet.hitEnemies.delete(
-        enemyId
-      );
-
-      continue;
-    }
-
-    const releaseDistance =
-      bullet.r +
-      enemy.r +
-      releasePadding;
-
-    if (
-      distance(
-        bullet.x,
-        bullet.y,
-        enemy.x,
-        enemy.y
-      ) > releaseDistance
-    ) {
-      bullet.hitEnemies.delete(
-        enemyId
-      );
+  // Only remove destroyed/dead enemies so the bullet never turns back into or re-damages an already pierced living enemy during the same flight
+  for (const enemyId of [...bullet.hitEnemies]) {
+    const enemy = world.enemies.get(enemyId);
+    if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) {
+      bullet.hitEnemies.delete(enemyId);
     }
   }
 }
