@@ -420,7 +420,8 @@ function createServerBullet(
       1 +
       (owner.stats?.pierce || 0),
 
-    hitEnemies: new Set()
+    hitEnemies: new Set(),
+    hitCooldowns: new Map()
   };
 
   world.bullets.set(
@@ -668,20 +669,44 @@ function distToSegment(px, py, x1, y1, x2, y2) {
 
 function refreshServerBulletContacts(
   world,
-  bullet
+  bullet,
+  dt = 0
 ) {
-  const releasePadding = 3;
+  if (!bullet.hitCooldowns) {
+    bullet.hitCooldowns = new Map();
+  }
 
-  for (const enemyId of [...bullet.hitEnemies]) {
+  for (const [enemyId, cd] of bullet.hitCooldowns.entries()) {
+    const updatedCd = cd - dt;
     const enemy = world.enemies.get(enemyId);
     if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) {
+      bullet.hitCooldowns.delete(enemyId);
       bullet.hitEnemies.delete(enemyId);
       continue;
     }
 
     const currentDist = Math.hypot(bullet.x - enemy.x, bullet.y - enemy.y);
-    if (currentDist > bullet.r + enemy.r + releasePadding) {
+    if (updatedCd <= 0 && currentDist > bullet.r + enemy.r + 15) {
+      bullet.hitCooldowns.delete(enemyId);
       bullet.hitEnemies.delete(enemyId);
+    } else {
+      bullet.hitCooldowns.set(enemyId, updatedCd);
+    }
+  }
+
+  for (const enemyId of [...bullet.hitEnemies]) {
+    const enemy = world.enemies.get(enemyId);
+    if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) {
+      bullet.hitEnemies.delete(enemyId);
+      if (bullet.hitCooldowns) bullet.hitCooldowns.delete(enemyId);
+      continue;
+    }
+
+    if (!bullet.hitCooldowns.has(enemyId)) {
+      const currentDist = Math.hypot(bullet.x - enemy.x, bullet.y - enemy.y);
+      if (currentDist > bullet.r + enemy.r + 15) {
+        bullet.hitEnemies.delete(enemyId);
+      }
     }
   }
 }
@@ -921,6 +946,7 @@ function updateServerBullet(
 
       bullet.bouncesLeft -= 1;
       bullet.hitEnemies.clear();
+      if (bullet.hitCooldowns) bullet.hitCooldowns.clear();
     } else {
       dropServerBullet(bullet);
       return;
@@ -937,7 +963,8 @@ function updateServerBullet(
    */
   refreshServerBulletContacts(
     world,
-    bullet
+    bullet,
+    dt
   );
 
   /*
@@ -1007,6 +1034,8 @@ function updateServerBullet(
     bullet.hitEnemies.add(
       enemy.id
     );
+    if (!bullet.hitCooldowns) bullet.hitCooldowns = new Map();
+    bullet.hitCooldowns.set(enemy.id, 0.35);
 
     bullet.hitsLeft -= 1;
 

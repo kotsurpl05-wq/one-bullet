@@ -157,14 +157,14 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
     ctx.refreshServerBulletContacts(world, bullet);
     assert.ok(bullet.hitEnemies.has(enemy.id), "Enemy must remain in hitEnemies while overlapping");
 
-    // Bullet flies past enemy and exits collision radius (distance > bullet.r + enemy.r + 3)
-    bullet.x = 400 + enemy.r + bullet.r + 10;
+    // Bullet flies past enemy and exits collision radius with cooldown passed
+    bullet.x = 400 + enemy.r + bullet.r + 25;
     bullet.y = 400;
-    ctx.refreshServerBulletContacts(world, bullet);
+    ctx.refreshServerBulletContacts(world, bullet, 0.4);
     assert.equal(
       bullet.hitEnemies.has(enemy.id),
       false,
-      "Enemy must be released from hitEnemies once bullet exits collision radius"
+      "Enemy must be released from hitEnemies once bullet exits collision radius with cooldown elapsed"
     );
 
     // Simulate bullet hitting a wall and bouncing
