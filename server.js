@@ -216,13 +216,10 @@ function sanitizeInput(input) {
     left: Boolean(input?.left),
     right: Boolean(input?.right),
 
-    aimX: Number.isFinite(input?.aimX)
-      ? input.aimX
-      : 0,
-
-    aimY: Number.isFinite(input?.aimY)
-      ? input.aimY
-      : 0
+    aimX: Number.isFinite(input?.aimX) ? Number(input.aimX) : 0,
+    aimY: Number.isFinite(input?.aimY) ? Number(input.aimY) : 0,
+    x: Number.isFinite(input?.x) ? Number(input.x) : null,
+    y: Number.isFinite(input?.y) ? Number(input.y) : null
   };
 }
 
@@ -500,7 +497,9 @@ function shootServerBullet(
   room,
   ownerId,
   aimX,
-  aimY
+  aimY,
+  clientShootX,
+  clientShootY
 ) {
   if (!room?.world) {
     return false;
@@ -513,6 +512,14 @@ function shootServerBullet(
 
   if (!owner || !owner.alive) {
     return false;
+  }
+
+  if (Number.isFinite(clientShootX) && Number.isFinite(clientShootY)) {
+    const dist = Math.hypot(clientShootX - owner.x, clientShootY - owner.y);
+    if (dist < 180) {
+      owner.x = clamp(clientShootX, owner.r, COOP_WORLD_WIDTH - owner.r);
+      owner.y = clamp(clientShootY, owner.r, COOP_WORLD_HEIGHT - owner.r);
+    }
   }
 
   if (Number.isFinite(Number(aimX))) {
@@ -3846,7 +3853,9 @@ io.on("connection", socket => {
       room,
       socket.id,
       Number(payload?.aimX),
-      Number(payload?.aimY)
+      Number(payload?.aimY),
+      Number(payload?.x),
+      Number(payload?.y)
     );
   });
 

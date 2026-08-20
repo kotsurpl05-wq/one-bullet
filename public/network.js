@@ -229,14 +229,16 @@ class OneBulletNetwork extends EventTarget {
     this.socket.emit("net:toggle-pause");
   }
 
-  sendShoot(aimX, aimY) {
+  sendShoot(aimX, aimY, x, y) {
     if (!this.isMultiplayer) {
       return;
     }
   
     this.socket.emit("net:shoot", {
       aimX,
-      aimY
+      aimY,
+      x,
+      y
     });
   }
 

@@ -7215,7 +7215,7 @@
       playerStatsPanel.classList.add("hidden");
     }
 
-    function getLocalCoopInput() {
+    function getLocalCoopInput(localPlayer) {
       return {
         up:
           keys.has("KeyW") ||
@@ -7234,7 +7234,9 @@
           keys.has("ArrowRight"),
       
         aimX: coopPointer.x,
-        aimY: coopPointer.y
+        aimY: coopPointer.y,
+        x: localPlayer ? Math.round(localPlayer.displayX * 10) / 10 : null,
+        y: localPlayer ? Math.round(localPlayer.displayY * 10) / 10 : null
       };
     }
 
@@ -8370,9 +8372,10 @@
     
       const localPlayerId =
         window.net?.playerId;
+      const myLocalPlayer = coopSession.players.get(localPlayerId);
     
       const localInput =
-        getLocalCoopInput();
+        getLocalCoopInput(myLocalPlayer);
     
       coopSession.inputTimer += dt;
     
@@ -8397,11 +8400,6 @@
         const isLocal =
           playerId === localPlayerId;
 
-        /*
-         * Сервер больше не двигает погибшего игрока. Отключаем
-         * локальное предсказание и сразу фиксируем его на серверной
-         * позиции, чтобы у владельца не было рывка туда и обратно.
-         */
         if (!coopPlayer.alive) {
           coopPlayer.displayX = coopPlayer.targetX;
           coopPlayer.displayY = coopPlayer.targetY;
@@ -8409,7 +8407,7 @@
         }
       
         if (isLocal) {
-          // Мгновенный локальный отклик управления
+          // Мгновенное 60 FPS локальное управление без сопротивления сети
           coopPlayer.x = coopPlayer.displayX;
           coopPlayer.y = coopPlayer.displayY;
 
@@ -8423,27 +8421,8 @@
           coopPlayer.displayY = coopPlayer.y;
           coopPlayer.aimX = localInput.aimX;
           coopPlayer.aimY = localInput.aimY;
-
-          // Мягкое подтягивание к серверной координате для исключения рассинхрона
-          const driftX = coopPlayer.targetX - coopPlayer.displayX;
-          const driftY = coopPlayer.targetY - coopPlayer.displayY;
-          const driftDist = Math.hypot(driftX, driftY);
-
-          if (driftDist > 70) {
-            coopPlayer.displayX += driftX * Math.min(1, dt * 10);
-            coopPlayer.displayY += driftY * Math.min(1, dt * 10);
-            coopPlayer.x = coopPlayer.displayX;
-            coopPlayer.y = coopPlayer.displayY;
-          } else if (driftDist > 8) {
-            coopPlayer.displayX += driftX * Math.min(1, dt * 3);
-            coopPlayer.displayY += driftY * Math.min(1, dt * 3);
-            coopPlayer.x = coopPlayer.displayX;
-            coopPlayer.y = coopPlayer.displayY;
-          }
         } else {
-          /*
-           * Удалённый игрок плавно интерполируется между серверными снимками.
-           */
+          // Удалённый напарник интерполируется плавно без рывков
           coopPlayer.displayX +=
             (
               coopPlayer.targetX -
@@ -11630,10 +11609,12 @@
     
       if (coopSession.active) {
         updateCoopPointer(event);
-      
+        const myPlayer = coopSession.players.get(window.net?.playerId);
         net.sendShoot(
           coopPointer.x,
-          coopPointer.y
+          coopPointer.y,
+          myPlayer?.displayX,
+          myPlayer?.displayY
         );
       
         return;
@@ -11669,9 +11650,12 @@
         event.preventDefault();
       
         if (!event.repeat) {
+          const myPlayer = coopSession.players.get(window.net?.playerId);
           net.sendShoot(
             coopPointer.x,
-            coopPointer.y
+            coopPointer.y,
+            myPlayer?.displayX,
+            myPlayer?.displayY
           );
         }
       
