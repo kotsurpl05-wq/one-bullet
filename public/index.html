@@ -563,8 +563,34 @@
       box-shadow: 0 8px 30px rgba(79, 172, 254, 0.7);
     }
 
+    .btn-svg-icon {
+      display: inline-block;
+      vertical-align: -2px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #38ef7d;
+      box-shadow: 0 0 8px #38ef7d;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .status-dot.not-ready {
+      background: #94a3b8;
+      box-shadow: none;
+    }
+
     /* Кнопки готовности в лобби и на экране поражения (в стиле confirm-btn) */
     .ready-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       min-width: 220px !important;
       padding: 14px 32px !important;
       font-size: 16px !important;
@@ -596,6 +622,9 @@
 
     /* Кнопка отмены готовности (в янтарно-золотом / акцентном стиле реролла) */
     .unready-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       min-width: 220px !important;
       padding: 14px 32px !important;
       font-size: 16px !important;
@@ -6739,7 +6768,8 @@
                   class="secondary-button unready-btn"
                   data-lobby-action="unready"
                 >
-                  ❌ Отмена
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <span>Отмена</span>
                 </button>
               `
               : `
@@ -6749,7 +6779,8 @@
                   data-lobby-action="ready"
                   ${roomIsReady ? "" : "disabled"}
                 >
-                  ✅ Я готов
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Я готов</span>
                 </button>
               `
           }
@@ -7076,7 +7107,8 @@
                 ${escapeHtml(roomPlayer.name)}
               </div>
               <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}">
-                ${isReady ? '✅ ГОТОВ' : '⏳ НЕ ГОТОВ'}
+                <span class="status-dot ${isReady ? '' : 'not-ready'}"></span>
+                <span>${isReady ? 'ГОТОВ' : 'НЕ ГОТОВ'}</span>
               </div>
             </div>
           `;
@@ -7123,11 +7155,10 @@
               ? `
                 <button
                   type="button"
-                  class="action-button"
+                  class="action-button ready-btn"
                   disabled
-                  style="opacity: 0.35; cursor: not-allowed;"
                 >
-                  Начать заново ❌
+                  <span>Начать заново</span>
                 </button>
               `
               : isMeReady
@@ -7137,7 +7168,8 @@
                   class="secondary-button unready-btn"
                   data-coop-gameover="unready"
                 >
-                  ❌ Отмена
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <span>Отмена</span>
                 </button>
               `
               : `
@@ -7146,7 +7178,8 @@
                   class="action-button ready-btn"
                   data-coop-gameover="ready"
                 >
-                  ✅ Начать заново
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/></svg>
+                  <span>Начать заново</span>
                 </button>
               `
           }
