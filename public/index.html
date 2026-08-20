@@ -5398,19 +5398,25 @@
           });
         
       panel.innerHTML = `
-        <h1>Новый уровень</h1>
-        
-        <p>
-          Достигнут уровень
-          <strong>${playerLevel}</strong>.
-          Выбери одно улучшение и подтверди выбор.
-        
-          ${
-            pendingLevelUps > 1
-              ? `<br>Доступно улучшений: <strong>${pendingLevelUps}</strong>`
-              : ""
-          }
-        </p>
+        <div class="upgrade-header-bar">
+          <div>
+            <h1>Новый уровень</h1>
+            <p>
+              Уровень <strong>${playerLevel}</strong> · Выберите одно улучшение
+              ${pendingLevelUps > 1 ? ` (ещё в очереди: ${pendingLevelUps - 1})` : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="upgrade-reroll-badge ${soloRerolls > 0 ? '' : 'disabled'}"
+            id="upgradeRerollBtn"
+            data-upgrade-reroll
+            ${soloRerolls > 0 ? '' : 'disabled'}
+          >
+            <span>🎲 Переброс</span>
+            <span class="reroll-count-pill">${soloRerolls}</span>
+          </button>
+        </div>
       
         <div class="cards">
           ${offeredUpgrades
@@ -5425,41 +5431,19 @@
                 data-upgrade="${index}"
               >
                 <div class="upgrade-meta">
-                  <span class="upgrade-number">
-                    0${index + 1}
-                  </span>
-                
-                  <span class="rarity-label">
-                    ${offer.rarity.label}
-                  </span>
+                  <span class="upgrade-number">0${index + 1}</span>
+                  <span class="rarity-label">${offer.rarity.label}</span>
                 </div>
-              
-                <h2>
-                  ${offer.upgrade.title}
-                </h2>
-              
-                <p>
-                  ${offer.upgrade.description}
-                </p>
-              
-                <div class="upgrade-bonus">
-                  (${offer.bonusText})
-                </div>
+                <div class="upgrade-icon">${getUpgradeIcon(offer.upgrade.title)}</div>
+                <h2>${escapeHtml(offer.upgrade.title)}</h2>
+                <p>${escapeHtml(offer.upgrade.description)}</p>
+                <div class="upgrade-bonus">(${escapeHtml(offer.bonusText)})</div>
               </button>
             `)
             .join("")}
         </div>
 
-        <div class="upgrade-actions-container">
-          <button
-            type="button"
-            class="upgrade-reroll-btn"
-            id="upgradeRerollBtn"
-            data-upgrade-reroll
-            ${soloRerolls > 0 ? "" : "disabled"}
-          >
-            🎲 Перебросить (${soloRerolls})
-          </button>
+        <div class="upgrade-confirm-container">
           <button
             type="button"
             class="upgrade-confirm-btn"
@@ -6278,7 +6262,8 @@
           if (!roomPlayer) {
             return `
               <div class="lobby-player waiting">
-                Ожидание второго игрока…
+                <span>⏳</span>
+                <span>Ожидание игрока…</span>
               </div>
             `;
           }
@@ -6287,12 +6272,10 @@
 
           return `
             <div class="lobby-player connected">
-              <div class="lobby-player-role">
-                ${
-                  roomPlayer.role === "host"
-                    ? "ХОЗЯИН"
-                    : "ИГРОК 2"
-                }
+              <div class="lobby-player-header">
+                <span class="lobby-player-role">
+                  ${roomPlayer.role === "host" ? "👑 ХОЗЯИН" : "👤 ИГРОК 2"}
+                </span>
               </div>
             
               <div class="lobby-player-name">
@@ -6300,7 +6283,8 @@
               </div>
             
               <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}">
-                ${isReady ? '✅ ГОТОВ' : '⏳ НЕ ГОТОВ'}
+                <span class="status-dot"></span>
+                <span>${isReady ? 'ГОТОВ' : 'НЕ ГОТОВ'}</span>
               </div>
             </div>
           `;
@@ -6368,23 +6352,26 @@
             : ""
         }
             
-        ${
-          isCountdownActive
-            ? `
-              <div class="lobby-countdown-banner">
-                🚀 СТАРТ ЧЕРЕЗ ${networkRoom.countdown} СЕК...
-              </div>
-            `
-            : `
-              <div class="lobby-notice ${roomIsReady ? "ready" : ""}">
-                ${
-                  roomIsReady
-                    ? "Оба игрока подключены. Нажмите «Готов», чтобы запустить обратный отсчёт."
-                    : "Для начала игры нужен второй игрок."
-                }
-              </div>
-            `
-        }
+        <div class="lobby-status-container">
+          ${
+            isCountdownActive
+              ? `
+                <div class="lobby-countdown-widget">
+                  <span>🚀 Запуск через</span>
+                  <span class="lobby-countdown-number">${networkRoom.countdown}</span>
+                </div>
+              `
+              : `
+                <div class="lobby-notice-box ${roomIsReady ? 'ready-prompt' : ''}">
+                  ${
+                    roomIsReady
+                      ? "Оба игрока на месте. Нажмите «Я готов» для запуска отсчёта."
+                      : "Для начала совместной игры нужен второй игрок."
+                  }
+                </div>
+              `
+          }
+        </div>
       
         ${getNetworkMessageHtml()}
       
@@ -6402,21 +6389,20 @@
               ? `
                 <button
                   type="button"
-                  class="secondary-button"
+                  class="secondary-button unready-btn"
                   data-lobby-action="unready"
-                  style="border-color: #ff7992; color: #ff99aa;"
                 >
-                  Отмена ❌
+                  ❌ Отмена
                 </button>
               `
               : `
                 <button
                   type="button"
-                  class="action-button"
+                  class="action-button ready-btn"
                   data-lobby-action="ready"
                   ${roomIsReady ? "" : "disabled"}
                 >
-                  Готов ✅
+                  ✅ Я готов
                 </button>
               `
           }
@@ -6598,15 +6584,22 @@
         payload.offers.slice(0, 3);
 
       panel.innerHTML = `
-        <h1>Новый уровень</h1>
-
-        <p>
-          Общий уровень:
-          <strong>
-            ${Number(payload.playerLevel) || 1}
-          </strong>.
-          Выберите личное улучшение и подтвердите выбор.
-        </p>
+        <div class="upgrade-header-bar">
+          <div>
+            <h1>Новый уровень</h1>
+            <p>Общий уровень <strong>${Number(payload.playerLevel) || 1}</strong> · Выберите личное улучшение</p>
+          </div>
+          <button
+            type="button"
+            class="upgrade-reroll-badge ${coopRerolls > 0 ? '' : 'disabled'}"
+            id="coopUpgradeRerollBtn"
+            data-coop-reroll
+            ${coopRerolls > 0 ? '' : 'disabled'}
+          >
+            <span>🎲 Переброс</span>
+            <span class="reroll-count-pill">${coopRerolls}</span>
+          </button>
+        </div>
 
         <div class="cards">
           ${coopUpgradeOffers
@@ -6624,48 +6617,19 @@
                 data-coop-upgrade="${index}"
               >
                 <div class="upgrade-meta">
-                  <span class="upgrade-number">
-                    0${index + 1}
-                  </span>
-
-                  <span class="rarity-label">
-                    ${escapeHtml(
-                      offer.rarityLabel ||
-                      "ОБЫЧНОЕ"
-                    )}
-                  </span>
+                  <span class="upgrade-number">0${index + 1}</span>
+                  <span class="rarity-label">${escapeHtml(offer.rarityLabel || "ОБЫЧНОЕ")}</span>
                 </div>
-
-                <h2>
-                  ${escapeHtml(offer.title)}
-                </h2>
-
-                <p>
-                  ${escapeHtml(
-                    offer.description
-                  )}
-                </p>
-
-                <div class="upgrade-bonus">
-                  (${escapeHtml(
-                    offer.bonusText
-                  )})
-                </div>
+                <div class="upgrade-icon">${getUpgradeIcon(offer.title)}</div>
+                <h2>${escapeHtml(offer.title)}</h2>
+                <p>${escapeHtml(offer.description)}</p>
+                <div class="upgrade-bonus">(${escapeHtml(offer.bonusText)})</div>
               </button>
             `)
             .join("")}
         </div>
 
-        <div class="upgrade-actions-container">
-          <button
-            type="button"
-            class="upgrade-reroll-btn"
-            id="coopUpgradeRerollBtn"
-            data-coop-reroll
-            ${coopRerolls > 0 ? "" : "disabled"}
-          >
-            🎲 Перебросить (${coopRerolls})
-          </button>
+        <div class="upgrade-confirm-container">
           <button
             type="button"
             class="upgrade-confirm-btn"
@@ -6779,29 +6743,32 @@
           Волна: <strong>${coopSession.wave}</strong> · Уничтожено врагов: <strong>${coopSession.kills}</strong> · Очки: <strong>${coopSession.score}</strong>
         </p>
 
-        <div class="lobby-players" style="margin: 14px 0;">
+        <div class="lobby-players">
           ${playerSlots}
         </div>
 
-        ${
-          teammateReturnedToLobby
-            ? `
-              <div class="lobby-notice" style="margin-bottom: 14px; color: #ffaa55; border-color: rgba(255, 170, 85, 0.4);">
-                Напарник вышел в лобби. Нажмите «Вернуться в лобби», чтобы присоединиться к нему.
-              </div>
-            `
-            : isCountdownActive
-            ? `
-              <div class="lobby-countdown-banner" style="margin-bottom: 14px;">
-                🚀 ПЕРЕЗАПУСК ЧЕРЕЗ ${networkRoom.countdown} СЕК...
-              </div>
-            `
-            : `
-              <div class="lobby-notice ${players.length === 2 ? 'ready' : ''}" style="margin-bottom: 14px;">
-                ${players.length === 2 ? 'Нажмите «Начать заново», чтобы подтвердить готовность.' : 'Ожидание напарника...'}
-              </div>
-            `
-        }
+        <div class="lobby-status-container">
+          ${
+            teammateReturnedToLobby
+              ? `
+                <div class="lobby-notice-box" style="color: #ffaa55; border-color: rgba(255, 170, 85, 0.4);">
+                  Напарник вышел в лобби. Нажмите «Вернуться в лобби», чтобы присоединиться к нему.
+                </div>
+              `
+              : isCountdownActive
+              ? `
+                <div class="lobby-countdown-widget">
+                  <span>🚀 Перезапуск через</span>
+                  <span class="lobby-countdown-number">${networkRoom.countdown}</span>
+                </div>
+              `
+              : `
+                <div class="lobby-notice-box ${players.length === 2 ? 'ready-prompt' : ''}">
+                  ${players.length === 2 ? 'Нажмите «Начать заново», чтобы подтвердить готовность.' : 'Ожидание напарника...'}
+                </div>
+              `
+          }
+        </div>
 
         <div class="menu-actions">
           ${
@@ -6811,7 +6778,7 @@
                   type="button"
                   class="action-button"
                   disabled
-                  style="opacity: 0.4; cursor: not-allowed;"
+                  style="opacity: 0.35; cursor: not-allowed;"
                 >
                   Начать заново ❌
                 </button>
@@ -6820,20 +6787,19 @@
               ? `
                 <button
                   type="button"
-                  class="secondary-button"
+                  class="secondary-button unready-btn"
                   data-coop-gameover="unready"
-                  style="border-color: #ff7992; color: #ff99aa;"
                 >
-                  Отмена ❌
+                  ❌ Отмена
                 </button>
               `
               : `
                 <button
                   type="button"
-                  class="action-button"
+                  class="action-button ready-btn"
                   data-coop-gameover="ready"
                 >
-                  Начать заново ✅
+                  ✅ Начать заново
                 </button>
               `
           }
