@@ -2513,7 +2513,7 @@
 
     <div class="hud-row">
       <span class="hud-label">Опыт</span>
-      <strong id="experienceValue">0 / 5</strong>
+      <strong id="experienceValue">0 / 10</strong>
     </div>
 
     <div id="experienceBar">
@@ -2679,9 +2679,18 @@
     let playerHitFlash = 0;
     let coopScreenShake = 0;
 
+    /*
+     * Визуальное время. Эти таймеры влияют только на
+     * подачу картинки и никогда не попадают ни в один
+     * пакет, отправляемый на сервер.
+     */
+    let hitStopTimer = 0;
+    let slowMoTimer = 0;
+    let slowMoFactor = 1;
+
     let playerLevel = 1;
     let experience = 0;
-    let experienceToNext = 5;
+    let experienceToNext = 10;
     let pendingLevelUps = 0;
     let soloRerolls = 1;
     let coopRerolls = 1;
@@ -2721,6 +2730,19 @@
     const selectedUpgradeHistory = [];
     const experienceCrystals = [];
     const coopParticles = [];
+
+    /*
+     * Всплывающие числа урона. Отдельные массивы для
+     * соло и коопа, как и у частиц.
+     */
+    const damageNumbers = [];
+    const coopDamageNumbers = [];
+
+    const DAMAGE_NUMBER_LIMIT = 24;
+    const HIT_STOP_DURATION = 0.040;
+    const BOSS_SLOWMO_DURATION = 0.3;
+    const BOSS_SLOWMO_FACTOR = 0.3;
+    const BULLET_TRAIL_INTERVAL = 0.022;
 
     const difficultySettings = {
       easy: {
@@ -3076,10 +3098,10 @@
         level - 1
       );
     
-      return Math.floor(
-        5 +
-        progression * 1.1 +
-        progression * progression * 0.12
+      return (
+        10 +
+        progression * 4 +
+        Math.floor(progression / 5) * 5
       );
     }
 
@@ -3132,8 +3154,15 @@
       enemyProjectiles.length = 0;
       experienceCrystals.length = 0;
       particles.length = 0;
+      damageNumbers.length = 0;
       selectedUpgradeHistory.length = 0;
-      
+
+      /*
+       * Заморозка и замедление не должны
+       * протекать в следующий забег.
+       */
+      resetVisualTime();
+
     
       hidePauseMenu();
       hideUpgradeTooltip();
@@ -3276,10 +3305,9 @@
         const progressionMultiplier = 1.3;
       
         const hp = Math.round(
-          42 +
-          progressionTier *
-            16 *
-            progressionMultiplier
+          48 +
+          bossTier * 20 +
+          bossTier * bossTier * 8
         );
       
         const speed =
@@ -3890,7 +3918,17 @@
         26,
         "#7ee7ff"
       );
-    
+
+      /*
+       * Волна перехвата рисуется всегда,
+       * даже без улучшения "catch-blast".
+       */
+      createCatchWave(
+        player.x,
+        player.y,
+        "#7ee7ff"
+      );
+
       if (stats.catchBlast > 0) {
         for (let i = enemies.length - 1; i >= 0; i--) {
           const enemy = enemies[i];
@@ -3960,7 +3998,7 @@
       if (enemy.type === "boss") {
         const bossTier = Math.max(
           1,
-          Math.floor(wave / 5)
+          enemy.bossTier || Math.floor(wave / 5)
         );
       
         return 8 + bossTier * 2;
@@ -4020,7 +4058,7 @@
       }
     }
 
-    function damageEnemy(index, damage) {
+    function damageEnemy(index, damage, critical = false) {
       const enemy = enemies[index];
 
       if (!enemy) {
@@ -4029,6 +4067,13 @@
 
       enemy.hp -= damage;
       createParticles(enemy.x, enemy.y, enemy.color, 6, 130);
+
+      addDamageNumber(
+        enemy.x,
+        enemy.y,
+        damage,
+        critical
+      );
 
       if (enemy.hp <= 0) {
         killEnemy(index);
@@ -4134,6 +4179,15 @@
         isBoss ? 55 : 40,
         deathColor || "#7ee7ff"
       );
+
+      if (isBoss) {
+        triggerBossCelebration(
+          deathX,
+          deathY,
+          deathColor || "#ff7992",
+          false
+        );
+      }
 
       if (shouldSplit) {
         for (let side = -1; side <= 1; side += 2) {
@@ -4257,6 +4311,411 @@
         color,
         ring: true
       });
+    }
+
+    /*
+     * Ниже — «сок» (juice). Всё это только подача:
+     * ни один из этих вызовов не меняет симуляцию
+     * и не влияет на пакеты, уходящие на сервер.
+     */
+
+    function triggerHitStop(
+      duration = HIT_STOP_DURATION
+    ) {
+      const safeDuration = Number(duration);
+
+      if (!Number.isFinite(safeDuration)) {
+        return;
+      }
+
+      /*
+       * Совпавшие триггеры не складываются.
+       * Берём максимум, поэтому крит, добивающий
+       * босса, не превращается в долгую заморозку.
+       */
+      hitStopTimer = clamp(
+        Math.max(hitStopTimer, safeDuration),
+        0,
+        HIT_STOP_DURATION * 2
+      );
+    }
+
+    function triggerSlowMotion(
+      duration = BOSS_SLOWMO_DURATION,
+      factor = BOSS_SLOWMO_FACTOR
+    ) {
+      const safeDuration = Number(duration);
+      const safeFactor = Number(factor);
+
+      if (
+        !Number.isFinite(safeDuration) ||
+        !Number.isFinite(safeFactor)
+      ) {
+        return;
+      }
+
+      slowMoTimer = clamp(
+        Math.max(slowMoTimer, safeDuration),
+        0,
+        BOSS_SLOWMO_DURATION * 2
+      );
+
+      slowMoFactor = clamp(
+        Math.min(slowMoFactor, safeFactor),
+        0.1,
+        1
+      );
+    }
+
+    function resetVisualTime() {
+      hitStopTimer = 0;
+      slowMoTimer = 0;
+      slowMoFactor = 1;
+    }
+
+    /*
+     * Таймеры «сока» живут по реальному времени кадра.
+     * Иначе замедление продлевало бы само себя.
+     */
+    function updateVisualTime(rawDt) {
+      const safeDt =
+        Number.isFinite(rawDt) && rawDt > 0
+          ? rawDt
+          : 0;
+
+      if (hitStopTimer > 0) {
+        hitStopTimer = Math.max(
+          0,
+          hitStopTimer - safeDt
+        );
+      }
+
+      if (slowMoTimer > 0) {
+        slowMoTimer = Math.max(
+          0,
+          slowMoTimer - safeDt
+        );
+
+        if (slowMoTimer <= 0) {
+          slowMoFactor = 1;
+        }
+      }
+    }
+
+    /*
+     * Итоговый шаг симуляции кадра.
+     * Ноль означает удержание кадра (hit stop).
+     */
+    function getVisualDt(rawDt) {
+      const safeDt =
+        Number.isFinite(rawDt) && rawDt > 0
+          ? rawDt
+          : 0;
+
+      if (hitStopTimer > 0) {
+        return 0;
+      }
+
+      const factor =
+        slowMoTimer > 0
+          ? clamp(slowMoFactor, 0.1, 1)
+          : 1;
+
+      return clamp(
+        safeDt * factor,
+        0,
+        0.033
+      );
+    }
+
+    function addDamageNumberTo(
+      list,
+      x,
+      y,
+      amount,
+      critical = false
+    ) {
+      const value = Number(amount);
+
+      if (
+        !Array.isArray(list) ||
+        !Number.isFinite(value) ||
+        value <= 0 ||
+        !Number.isFinite(x) ||
+        !Number.isFinite(y)
+      ) {
+        return;
+      }
+
+      /*
+       * Держим количество надписей в узде,
+       * чтобы они не закрывали арену.
+       */
+      if (list.length >= DAMAGE_NUMBER_LIMIT) {
+        list.splice(
+          0,
+          list.length - DAMAGE_NUMBER_LIMIT + 1
+        );
+      }
+
+      list.push({
+        x: x + random(-7, 7),
+        y: y - 12,
+        vy: critical ? -74 : -58,
+        text: String(
+          Math.max(1, Math.round(value))
+        ),
+        color: critical
+          ? "#ff496c"
+          : "#ffea79",
+        fontSize: critical ? 20 : 14,
+        critical,
+        life: critical ? 0.7 : 0.55,
+        maxLife: critical ? 0.7 : 0.55
+      });
+    }
+
+    function updateDamageNumbersIn(list, dt) {
+      for (
+        let index = list.length - 1;
+        index >= 0;
+        index--
+      ) {
+        const number = list[index];
+
+        number.life -= dt;
+
+        if (number.life <= 0) {
+          list.splice(index, 1);
+          continue;
+        }
+
+        number.y += number.vy * dt;
+        number.vy *= 0.94;
+      }
+    }
+
+    function drawDamageNumbersIn(list) {
+      if (list.length === 0) {
+        return;
+      }
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      for (const number of list) {
+        const lifeRatio = clamp(
+          number.life / number.maxLife,
+          0,
+          1
+        );
+
+        ctx.globalAlpha =
+          Math.min(1, lifeRatio * 1.5);
+
+        ctx.font =
+          `900 ${number.fontSize}px Inter, system-ui, sans-serif`;
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(3, 5, 10, 0.75)";
+
+        ctx.strokeText(
+          number.text,
+          number.x,
+          number.y
+        );
+
+        ctx.fillStyle = number.color;
+
+        ctx.fillText(
+          number.text,
+          number.x,
+          number.y
+        );
+      }
+
+      ctx.restore();
+    }
+
+    /*
+     * Трейл летящей пули. Цвет задаёт владелец,
+     * поэтому в коопе следы игроков различимы.
+     */
+    function pushTrailParticle(
+      list,
+      x,
+      y,
+      color,
+      radius = 7
+    ) {
+      list.push({
+        x: x + random(-1.5, 1.5),
+        y: y + random(-1.5, 1.5),
+        vx: random(-14, 14),
+        vy: random(-14, 14),
+        life: 0.18,
+        maxLife: 0.18,
+        size: Math.max(1.6, radius * 0.42),
+        color,
+        isTrail: true
+      });
+    }
+
+    /*
+     * Волна перехвата. Рисуется всегда, независимо
+     * от улучшения "catch-blast".
+     */
+    function spawnCatchWaveIn(
+      list,
+      x,
+      y,
+      color = "#7ee7ff"
+    ) {
+      for (let index = 0; index < 2; index++) {
+        list.push({
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          life: 0.3 + index * 0.14,
+          maxLife: 0.3 + index * 0.14,
+          size: 34 + index * 26,
+          color,
+          ring: true,
+          catchWave: true
+        });
+      }
+    }
+
+    function addDamageNumber(
+      x,
+      y,
+      amount,
+      critical = false
+    ) {
+      addDamageNumberTo(
+        damageNumbers,
+        x,
+        y,
+        amount,
+        critical
+      );
+    }
+
+    function addCoopDamageNumber(
+      x,
+      y,
+      amount,
+      critical = false
+    ) {
+      addDamageNumberTo(
+        coopDamageNumbers,
+        x,
+        y,
+        amount,
+        critical
+      );
+    }
+
+    function createCatchWave(
+      x,
+      y,
+      color = "#7ee7ff"
+    ) {
+      spawnCatchWaveIn(
+        particles,
+        x,
+        y,
+        color
+      );
+    }
+
+    /*
+     * Сервер не присылает флаг крита, поэтому он
+     * восстанавливается по величине урона: крит равен
+     * базовому урону владельца, умноженному на 2.5.
+     *
+     * Это чистая догадка для подачи. Ошибка здесь
+     * меняет только цвет надписи, но не симуляцию.
+     */
+    function isLikelyCoopCritical(takenDamage) {
+      const value = Number(takenDamage);
+
+      if (
+        !Number.isFinite(value) ||
+        value <= 1
+      ) {
+        return false;
+      }
+
+      for (
+        const coopPlayer of
+        coopSession.players.values()
+      ) {
+        const baseDamage =
+          Number(coopPlayer.stats?.damage) || 1;
+
+        if (
+          Math.abs(
+            value - baseDamage * 2.5
+          ) <= 0.26
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    /*
+     * Празднование гибели босса: замедление,
+     * крупный взрыв и несколько ударных волн.
+     */
+    function triggerBossCelebration(
+      x,
+      y,
+      color = "#ff7992",
+      coop = false
+    ) {
+      if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y)
+      ) {
+        return;
+      }
+
+      triggerHitStop();
+      triggerSlowMotion();
+
+      const list = coop
+        ? coopParticles
+        : particles;
+
+      const spawnParticles = coop
+        ? createCoopParticles
+        : createParticles;
+
+      spawnParticles(x, y, color, 40, 400);
+      spawnParticles(x, y, "#fff27a", 20, 260);
+      spawnParticles(x, y, "#ffffff", 14, 160);
+
+      for (let index = 0; index < 3; index++) {
+        list.push({
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          life: 0.42 + index * 0.16,
+          maxLife: 0.42 + index * 0.16,
+          size: 70 + index * 55,
+          color: index % 2 === 0
+            ? (color || "#ff7992")
+            : "#fff27a",
+          ring: true,
+          shockwave: true
+        });
+      }
     }
 
     function updatePlayer(dt) {
@@ -4465,7 +4924,7 @@
     
       const critical = Math.random() < stats.critChance;
       const damage = critical
-        ? stats.damage * 2
+        ? stats.damage * 2.5
         : stats.damage;
 
       createRing(
@@ -4483,9 +4942,14 @@
           15,
           210
         );
+
+        /*
+         * Крит подчёркивается короткой задержкой кадра.
+         */
+        triggerHitStop();
       }
-    
-      damageEnemy(index, damage);
+
+      damageEnemy(index, damage, critical);
     
       if (stats.explosionRadius > 0) {
         createRing(
@@ -4685,7 +5149,28 @@
         bullet.age += dt;
         bullet.x += bullet.vx * dt;
         bullet.y += bullet.vy * dt;
-      
+
+        /*
+         * Трейл появляется только у летящей пули.
+         * В соло владелец один, поэтому цвет постоянный.
+         */
+        bullet.trailTimer =
+          (bullet.trailTimer || 0) + dt;
+
+        if (
+          bullet.trailTimer >= BULLET_TRAIL_INTERVAL
+        ) {
+          bullet.trailTimer = 0;
+
+          pushTrailParticle(
+            particles,
+            bullet.x,
+            bullet.y,
+            "#7ee7ff",
+            bullet.r
+          );
+        }
+
         let hitHorizontal = false;
         let hitVertical = false;
       
@@ -5771,7 +6256,8 @@
       updateEnemyProjectiles(dt);
       updateExperienceCrystals(dt);
       updateParticles(dt);
-    
+      updateDamageNumbersIn(damageNumbers, dt);
+
       waveToast = Math.max(0, waveToast - dt);
       screenShake = Math.max(
         0,
@@ -5979,10 +6465,11 @@
         }
       },
       {
-        title: "Магнитный захват",
-        description: "Пулю можно подобрать с большего расстояния.",
-        apply() {
-          stats.pickupRadius += 35;
+        title: "Магнитное поле",
+        description: "Увеличивает радиус подбора и притягивает лежащие патроны к игроку.",
+        applyWithPower(power) {
+          stats.pickupRadius = (stats.pickupRadius || 0) + 35 * power;
+          stats.groundPullSpeed = (stats.groundPullSpeed || 0) + 110 * power;
         }
       },
       {
@@ -6019,11 +6506,11 @@
       },
       {
         title: "Критический механизм",
-        description: "Шанс двойного урона увеличивается на 12%.",
+        description: "Шанс критического урона увеличивается на 18%.",
         apply() {
           stats.critChance = Math.min(
             0.6,
-            stats.critChance + 0.12
+            stats.critChance + 0.18
           );
         }
       },
@@ -6067,22 +6554,10 @@
           }
         }
       },
-
-      {
-        title: "Возвратный магнит",
-        description: "Лежащие патроны начинают лететь к игроку.",
-        applyWithPower(power) {
-          stats.groundPullSpeed =
-            getGroundPullResult(
-              stats.groundPullSpeed,
-              power
-            );
-        }
-      },
       {
         title: "Запасной патрон",
         description: "Добавляет второй независимый патрон.",
-        fixedRarity: "common",
+        fixedRarity: "rare",
         available() {
           return stats.magazineSize < 2;
         },
@@ -6222,12 +6697,14 @@
           );
         }
       
+        case "Магнитное поле":
         case "Магнитный захват": {
           const radiusBonus = 35 * power;
+          const speedBonus = 110 * power;
         
           return (
-            `+${formatCells(radiusBonus)} ` +
-            `к радиусу подбора`
+            `+${formatCells(radiusBonus)} к радиусу подбора, ` +
+            `+${formatCells(speedBonus)}/с к скорости притяжения`
           );
         }
       
@@ -6263,7 +6740,7 @@
       
         case "Критический механизм": {
           const maximumCritChance = 0.6;
-          const requestedBonus = 0.12 * power;
+          const requestedBonus = 0.18 * power;
         
           const resultingChance = Math.min(
             maximumCritChance,
@@ -6387,14 +6864,6 @@
         typeof upgrade.available === "function" &&
         !upgrade.available()
       ) {
-        return false;
-      }
-
-      // Взаимоисключение Магнитов
-      if (upgrade.title === "Магнитный захват" && (stats.groundPullSpeed || 0) > 0) {
-        return false;
-      }
-      if (upgrade.title === "Возвратный магнит" && (stats.pickupRadius || 0) > 0) {
         return false;
       }
 
@@ -6656,6 +7125,7 @@
       "Лёгкие ботинки": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l3-10 6 2-2 7 8 2v3H4v-4z"/><path d="M10 8l7-4M13 12l6-3" stroke-width="1.6"/></svg>`,
       "Усиленная броня": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" fill-opacity="0.22"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 6v12M7 10h10"/></svg>`,
       "Ремонтный комплект": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M19 10.5h-5.5V5a1.5 1.5 0 0 0-3 0v5.5H5a1.5 1.5 0 0 0 0 3h5.5V19a1.5 1.5 0 0 0 3 0v-5.5H19a1.5 1.5 0 0 0 0-3z"/></svg>`,
+      "Магнитное поле": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
       "Магнитный захват": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>`,
       "Импульсный захват": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
       "Аварийный ремонт": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="M12 7v6M9 10h6" stroke="#060c16" stroke-width="2.2" stroke-linecap="round"/></svg>`,
@@ -7040,6 +7510,7 @@
       updateEnemyProjectiles(dt);
       updateExperienceCrystals(dt);
       updateParticles(dt);
+      updateDamageNumbersIn(damageNumbers, dt);
     }
 
     /* =========================================================================
@@ -7364,6 +7835,13 @@
       enemyProjectiles.length = 0;
       experienceCrystals.length = 0;
       particles.length = 0;
+      damageNumbers.length = 0;
+
+      /*
+       * Иначе заморозка из прошлого забега
+       * приморозила бы фоновую сцену меню.
+       */
+      resetVisualTime();
 
       const curW = width || SOLO_WORLD_WIDTH;
       const curH = height || SOLO_WORLD_HEIGHT;
@@ -8958,7 +9436,16 @@
       enemyProjectiles.length = 0;
       experienceCrystals.length = 0;
       particles.length = 0;
-    
+      damageNumbers.length = 0;
+      coopDamageNumbers.length = 0;
+
+      /*
+       * Старт сетевой игры всегда с чистого времени.
+       * Незакрытая заморозка иначе приморозила бы
+       * первые кадры кооперативной сессии.
+       */
+      resetVisualTime();
+
       const roomPlayers =
         Array.isArray(room.players)
           ? [...room.players]
@@ -9383,6 +9870,9 @@
                 ? snapshotPlayer.invulnerability
                 : 0,
 
+            reviveBeacon:
+              snapshotPlayer.reviveBeacon || null,
+
             hitFlash: 0
           };
         
@@ -9687,6 +10177,17 @@
           // Пуля поймана
           createCoopRing(snapshotBullet.x, snapshotBullet.y, 26, "#7ee7ff");
           createCoopParticles(snapshotBullet.x, snapshotBullet.y, "#7ee7ff", 8, 130);
+
+          /*
+           * Волна перехвата не зависит от улучшений
+           * и появляется у любого игрока.
+           */
+          spawnCatchWaveIn(
+            coopParticles,
+            snapshotBullet.x,
+            snapshotBullet.y,
+            "#7ee7ff"
+          );
         }
 
         if (previousState === "flying" && newState === "ground") {
@@ -9892,9 +10393,44 @@
             nextEnemyHp <= 0 ? 16 : 6,
             nextEnemyHp <= 0 ? 200 : 130
           );
+
+          const takenDamage =
+            coopEnemy.hp - nextEnemyHp;
+
+          const criticalHit =
+            isLikelyCoopCritical(takenDamage);
+
+          addCoopDamageNumber(
+            snapshotX,
+            snapshotY,
+            takenDamage,
+            criticalHit
+          );
+
+          if (criticalHit) {
+            triggerHitStop();
+          }
+
           if (nextEnemyHp <= 0) {
             createCoopRing(snapshotX, snapshotY, 35, snapshotEnemy.color || coopEnemy.color || "#ff7992");
             coopScreenShake = Math.max(coopScreenShake, 3);
+
+            if (
+              (snapshotEnemy.type ||
+                coopEnemy.type) === "boss" &&
+              !coopEnemy.celebrated
+            ) {
+              coopEnemy.celebrated = true;
+
+              triggerBossCelebration(
+                snapshotX,
+                snapshotY,
+                snapshotEnemy.color ||
+                  coopEnemy.color ||
+                  "#ff7992",
+                true
+              );
+            }
           }
         }
 
@@ -9984,6 +10520,24 @@
             createCoopParticles(coopEnemy.displayX, coopEnemy.displayY, coopEnemy.color || "#ff7992", 18, 220);
             createCoopRing(coopEnemy.displayX, coopEnemy.displayY, 45, coopEnemy.color || "#7ee7ff");
             coopScreenShake = Math.max(coopScreenShake, 4);
+
+            /*
+             * Босс может исчезнуть из снимка сразу,
+             * без промежуточного нулевого здоровья.
+             */
+            if (
+              coopEnemy.type === "boss" &&
+              !coopEnemy.celebrated
+            ) {
+              coopEnemy.celebrated = true;
+
+              triggerBossCelebration(
+                coopEnemy.displayX,
+                coopEnemy.displayY,
+                coopEnemy.color || "#ff7992",
+                true
+              );
+            }
           }
           coopSession.enemies.delete(
             enemyId
@@ -10155,52 +10709,72 @@
       updateCoopAmmoStatus();
     }
 
-    function updateCoopClient(dt) {
+    /*
+     * Сырой dt отвечает за сеть: отправку ввода,
+     * предсказание своего игрока и сверку с сервером.
+     *
+     * visualDt может быть замедлен или обнулён «соком»
+     * и потому питает только презентацию. Сервер продолжает
+     * считать мир независимо, поэтому эффекты не рассинхронят кооп.
+     */
+    function updateCoopClient(dt, visualDt = dt) {
       if (coopSession.manualPaused || coopSession.upgradePaused) {
         return;
       }
 
+      const presentationDt =
+        Number.isFinite(visualDt) && visualDt >= 0
+          ? visualDt
+          : dt;
+
       coopScreenShake = Math.max(
         0,
-        coopScreenShake - 25 * dt
+        coopScreenShake - 25 * presentationDt
       );
 
       coopSession.waveToast = Math.max(
         0,
-        (coopSession.waveToast || 0) - dt
+        (coopSession.waveToast || 0) - presentationDt
       );
 
       for (const coopPlayer of coopSession.players.values()) {
         coopPlayer.hitFlash = Math.max(
           0,
-          (coopPlayer.hitFlash || 0) - 5 * dt
+          (coopPlayer.hitFlash || 0) - 5 * presentationDt
         );
+
+        /*
+         * Неуязвимость принадлежит серверу.
+         * Её отсчёт идёт по реальному времени,
+         * иначе локальный hit stop разошёлся бы с миром.
+         */
         coopPlayer.invulnerability = Math.max(
           0,
           (coopPlayer.invulnerability || 0) - dt
         );
       }
 
-      updateCoopParticles(dt);
+      updateCoopParticles(presentationDt);
+      updateDamageNumbersIn(coopDamageNumbers, presentationDt);
 
       if (coopSession.enemyProjectiles) {
         for (const proj of coopSession.enemyProjectiles.values()) {
-          proj.displayX += (proj.vx || 0) * dt;
-          proj.displayY += (proj.vy || 0) * dt;
+          proj.displayX += (proj.vx || 0) * presentationDt;
+          proj.displayY += (proj.vy || 0) * presentationDt;
 
           proj.displayX +=
             (
               proj.targetX -
               proj.displayX
             ) *
-            Math.min(1, dt * 15);
+            Math.min(1, presentationDt * 15);
 
           proj.displayY +=
             (
               proj.targetY -
               proj.displayY
             ) *
-            Math.min(1, dt * 15);
+            Math.min(1, presentationDt * 15);
         }
       }
 
@@ -10463,6 +11037,33 @@
           // Мягкая синхронизация с серверной траекторией
           coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 5);
           coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 5);
+
+          /*
+           * След тянется цветом владельца патрона,
+           * поэтому пули напарников легко различить.
+           */
+          coopBullet.trailTimer =
+            (coopBullet.trailTimer || 0) + dt;
+
+          if (
+            coopBullet.trailTimer >= BULLET_TRAIL_INTERVAL
+          ) {
+            coopBullet.trailTimer = 0;
+
+            const trailColors =
+              coopPlayerColors[
+                coopBullet.colorIndex %
+                coopPlayerColors.length
+              ];
+
+            pushTrailParticle(
+              coopParticles,
+              coopBullet.displayX,
+              coopBullet.displayY,
+              trailColors.body,
+              coopBullet.r
+            );
+          }
         } else if (coopBullet.state === "ground") {
           coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 18);
           coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 18);
@@ -10632,7 +11233,9 @@
         );
 
         ctx.save();
-        ctx.globalAlpha = lifeRatio;
+        ctx.globalAlpha = particle.isTrail
+          ? lifeRatio * 0.55
+          : lifeRatio;
 
         if (particle.ring) {
           const progress = 1 - lifeRatio;
@@ -11584,6 +12187,8 @@
       ) {
         drawCoopExperienceCrystal(crystal);
       }
+
+      drawDamageNumbersIn(coopDamageNumbers);
       /*
        * Будущих сетевых врагов, кристаллы и вражеские
        * снаряды нужно будет рисовать внутри этого
@@ -12498,7 +13103,9 @@
         );
 
         ctx.save();
-        ctx.globalAlpha = lifeRatio;
+        ctx.globalAlpha = particle.isTrail
+          ? lifeRatio * 0.55
+          : lifeRatio;
 
         if (particle.ring) {
           const progress = 1 - lifeRatio;
@@ -12854,7 +13461,8 @@
       drawPlayer();
       drawBullets();
       drawParticles();
-    
+      drawDamageNumbersIn(damageNumbers);
+
       ctx.restore();
       ctx.restore();
     
@@ -13660,12 +14268,29 @@
         ),
         0.033
       );
-    
+
       lastTime = currentTime;
-    
+
+      /*
+       * Таймеры «сока» идут по реальному времени кадра,
+       * а visualDt — это уже замедленный или полностью
+       * остановленный шаг подачи.
+       *
+       * Кадр всегда рисуется, даже когда visualDt равен
+       * нулю. Цикл rAF при этом не простаивает.
+       */
+      updateVisualTime(dt);
+
+      const visualDt = getVisualDt(dt);
+
       if (coopSession.active) {
         try {
-          updateCoopClient(dt);
+          /*
+           * В коопе сырой dt отвечает за отправку ввода
+           * и предсказание своего игрока, а visualDt —
+           * только за интерполяцию и эффекты.
+           */
+          updateCoopClient(dt, visualDt);
           drawCoopScene();
           lastGameError = "";
         } catch (error) {
@@ -13673,27 +14298,29 @@
             error?.stack ||
             error?.message ||
             String(error);
-        
+
           if (message !== lastGameError) {
             console.error(
               "Ошибка сетевого цикла:",
               error
             );
-          
+
             lastGameError = message;
           }
         }
-      
+
         return;
       }
 
       try {
-        if (gameState === "playing") {
-          update(dt);
-        } else if (gameState === "menu") {
-          updateMenuDemo(dt);
+        if (visualDt > 0) {
+          if (gameState === "playing") {
+            update(visualDt);
+          } else if (gameState === "menu") {
+            updateMenuDemo(visualDt);
+          }
         }
-      
+
         draw();
         lastGameError = "";
       } catch (error) {

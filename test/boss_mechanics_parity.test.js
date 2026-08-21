@@ -13,21 +13,21 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     cleanup();
   });
 
-  await t.test("1. Boss scaling formulas across Tiers 1-5 (HP, Coop multiplier, Speed, Radius)", () => {
+  await t.test("1. Boss scaling formulas across Tiers 1-6 (HP, Coop multiplier, Speed, Radius)", () => {
     const { world } = createTestWorld(ctx);
 
     const expectedTiers = [
-      { wave: 5, tier: 1, baseHp: 48, coopHp: 106, speed: 38, radius: 46 },
-      { wave: 10, tier: 2, baseHp: 74, coopHp: 163, speed: 40.86, radius: 46 },
-      { wave: 15, tier: 3, baseHp: 100, coopHp: 220, speed: 43.72, radius: 46 },
-      { wave: 20, tier: 4, baseHp: 126, coopHp: 277, speed: 46.58, radius: 46 },
-      { wave: 25, tier: 5, baseHp: 152, coopHp: 334, speed: 49.44, radius: 46 }
+      { wave: 5, tier: 1, baseHp: 76, coopHp: 137, speed: 38, radius: 46 },
+      { wave: 10, tier: 2, baseHp: 120, coopHp: 216, speed: 40.86, radius: 46 },
+      { wave: 15, tier: 3, baseHp: 180, coopHp: 324, speed: 43.72, radius: 46 },
+      { wave: 20, tier: 4, baseHp: 256, coopHp: 461, speed: 46.58, radius: 46 },
+      { wave: 25, tier: 5, baseHp: 348, coopHp: 626, speed: 49.44, radius: 46 },
+      { wave: 30, tier: 6, baseHp: 456, coopHp: 821, speed: 52.3, radius: 46 }
     ];
 
     for (const exp of expectedTiers) {
       world.wave = exp.wave;
       const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
-      boss.bossTier = exp.tier;
 
       assert.equal(boss.bossTier, exp.tier, `Wave ${exp.wave} should produce tier ${exp.tier}`);
       assert.equal(boss.hp, exp.coopHp, `Tier ${exp.tier} coop HP should be ${exp.coopHp} (got ${boss.hp})`);
@@ -37,6 +37,10 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
         Math.abs(boss.speed - exp.speed) < 0.01,
         `Tier ${exp.tier} speed should be ~${exp.speed} (got ${boss.speed})`
       );
+
+      // Verify wave-scaled boss XP
+      const xp = ctx.getServerEnemyExperience(boss);
+      assert.equal(xp, 8 + exp.tier * 2, `Tier ${exp.tier} boss XP should be ${8 + exp.tier * 2} (got ${xp})`);
     }
   });
 

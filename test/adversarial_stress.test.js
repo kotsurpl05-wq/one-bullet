@@ -182,7 +182,7 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
   // =========================================================================
   // 2. BOSS MECHANICS & COMBAT STATE MACHINE STRESS
   // =========================================================================
-  await t.test("2.1 Unmasked Boss Tier Bug Detection in Raw createServerEnemy", () => {
+  await t.test("2.1 Boss Tier Assignment Verification in Raw createServerEnemy", () => {
     const { world } = createTestWorld(ctx);
     world.wave = 10; // Wave 10 is Tier 2
 
@@ -192,12 +192,12 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
     // Check if bossTier is defined on the returned object
     const hasBossTier = Object.prototype.hasOwnProperty.call(boss, "bossTier") && boss.bossTier !== undefined;
     
-    // In current server.js, bossTier is NOT returned on the object
     assert.equal(
       hasBossTier,
-      false,
-      "CONFIRMED BUG: server.js createServerEnemy fails to assign bossTier on returned enemy object"
+      true,
+      "server.js createServerEnemy must assign bossTier on returned enemy object"
     );
+    assert.equal(boss.bossTier, 2, "Wave 10 boss must have bossTier = 2");
   });
 
   await t.test("2.2 Simultaneous Drone AOE Death & Single-Stun Execution Oracle", () => {

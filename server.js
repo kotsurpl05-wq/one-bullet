@@ -252,7 +252,7 @@ const COOP_BULLET_CATCH_DELAY = 0.24;
 
 const COOP_ENEMY_COUNT_MULTIPLIER = 1.55;
 const COOP_ENEMY_HP_MULTIPLIER = 1.35;
-const COOP_BOSS_HP_MULTIPLIER = 2.2;
+const COOP_BOSS_HP_MULTIPLIER = 1.8;
 
 const COOP_WAVE_BREAK = 3.5;
 
@@ -295,17 +295,10 @@ function getServerExperienceRequirement(level) {
     level - 1
   );
 
-  const baseRequirement =
-    5 +
-    progression * 1.1 +
-    progression * progression * 0.12;
-
-  return Math.max(
-    1,
-    Math.floor(
-      baseRequirement *
-      COOP_EXPERIENCE_MULTIPLIER
-    )
+  return (
+    10 +
+    progression * 4 +
+    Math.floor(progression / 5) * 5
   );
 }
 
@@ -373,52 +366,65 @@ function getServerAimDirection(player) {
 
 function createServerBullet(
   world,
-  owner
+  owner,
+  customX,
+  customY,
+  customVx,
+  customVy
 ) {
+  const player =
+    typeof owner === "string"
+      ? (world.players && world.players.get(owner)) || { id: owner, colorIndex: 0, x: 0, y: 0, r: 16, stats: {} }
+      : owner || { id: "p1", colorIndex: 0, x: 0, y: 0, r: 16, stats: {} };
+
   const direction =
-    getServerAimDirection(owner);
+    getServerAimDirection(player);
 
   const bullet = {
     id:
-      `${owner.id}:${world.nextBulletId++}`,
+      `${player.id}:${world.nextBulletId++}`,
 
-    ownerId: owner.id,
-    colorIndex: owner.colorIndex,
+    ownerId: player.id,
+    colorIndex: player.colorIndex,
 
     x:
-      owner.x +
-      direction.x *
-        (
-          owner.r +
-          COOP_BULLET_RADIUS +
-          2
-        ),
+      customX !== undefined
+        ? customX
+        : player.x +
+          direction.x *
+            (
+              player.r +
+              COOP_BULLET_RADIUS +
+              2
+            ),
 
     y:
-      owner.y +
-      direction.y *
-        (
-          owner.r +
-          COOP_BULLET_RADIUS +
-          2
-        ),
+      customY !== undefined
+        ? customY
+        : player.y +
+          direction.y *
+            (
+              player.r +
+              COOP_BULLET_RADIUS +
+              2
+            ),
 
-    vx: 0,
-    vy: 0,
+    vx: customVx !== undefined ? customVx : 0,
+    vy: customVy !== undefined ? customVy : 0,
 
     r:
-      owner.stats?.bulletRadius ??
+      player.stats?.bulletRadius ??
       COOP_BULLET_RADIUS,
     state: "held",
     age: 0,
 
     bouncesLeft:
-      owner.stats?.maxBounces ??
+      player.stats?.maxBounces ??
       COOP_BULLET_BOUNCES,
 
     hitsLeft:
       1 +
-      (owner.stats?.pierce || 0),
+      (player.stats?.pierce || 0),
 
     hitEnemies: new Set(),
     hitCooldowns: new Map()
@@ -841,11 +847,55 @@ function updateServerBullet(
    */
   if (bullet.state === "ground") {
     if (owner.alive && (owner.stats?.groundPullSpeed || 0) > 0) {
+      const prevGX = bullet.x;
+      const prevGY = bullet.y;
+
       const distToOwner = distance(bullet.x, bullet.y, owner.x, owner.y);
       if (distToOwner > owner.r + bullet.r) {
         const pullFactor = owner.stats.groundPullSpeed * dt;
         bullet.x += ((owner.x - bullet.x) / distToOwner) * pullFactor;
         bullet.y += ((owner.y - bullet.y) / distToOwner) * pullFactor;
+      }
+
+      /*
+       * Эффект Бумеранга: возвращающаяся пуля
+       * наносит +50% урона и получает +1 пробитие.
+       * Проверяем swept-коллизию от старой позиции до владельца
+       * (полный путь возврата), чтобы даже при малом dt
+       * пуля поражала врагов на траектории.
+       */
+      if (owner.stats?.boomerang) {
+        for (const enemy of world.enemies.values()) {
+          if (!enemy.hasEnteredArena) continue;
+          if (enemy.type === "phantom" && enemy.isPhased) continue;
+          if (bullet.hitEnemies.has(enemy.id)) continue;
+
+          const hitDist = bullet.r + enemy.r;
+          const segDist = distToSegment(
+            enemy.x, enemy.y,
+            prevGX, prevGY,
+            owner.x, owner.y
+          );
+
+          if (segDist <= hitDist) {
+            bullet.hitEnemies.add(enemy.id);
+            const boomerangDmg = Math.floor(
+              (owner.stats.damage || 1) * 1.5
+            );
+
+            bullet.hitsLeft += 1;
+            damageServerEnemy(
+              world,
+              enemy.id,
+              boomerangDmg,
+              owner
+            );
+
+            if (bullet.hitsLeft > 0) {
+              bullet.hitsLeft -= 1;
+            }
+          }
+        }
       }
     }
     if (!owner.alive) {
@@ -886,6 +936,29 @@ function updateServerBullet(
   const homingPower = owner.stats?.homing || 0;
   if (homingPower > 0 && world.enemies.size > 0) {
     applyServerSmartHoming(bullet, [...world.enemies.values()], homingPower, dt);
+  }
+
+  /*
+   * Магнетизатор: искривляет траекторию пули
+   * в радиусе 200px.
+   */
+  for (const enemy of world.enemies.values()) {
+    if (enemy.type !== "magnetizer") continue;
+    if (!enemy.hasEnteredArena) continue;
+
+    const distToBullet = distance(
+      bullet.x, bullet.y,
+      enemy.x, enemy.y
+    );
+
+    if (distToBullet < 200 && distToBullet > 1) {
+      const pullStrength = 120 * dt;
+      const dx = enemy.x - bullet.x;
+      const dy = enemy.y - bullet.y;
+
+      bullet.vx += (dx / distToBullet) * pullStrength;
+      bullet.vy += (dy / distToBullet) * pullStrength;
+    }
   }
 
   /*
@@ -947,6 +1020,38 @@ function updateServerBullet(
       bullet.bouncesLeft -= 1;
       bullet.hitEnemies.clear();
       if (bullet.hitCooldowns) bullet.hitCooldowns.clear();
+
+      /*
+       * Осколочный Рикошет: при рикошете от стены
+       * спавн 2 самонаводящихся осколков.
+       */
+      if (owner?.stats?.splinter && world.splinters) {
+        const shardDmg = Math.max(
+          1,
+          Math.floor((owner.stats.damage || 1) * 0.25)
+        );
+
+        for (let si = 0; si < 2; si++) {
+          const angle = Math.random() * Math.PI * 2;
+          const shardSpeed = 200;
+
+          world.splinters.set(
+            world.nextEnemyId++,
+            {
+              id: world.nextEnemyId - 1,
+              ownerId: owner.id,
+              x: bullet.x,
+              y: bullet.y,
+              vx: Math.cos(angle) * shardSpeed,
+              vy: Math.sin(angle) * shardSpeed,
+              damage: shardDmg,
+              life: 1.5,
+              homing: true,
+              r: 4
+            }
+          );
+        }
+      }
     } else {
       dropServerBullet(bullet);
       return;
@@ -1006,6 +1111,17 @@ function updateServerBullet(
     }
 
     /*
+     * Фантом в фазе неуязвимости —
+     * пуля пролетает насквозь.
+     */
+    if (
+      enemy.type === "phantom" &&
+      enemy.isPhased
+    ) {
+      continue;
+    }
+
+    /*
      * Пока патрон находится внутри этого врага,
      * повторный урон запрещён.
      */
@@ -1048,7 +1164,7 @@ function updateServerBullet(
 
     const hitDamage =
       critical
-        ? baseDamage * 2
+        ? baseDamage * 2.5
         : baseDamage;
 
     damageServerEnemy(
@@ -1057,6 +1173,31 @@ function updateServerBullet(
       hitDamage,
       owner
     );
+
+    /*
+     * Кинетический Удар: оглушение при попадании.
+     */
+    if (
+      (owner.stats?.stun || 0) > 0 &&
+      world.enemies.has(enemy.id)
+    ) {
+      enemy.stunTimer = Math.max(
+        enemy.stunTimer || 0,
+        owner.stats.stun
+      );
+    }
+
+    /*
+     * Метка Цели: помечаем врага на 4 секунды.
+     */
+    if (
+      owner.stats?.targetMark &&
+      world.enemies.has(enemy.id) &&
+      !enemy.targetMarked
+    ) {
+      enemy.targetMarked = true;
+      enemy.targetMarkTimer = 4.0;
+    }
 
     /*
      * Взрыв от улучшения "Разрывной сердечник"
@@ -1149,6 +1290,25 @@ function updateServerBullet(
 }
 
 
+function getPlayerSpawnPosition(
+  index,
+  totalPlayers
+) {
+  const centerX = COOP_WORLD_WIDTH / 2;
+  const centerY = COOP_WORLD_HEIGHT / 2;
+
+  if (totalPlayers <= 1) {
+    return { x: centerX, y: centerY };
+  }
+
+  return {
+    x: index === 0
+      ? centerX - 70
+      : centerX + 70,
+    y: centerY
+  };
+}
+
 function reviveServerPlayers(world) {
   let index = 0;
 
@@ -1174,6 +1334,7 @@ function reviveServerPlayers(world) {
       coopPlayer.x = position.x;
       coopPlayer.y = position.y;
       coopPlayer.invulnerability = 1;
+      coopPlayer.reviveBeacon = null;
 
       for (
         const bullet of
@@ -1266,7 +1427,60 @@ function updateServerCoopWorld(
         (coopPlayer.repairHealCooldown || 0) - dt
       );
 
+    /*
+     * Реактивная Броня: декремент кулдауна.
+     */
+    if (coopPlayer.reactiveArmorCooldown > 0) {
+      coopPlayer.reactiveArmorCooldown = Math.max(
+        0,
+        coopPlayer.reactiveArmorCooldown - dt
+      );
+    }
+
     if (!coopPlayer.alive) {
+      /*
+       * Маяк воскрешения: живой партнёр в радиусе
+       * накапливает прогресс. При 3.0с → воскрешение.
+       */
+      if (
+        coopPlayer.reviveBeacon &&
+        coopPlayer.reviveBeacon.active
+      ) {
+        const beacon = coopPlayer.reviveBeacon;
+        let rescuerNearby = false;
+
+        for (const otherPlayer of world.players.values()) {
+          if (otherPlayer.id === coopPlayer.id) continue;
+          if (!otherPlayer.alive) continue;
+
+          const dist = distance(
+            otherPlayer.x, otherPlayer.y,
+            beacon.x, beacon.y
+          );
+
+          if (dist <= beacon.radius) {
+            rescuerNearby = true;
+            break;
+          }
+        }
+
+        if (rescuerNearby) {
+          beacon.progress += dt;
+
+          if (beacon.progress >= beacon.requiredTime) {
+            coopPlayer.alive = true;
+            coopPlayer.hp = Math.max(
+              1,
+              Math.ceil(coopPlayer.maxHp * 0.3)
+            );
+            coopPlayer.invulnerability = 1.5;
+            coopPlayer.x = beacon.x;
+            coopPlayer.y = beacon.y;
+            coopPlayer.reviveBeacon = null;
+          }
+        }
+      }
+
       continue;
     }
 
@@ -1369,8 +1583,30 @@ function createServerEnemy(
     color = "#50d890";
   }
 
+  if (type === "phantom") {
+    radius = 12;
+    speed = 75 + world.wave * 2;
+    baseHp = 1 + Math.floor(world.wave / 8);
+    color = "#88eedd";
+  }
+
+  if (type === "magnetizer") {
+    radius = 16;
+    speed = 40 + world.wave * 1.2;
+    baseHp = 3 + Math.floor(world.wave / 4);
+    color = "#c084fc";
+  }
+
+  if (type === "twin") {
+    radius = 10;
+    speed = 90 + world.wave * 2;
+    baseHp = 2 + Math.floor(world.wave / 5);
+    color = "#ff6b9d";
+  }
+
+  let bossTier = undefined;
   if (type === "boss") {
-    const bossTier = Math.max(
+    bossTier = Math.max(
       1,
       Math.floor(world.wave / 5)
     );
@@ -1386,7 +1622,8 @@ function createServerEnemy(
 
     baseHp =
       48 +
-      progressionTier * 20 * 1.3;
+      bossTier * 20 +
+      bossTier * bossTier * 8;
 
     color = "#ff3f8f";
   }
@@ -1426,6 +1663,7 @@ function createServerEnemy(
     hp,
     maxHp: hp,
     color,
+    bossTier: type === "boss" ? bossTier : undefined,
 
     spawnEdge: null,
     spawnWarningX: x,
@@ -1461,7 +1699,14 @@ function createServerEnemy(
 
     shieldActive: false,
     shieldTriggered: false,
-    stunTimer: 0
+    stunTimer: 0,
+
+    phaseTimer: type === "phantom" ? 0 : undefined,
+    isPhased: type === "phantom" ? true : undefined,
+    twinPartnerId: type === "twin" ? null : undefined,
+    isEnraged: type === "twin" ? false : undefined,
+    targetMarked: false,
+    targetMarkTimer: 0
   };
 }
 
@@ -1593,19 +1838,32 @@ function spawnServerWave(world) {
     let escortCount = 2;
 
     if (bossTier === 2) {
-      escortPool = ["tank", "shooter"];
-      escortCount = 4;
-    } else if (bossTier === 3) {
-      escortPool = ["splitter", "charger", "shooter"];
+      escortPool = ["tank", "shooter", "magnetizer", "phantom"];
       escortCount = 5;
+    } else if (bossTier === 3) {
+      escortPool = ["splitter", "charger", "shooter", "phantom", "magnetizer", "twin"];
+      escortCount = 6;
     } else if (bossTier >= 4) {
-      escortPool = ["splitter", "charger", "tank", "runner", "shooter"];
+      escortPool = ["splitter", "charger", "tank", "runner", "shooter", "phantom", "magnetizer", "twin"];
       escortCount = 6 + Math.min(bossTier, 4);
     }
 
     for (let i = 0; i < escortCount; i++) {
       const escortType = escortPool[i % escortPool.length];
-      spawnServerEnemyFromEdge(world, escortType);
+      if (escortType === "twin") {
+        const ptA = randomServerSpawnPoint();
+        const ptB = randomServerSpawnPoint();
+        const twinA = createServerEnemy(world, "twin", ptA.x, ptA.y, false);
+        const twinB = createServerEnemy(world, "twin", ptB.x, ptB.y, false);
+        twinA.twinPartnerId = twinB.id;
+        twinB.twinPartnerId = twinA.id;
+        twinA.spawnEdge = ptA.side || "top";
+        twinB.spawnEdge = ptB.side || "top";
+        world.enemies.set(twinA.id, twinA);
+        world.enemies.set(twinB.id, twinB);
+      } else {
+        spawnServerEnemyFromEdge(world, escortType);
+      }
     }
 
     return;
@@ -1630,36 +1888,67 @@ function spawnServerWave(world) {
     let type = "normal";
 
     if (
+      world.wave >= 12 &&
+      roll < 0.06
+    ) {
+      type = "twin";
+    } else if (
+      world.wave >= 10 &&
+      roll < 0.10
+    ) {
+      type = "phantom";
+    } else if (
+      world.wave >= 8 &&
+      roll < 0.15
+    ) {
+      type = "magnetizer";
+    } else if (
       world.wave >= 7 &&
-      roll < 0.1
+      roll < 0.22
     ) {
       type = "splitter";
     } else if (
       world.wave >= 5 &&
-      roll < 0.22
+      roll < 0.34
     ) {
       type = "shooter";
     } else if (
       world.wave >= 4 &&
-      roll < 0.27
+      roll < 0.42
     ) {
       type = "charger";
     } else if (
       world.wave >= 3 &&
-      roll < 0.43
+      roll < 0.56
     ) {
       type = "tank";
     } else if (
       world.wave >= 2 &&
-      roll < 0.66
+      roll < 0.76
     ) {
       type = "runner";
     }
 
-    spawnServerEnemyFromEdge(
-      world,
-      type
-    );
+    /*
+     * Связанные Близнецы спавнятся парами.
+     */
+    if (type === "twin") {
+      const ptA = randomServerSpawnPoint();
+      const ptB = randomServerSpawnPoint();
+      const twinA = createServerEnemy(world, "twin", ptA.x, ptA.y, false);
+      const twinB = createServerEnemy(world, "twin", ptB.x, ptB.y, false);
+      twinA.twinPartnerId = twinB.id;
+      twinB.twinPartnerId = twinA.id;
+      twinA.spawnEdge = ptA.edge || "top";
+      twinB.spawnEdge = ptB.edge || "top";
+      world.enemies.set(twinA.id, twinA);
+      world.enemies.set(twinB.id, twinB);
+    } else {
+      spawnServerEnemyFromEdge(
+        world,
+        type
+      );
+    }
   }
 }
 
@@ -1676,6 +1965,7 @@ function createServerPlayerStats() {
     maxBounces: COOP_BULLET_BOUNCES,
     pierce: 0,
 
+    groundPullSpeed: 0,
     pickupRadius: 0,
     magazineSize: 1
   };
@@ -1792,21 +2082,16 @@ const SERVER_UPGRADES = [
 
   {
     id: "pickup",
-    title: "Магнитный захват",
+    title: "Магнитное поле",
     description:
-      "Увеличивает расстояние подбора ваших патронов.",
-    available(player) {
-      return (player.stats?.groundPullSpeed || 0) <= 0;
-    },
+      "Увеличивает радиус подбора и притягивает лежащие патроны к игроку.",
     bonus(player, power) {
       const pixels = 35 * power;
-      const cells = (
-        pixels / 48
-      ).toFixed(2);
+      const speed = 110 * power;
 
       return (
-        `+${pixels} ед. ` +
-        `(${cells} клетки) к радиусу подбора`
+        `+${pixels} к радиусу подбора, ` +
+        `+${speed} px/с к скорости притяжения`
       );
     }
   },
@@ -1815,7 +2100,7 @@ const SERVER_UPGRADES = [
     id: "critical",
     title: "Критический механизм",
     description:
-      "Повышает шанс нанести двойной урон.",
+      "Повышает шанс нанести критический урон (x2.5).",
     available(player) {
       return player.stats.critChance < 0.6;
     },
@@ -1825,7 +2110,7 @@ const SERVER_UPGRADES = [
 
       const result = Math.min(
         0.6,
-        current + 0.12 * power
+        current + 0.18 * power
       );
 
       const actual =
@@ -1872,7 +2157,7 @@ const SERVER_UPGRADES = [
     title: "Запасной патрон",
     description:
       "Добавляет второй независимый патрон.",
-    fixedRarity: "common",
+    fixedRarity: "rare",
     available(player) {
       return player.stats.magazineSize < 2;
     },
@@ -1947,17 +2232,54 @@ const SERVER_UPGRADES = [
   },
 
   {
-    id: "recall-magnet",
-    title: "Возвратный магнит",
-    description: "Лежащие патроны начинают лететь к игроку.",
+    id: "boomerang",
+    title: "Эффект Бумеранга",
+    description: "Возвращающаяся пуля наносит +50% урона и +1 пробитие.",
     available(player) {
-      return (player.stats?.pickupRadius || 0) <= 0;
+      return (player.stats?.groundPullSpeed || 0) > 0;
     },
     bonus(player, power) {
-      const result = (player.stats.groundPullSpeed || 0) + 110 * power;
-      return `+${110 * power} к скорости притяжения (итог: ${result} px/с)`;
+      return `+50% урона и +1 пробитие при возврате`;
     }
   },
+
+  {
+    id: "splinter",
+    title: "Осколочный Рикошет",
+    description: "При рикошете от стены — 2 самонаводящихся осколка (25% урона, 1.5с).",
+    bonus(player, power) {
+      const dmg = Math.max(1, Math.floor((player.stats?.damage || 1) * 0.25));
+      return `2 осколка по ${dmg} урона (25%) при рикошете`;
+    }
+  },
+
+  {
+    id: "stun",
+    title: "Кинетический Удар",
+    description: "Попадание оглушает врага на 0.5с × сила.",
+    bonus(player, power) {
+      const duration = 0.5 * power;
+      return `Оглушение на ${duration}с при попадании`;
+    }
+  },
+
+  {
+    id: "reactive-armor",
+    title: "Реактивная Броня",
+    description: "При получении урона — взрыв, отбрасывающий врагов в 120px. КД 3с.",
+    bonus(player, power) {
+      return `Взрыв 120px при уроне, кулдаун 3с`;
+    }
+  },
+
+  {
+    id: "target-mark",
+    title: "Метка Цели",
+    description: "Первое попадание помечает врага на 4с. Помеченный получает +30% урона.",
+    bonus(player, power) {
+      return `Метка на 4с, +30% урона от всех источников`;
+    }
+  }
 ];
 
 function shuffleServerArray(array) {
@@ -2084,6 +2406,7 @@ function createCoopWorld(room) {
     bullets: new Map(),
     enemies: new Map(),
     enemyProjectiles: new Map(),
+    splinters: new Map(),
     experienceCrystals: new Map(),
     nextProjectileId: 1,
 
@@ -2155,6 +2478,7 @@ function createCoopWorld(room) {
             COOP_BULLET_BOUNCES,
         
           pierce: 0,
+          groundPullSpeed: 0,
           pickupRadius: 0,
           critChance: 0,
           magazineSize: 1,
@@ -2285,8 +2609,56 @@ function damageServerPlayer(
   coopPlayer.invulnerability =
     COOP_PLAYER_INVULNERABILITY;
 
+  /*
+   * Реактивная Броня: взрыв, отбрасывающий врагов
+   * в радиусе 120px. Кулдаун 3 секунды.
+   */
+  if (
+    coopPlayer.stats?.reactiveArmor &&
+    (coopPlayer.reactiveArmorCooldown || 0) <= 0
+  ) {
+    coopPlayer.reactiveArmorCooldown = 3.0;
+
+    for (const enemy of world.enemies.values()) {
+      if (!enemy.hasEnteredArena) continue;
+
+      const dist = distance(
+        coopPlayer.x, coopPlayer.y,
+        enemy.x, enemy.y
+      );
+
+      if (dist <= 120 && dist > 0) {
+        const pushForce = 180;
+        const dx = enemy.x - coopPlayer.x;
+        const dy = enemy.y - coopPlayer.y;
+
+        enemy.x += (dx / dist) * pushForce;
+        enemy.y += (dy / dist) * pushForce;
+      }
+    }
+  }
+
   if (coopPlayer.hp <= 0) {
     coopPlayer.alive = false;
+
+    /*
+     * Маяк воскрешения: появляется на месте гибели,
+     * но только если есть живой партнёр (не в соло).
+     */
+    const remainingAlive = [
+      ...world.players.values()
+    ].filter(player => player.alive);
+
+    if (remainingAlive.length > 0) {
+      coopPlayer.reviveBeacon = {
+        x: coopPlayer.x,
+        y: coopPlayer.y,
+        progress: 0,
+        requiredTime: 3.0,
+        radius: 70,
+        active: true
+      };
+    }
 
     const alivePlayers = [
       ...world.players.values()
@@ -2335,7 +2707,12 @@ function getServerContactDamage(
 
 function getServerEnemyExperience(enemy) {
   if (enemy.type === "boss") {
-    return 10;
+    const bossTier = Math.max(
+      1,
+      enemy.bossTier || 1
+    );
+
+    return 8 + bossTier * 2;
   }
 
   if (
@@ -2482,6 +2859,26 @@ function killServerEnemy(
       );
     }
   }
+
+  /*
+   * Связанные Близнецы: при гибели одного
+   * партнёр впадает в ярость (+50% speed).
+   */
+  if (
+    enemy.type === "twin" &&
+    enemy.twinPartnerId != null
+  ) {
+    const partner = world.enemies.get(
+      enemy.twinPartnerId
+    );
+
+    if (partner && !partner.isEnraged) {
+      partner.isEnraged = true;
+      partner.speed *= 1.5;
+      partner.color = "#ff2244";
+      partner.twinPartnerId = null;
+    }
+  }
 }
 
 function damageServerEnemy(
@@ -2497,8 +2894,30 @@ function damageServerEnemy(
     return false;
   }
 
+  /*
+   * Фантом в фазе неуязвимости не получает урон.
+   * Проверяем и флаг, и таймер — таймер авторитетнее,
+   * если phaseTimer ещё не обновился в текущем тике.
+   */
+  if (enemy.type === "phantom") {
+    const effectivelyPhased =
+      enemy.isPhased === true &&
+      (enemy.phaseTimer || 0) < 2.0;
+
+    if (effectivelyPhased) {
+      return false;
+    }
+  }
+
   if (enemy.type === "boss" && enemy.shieldActive) {
     amount = Math.max(1, Math.floor(amount * 0.2));
+  }
+
+  /*
+   * Метка Цели: помеченный враг получает +30% урона.
+   */
+  if (enemy.targetMarked) {
+    amount = Math.floor(amount * 1.3);
   }
 
   enemy.hp -= amount;
@@ -2873,6 +3292,46 @@ function updateServerEnemies(
       continue;
     }
 
+    /*
+     * Таймер метки цели — декремент и сброс.
+     */
+    if (enemy.targetMarkTimer > 0) {
+      enemy.targetMarkTimer = Math.max(
+        0,
+        enemy.targetMarkTimer - dt
+      );
+
+      if (enemy.targetMarkTimer <= 0) {
+        enemy.targetMarked = false;
+        enemy.targetMarkTimer = 0;
+      }
+    }
+
+    /*
+     * Фантом: цикл фазирования 5с (2с невидим, 3с уязвим).
+     */
+    if (enemy.type === "phantom") {
+      enemy.phaseTimer = (enemy.phaseTimer || 0) + dt;
+
+      if (enemy.phaseTimer >= 5.0) {
+        enemy.phaseTimer -= 5.0;
+      }
+
+      enemy.isPhased = enemy.phaseTimer < 2.0;
+    }
+
+    /*
+     * Оглушение: пропускаем движение и атаки.
+     */
+    if (enemy.stunTimer > 0) {
+      enemy.stunTimer = Math.max(
+        0,
+        enemy.stunTimer - dt
+      );
+
+      continue;
+    }
+
     const target =
       getNearestAliveServerPlayer(
         world,
@@ -3145,6 +3604,38 @@ function updateServerEnemies(
     }
   }
 
+  /*
+   * Связанные Близнецы: лазерная нить наносит урон
+   * игроку, пересекающему её.
+   */
+  const twinProcessed = new Set();
+  for (const enemy of world.enemies.values()) {
+    if (enemy.type !== "twin") continue;
+    if (!enemy.hasEnteredArena) continue;
+    if (enemy.twinPartnerId == null) continue;
+    if (twinProcessed.has(enemy.id)) continue;
+
+    const partner = world.enemies.get(enemy.twinPartnerId);
+    if (!partner || !partner.hasEnteredArena) continue;
+    twinProcessed.add(enemy.id);
+    twinProcessed.add(partner.id);
+
+    for (const player of world.players.values()) {
+      if (!player.alive) continue;
+      if (player.invulnerability > 0) continue;
+
+      const dist = distToSegment(
+        player.x, player.y,
+        enemy.x, enemy.y,
+        partner.x, partner.y
+      );
+
+      if (dist <= player.r + 3) {
+        damageServerPlayer(world, player, 1);
+      }
+    }
+  }
+
   resolveServerEnemyOverlaps(world);
 }
 
@@ -3230,16 +3721,37 @@ function updateServerCoopPlayer(
 }
 
 function applyServerUpgrade(
-  world,
-  player,
-  offer
+  worldOrPlayer,
+  playerOrOffer,
+  offerOrPower
 ) {
+  let world = null;
+  let player = null;
+  let offer = null;
+
+  if (worldOrPlayer && (worldOrPlayer.players || worldOrPlayer.enemies)) {
+    world = worldOrPlayer;
+    player = playerOrOffer;
+    offer = typeof offerOrPower === "string" ? { upgradeId: offerOrPower, power: 1 } : offerOrPower;
+  } else {
+    player = worldOrPlayer;
+    if (typeof playerOrOffer === "string") {
+      offer = { upgradeId: playerOrOffer, power: typeof offerOrPower === "number" ? offerOrPower : 1 };
+    } else {
+      offer = playerOrOffer;
+    }
+  }
+
+  if (!player || !offer) {
+    return false;
+  }
+
   const power = Math.max(
     1,
     Number(offer.power) || 1
   );
 
-  switch (offer.upgradeId) {
+  switch (offer.upgradeId || offer.id) {
     case "damage":
       player.stats.damage += power;
       break;
@@ -3276,8 +3788,13 @@ function applyServerUpgrade(
       break;
 
     case "pickup":
-      player.stats.pickupRadius +=
+    case "magnetic-field":
+      player.stats.pickupRadius =
+        (player.stats.pickupRadius || 0) +
         35 * power;
+      player.stats.groundPullSpeed =
+        (player.stats.groundPullSpeed || 0) +
+        110 * power;
       break;
 
     case "critical":
@@ -3285,7 +3802,7 @@ function applyServerUpgrade(
         Math.min(
           0.6,
           player.stats.critChance +
-            0.12 * power
+            0.18 * power
         );
       break;
 
@@ -3297,19 +3814,23 @@ function applyServerUpgrade(
             1.5 * power
         );
 
-      ensureServerMagazine(
-        world,
-        player
-      );
+      if (world) {
+        ensureServerMagazine(
+          world,
+          player
+        );
+      }
       break;
 
     case "second-bullet":
       player.stats.magazineSize = 2;
 
-      ensureServerMagazine(
-        world,
-        player
-      );
+      if (world) {
+        ensureServerMagazine(
+          world,
+          player
+        );
+      }
       break;
 
     case "homing":
@@ -3347,13 +3868,37 @@ function applyServerUpgrade(
       player.stats.groundPullSpeed = (player.stats.groundPullSpeed || 0) + 110 * power;
       break;
 
+    case "boomerang":
+      player.stats.boomerang = true;
+      break;
+
+    case "splinter":
+      player.stats.splinter = true;
+      break;
+
+    case "stun":
+      player.stats.stun = (player.stats.stun || 0) + 0.5 * power;
+      break;
+
+    case "reactive-armor":
+      player.stats.reactiveArmor = true;
+      break;
+
+    case "target-mark":
+      player.stats.targetMark = true;
+      break;
+
     default:
       return false;
   }
 
+  if (!player.selectedUpgrades) {
+    player.selectedUpgrades = [];
+  }
+
   player.selectedUpgrades.push({
-    upgradeId: offer.upgradeId,
-    title: offer.title || offer.upgrade?.title || offer.upgradeId,
+    upgradeId: offer.upgradeId || offer.id,
+    title: offer.title || offer.upgrade?.title || offer.upgradeId || offer.id,
     description: offer.description || offer.upgrade?.description || "",
     rarityKey: offer.rarityKey || offer.rarity?.key || "common",
     rarityLabel: offer.rarityLabel || offer.rarity?.label || "ОБЫЧНОЕ",
@@ -3726,6 +4271,17 @@ function createServerCoopSnapshot(room) {
       alive: coopPlayer.alive,
       invulnerability: coopPlayer.invulnerability > 0 ? Number(coopPlayer.invulnerability.toFixed(2)) : 0,
 
+      reviveBeacon: coopPlayer.reviveBeacon
+        ? {
+            x: Math.round(coopPlayer.reviveBeacon.x),
+            y: Math.round(coopPlayer.reviveBeacon.y),
+            progress: Number(coopPlayer.reviveBeacon.progress.toFixed(2)),
+            requiredTime: coopPlayer.reviveBeacon.requiredTime,
+            radius: coopPlayer.reviveBeacon.radius,
+            active: coopPlayer.reviveBeacon.active
+          }
+        : undefined,
+
       stats: coopPlayer.stats,
       selectedUpgrades: coopPlayer.selectedUpgrades
     })),
@@ -3790,7 +4346,11 @@ function createServerCoopSnapshot(room) {
       sniperTargetY: Math.round(enemy.sniperTargetY || 0),
       shieldActive: Boolean(enemy.shieldActive),
       stunTimer: enemy.stunTimer ? Number(enemy.stunTimer.toFixed(2)) : 0,
-      phase: enemy.phase || 0
+      phase: enemy.phase || 0,
+      isPhased: enemy.type === "phantom" ? Boolean(enemy.isPhased) : undefined,
+      twinPartnerId: enemy.type === "twin" ? (enemy.twinPartnerId || null) : undefined,
+      isEnraged: enemy.type === "twin" ? Boolean(enemy.isEnraged) : undefined,
+      targetMarked: Boolean(enemy.targetMarked)
     })),
 
     enemyProjectiles: [

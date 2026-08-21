@@ -72,12 +72,45 @@ function loadServerInstance() {
   if (typeof leaveRoom !== 'undefined') this.leaveRoom = leaveRoom;
   if (typeof getRoomForSocket !== 'undefined') this.getRoomForSocket = getRoomForSocket;
   if (typeof getPublicRoomState !== 'undefined') this.getPublicRoomState = getPublicRoomState;
-  if (typeof shootServerBossSpread !== 'undefined') this.shootServerBossSpread = shootServerBossSpread;
   if (typeof shootServerBossRadial !== 'undefined') this.shootServerBossRadial = shootServerBossRadial;
   if (typeof shootServerBossShockwave !== 'undefined') this.shootServerBossShockwave = shootServerBossShockwave;
   if (typeof shootServerBossSniperBolt !== 'undefined') this.shootServerBossSniperBolt = shootServerBossSniperBolt;
   if (typeof spawnServerBossDrones !== 'undefined') this.spawnServerBossDrones = spawnServerBossDrones;
   if (typeof refreshServerBulletContacts !== 'undefined') this.refreshServerBulletContacts = refreshServerBulletContacts;
+  if (typeof getServerExperienceRequirement !== 'undefined') this.getServerExperienceRequirement = getServerExperienceRequirement;
+  if (typeof getServerEnemyExperience !== 'undefined') this.getServerEnemyExperience = getServerEnemyExperience;
+  if (typeof addServerExperience !== 'undefined') this.addServerExperience = addServerExperience;
+  if (typeof SERVER_UPGRADES !== 'undefined') this.SERVER_UPGRADES = SERVER_UPGRADES;
+  if (typeof SERVER_UPGRADE_RARITIES !== 'undefined') this.SERVER_UPGRADE_RARITIES = SERVER_UPGRADE_RARITIES;
+  if (typeof rollServerUpgradeRarity !== 'undefined') this.rollServerUpgradeRarity = rollServerUpgradeRarity;
+  if (typeof createServerUpgradeOffers !== 'undefined') this.createServerUpgradeOffers = createServerUpgradeOffers;
+  if (typeof reviveServerPlayers !== 'undefined') this.reviveServerPlayers = reviveServerPlayers;
+  if (typeof getPlayerSpawnPosition !== 'undefined') this.getPlayerSpawnPosition = getPlayerSpawnPosition;
+  if (typeof getServerPlayerSpawnPosition !== 'undefined') this.getServerPlayerSpawnPosition = getServerPlayerSpawnPosition;
+  if (typeof damageServerPlayer !== 'undefined') this.damageServerPlayer = damageServerPlayer;
+  if (typeof createServerCoopSnapshot !== 'undefined') this.createServerCoopSnapshot = createServerCoopSnapshot;
+  if (typeof updateServerWave !== 'undefined') this.updateServerWave = updateServerWave;
+  if (typeof spawnServerWave !== 'undefined') this.spawnServerWave = spawnServerWave;
+  if (typeof COOP_EXPERIENCE_MULTIPLIER !== 'undefined') this.COOP_EXPERIENCE_MULTIPLIER = COOP_EXPERIENCE_MULTIPLIER;
+  if (typeof startServerUpgradeRound !== 'undefined') this.startServerUpgradeRound = startServerUpgradeRound;
+  if (typeof submitServerUpgradeChoice !== 'undefined') this.submitServerUpgradeChoice = submitServerUpgradeChoice;
+  if (typeof reviveServerPlayers !== 'undefined') this.reviveServerPlayers = reviveServerPlayers;
+  if (typeof SERVER_UPGRADES !== 'undefined') this.SERVER_UPGRADES = SERVER_UPGRADES;
+  if (typeof SERVER_UPGRADE_RARITIES !== 'undefined') this.SERVER_UPGRADE_RARITIES = SERVER_UPGRADE_RARITIES;
+  if (typeof COOP_DIFFICULTY !== 'undefined') this.COOP_DIFFICULTY = COOP_DIFFICULTY;
+  if (typeof getPlayerSpawnPosition !== 'undefined') this.getPlayerSpawnPosition = getPlayerSpawnPosition;
+  if (typeof createCoopSnapshot !== 'undefined') this.createCoopSnapshot = createCoopSnapshot;
+  if (typeof broadcastCoopSnapshot !== 'undefined') this.broadcastCoopSnapshot = broadcastCoopSnapshot;
+  if (typeof updateServerEnemies !== 'undefined') this.updateServerEnemies = updateServerEnemies;
+  if (typeof updateServerEnemyProjectiles !== 'undefined') this.updateServerEnemyProjectiles = updateServerEnemyProjectiles;
+  if (typeof updateServerWave !== 'undefined') this.updateServerWave = updateServerWave;
+  if (typeof spawnServerEnemyFromEdge !== 'undefined') this.spawnServerEnemyFromEdge = spawnServerEnemyFromEdge;
+  if (typeof distance !== 'undefined') this.distance = distance;
+  if (typeof distToSegment !== 'undefined') this.distToSegment = distToSegment;
+  if (typeof clamp !== 'undefined') this.clamp = clamp;
+  if (typeof random !== 'undefined') this.random = random;
+  if (typeof COOP_PLAYER_SPEED !== 'undefined') this.COOP_PLAYER_SPEED = COOP_PLAYER_SPEED;
+  if (typeof ensureServerMagazine !== 'undefined') this.ensureServerMagazine = ensureServerMagazine;
   `;
 
   const intervals = [];
@@ -106,6 +139,15 @@ function loadServerInstance() {
     process: {
       ...process,
       env: { ...process.env, PORT: "0" }
+    },
+    getPlayerSpawnPosition: (index, totalPlayers) => {
+      const centerX = 1280 / 2;
+      const centerY = 720 / 2;
+      if (totalPlayers <= 1) return { x: centerX, y: centerY };
+      return {
+        x: index === 0 ? centerX - 70 : centerX + 70,
+        y: centerY
+      };
     },
     console: {
       ...console,
