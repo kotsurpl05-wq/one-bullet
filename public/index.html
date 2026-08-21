@@ -1890,8 +1890,8 @@
 
     #overlay.fullscreen-menu-mode {
       padding: 0 !important;
-      background: radial-gradient(circle at 50% 30%, rgba(12, 25, 48, 0.94) 0%, rgba(3, 6, 12, 0.99) 100%) !important;
-      backdrop-filter: blur(16px) !important;
+      background: radial-gradient(circle at 50% 40%, rgba(8, 16, 32, 0.65) 0%, rgba(2, 4, 10, 0.85) 100%) !important;
+      backdrop-filter: blur(3.5px) !important;
       display: flex !important;
       flex-direction: column !important;
       align-items: center !important;
@@ -6809,6 +6809,113 @@
     }
 
 
+
+    /* =========================================================================
+       ДЕМО-СИМУЛЯЦИЯ БОЯ В ГЛАВНОМ МЕНЮ (ATTRACT MODE LIVE GAMEPLAY)
+       ========================================================================= */
+    let menuDemoShootTimer = 0;
+    let menuDemoSpawnTimer = 0;
+    let menuDemoMoveAngle = 0;
+
+    function updateMenuDemo(dt) {
+      if (!player) {
+        resetEntities();
+      }
+
+      // 1. Автоматическое восстановление демо-игрока
+      if (player.hp <= 0) {
+        player.hp = player.maxHp;
+        player.x = SOLO_WORLD_WIDTH / 2;
+        player.y = SOLO_WORLD_HEIGHT / 2;
+        createParticles(player.x, player.y, "#00f2fe", 16, 200);
+      }
+
+      // 2. Периодический спавн демо-врагов для динамичного боя
+      menuDemoSpawnTimer -= dt;
+      if (menuDemoSpawnTimer <= 0 && enemies.length < 7) {
+        const types = ["normal", "runner", "splitter", "shooter"];
+        const randType = types[Math.floor(Math.random() * types.length)];
+        spawnEnemyFromEdge(randType);
+        menuDemoSpawnTimer = random(1.2, 2.0);
+      }
+
+      // 3. Интеллектуальное прицеливание и стрельба демо-бота
+      let targetEnemy = null;
+      let minEnemyDist = Infinity;
+      for (const enemy of enemies) {
+        if (!enemy || enemy.hp <= 0) continue;
+        const d = distance(player.x, player.y, enemy.x, enemy.y);
+        if (d < minEnemyDist) {
+          minEnemyDist = d;
+          targetEnemy = enemy;
+        }
+      }
+
+      menuDemoShootTimer -= dt;
+      if (targetEnemy && player.hasBullet > 0) {
+        pointer.x = targetEnemy.x;
+        pointer.y = targetEnemy.y;
+
+        if (menuDemoShootTimer <= 0) {
+          shoot();
+          menuDemoShootTimer = random(0.6, 1.1);
+        }
+      }
+
+      // 4. Движение демо-бота (уклонение от врагов и сбор упавших пуль)
+      let moveTargetX = SOLO_WORLD_WIDTH / 2;
+      let moveTargetY = SOLO_WORLD_HEIGHT / 2;
+
+      let nearestGroundBullet = null;
+      let minBulletDist = Infinity;
+      for (const bullet of bullets) {
+        if (bullet.state === "ground") {
+          const d = distance(player.x, player.y, bullet.x, bullet.y);
+          if (d < minBulletDist) {
+            minBulletDist = d;
+            nearestGroundBullet = bullet;
+          }
+        }
+      }
+
+      if (nearestGroundBullet && player.hasBullet === 0) {
+        // Бежим подбирать патрон
+        moveTargetX = nearestGroundBullet.x;
+        moveTargetY = nearestGroundBullet.y;
+      } else if (targetEnemy) {
+        // Кайтим врагов по кругу
+        menuDemoMoveAngle += dt * 1.5;
+        const kiteDist = 220;
+        moveTargetX = targetEnemy.x + Math.cos(menuDemoMoveAngle) * kiteDist;
+        moveTargetY = targetEnemy.y + Math.sin(menuDemoMoveAngle) * kiteDist;
+      }
+
+      const moveDx = moveTargetX - player.x;
+      const moveDy = moveTargetY - player.y;
+      const moveDist = Math.hypot(moveDx, moveDy) || 1;
+      const moveSpeed = (stats.speed || 240) * 0.9;
+
+      if (moveDist > 10) {
+        player.x += (moveDx / moveDist) * moveSpeed * dt;
+        player.y += (moveDy / moveDist) * moveSpeed * dt;
+      }
+
+      player.x = clamp(player.x, player.r + 25, SOLO_WORLD_WIDTH - player.r - 25);
+      player.y = clamp(player.y, player.r + 25, SOLO_WORLD_HEIGHT - player.r - 25);
+
+      // 5. Обновление сущностей симуляции
+      updateBullets(dt);
+      updateEnemies(dt);
+      updateEnemyProjectiles(dt);
+      updateExperienceCrystals(dt);
+      updateParticles(dt);
+      updateFloatingTexts(dt);
+
+      if (screenShake > 0) {
+        screenShake = Math.max(0, screenShake - dt * 8);
+      }
+    }
+
     /* =========================================================================
        ЗВУКОВОЙ ДВИЖОК (WEB AUDIO API SYNTHESIZER)
        ========================================================================= */
@@ -6841,7 +6948,7 @@
 
       playShoot() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -6858,7 +6965,7 @@
 
       playBounce() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -6875,7 +6982,7 @@
 
       playHit() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -6892,7 +6999,7 @@
 
       playCatch() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         [523.25, 659.25, 783.99].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
@@ -6910,7 +7017,7 @@
 
       playExplosion() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -6927,7 +7034,7 @@
 
       playUpgrade() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         [440, 554.37, 659.25, 880].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
@@ -6945,7 +7052,7 @@
 
       playUiClick() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -13402,6 +13509,8 @@
       try {
         if (gameState === "playing") {
           update(dt);
+        } else if (gameState === "menu") {
+          updateMenuDemo(dt);
         }
       
         draw();
