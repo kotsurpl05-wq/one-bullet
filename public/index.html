@@ -6201,8 +6201,8 @@
               enemy.dashTimer -= dt;
               enemy.x += enemy.dashDx * 430 * dt;
               enemy.y += enemy.dashDy * 430 * dt;
-              enemy.x = clamp(enemy.x, enemy.r, arena.width - enemy.r);
-              enemy.y = clamp(enemy.y, enemy.r, arena.height - enemy.r);
+              enemy.x = clamp(enemy.x, enemy.r, SOLO_WORLD_WIDTH - enemy.r);
+              enemy.y = clamp(enemy.y, enemy.r, SOLO_WORLD_HEIGHT - enemy.r);
 
               if (enemy.dashTimer <= 0) {
                 enemy.dashState = "none";
