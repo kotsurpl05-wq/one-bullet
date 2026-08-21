@@ -12146,9 +12146,9 @@
       }
 
       const barWidth = Math.min(840, COOP_WORLD_WIDTH - 80);
-      const barHeight = 39;
+      const barHeight = 36;
       const x = (COOP_WORLD_WIDTH - barWidth) / 2;
-      const y = 26;
+      const y = 24;
 
       const healthRatio = clamp(boss.hp / (boss.maxHp || 1), 0, 1);
 
@@ -12185,7 +12185,7 @@
       ctx.strokeRect(x, y, barWidth, barHeight);
 
       // Label text
-      ctx.font = "900 21px Inter, system-ui, sans-serif";
+      ctx.font = "900 20px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#ffffff";
