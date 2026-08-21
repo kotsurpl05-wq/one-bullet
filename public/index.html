@@ -12146,7 +12146,7 @@
       }
 
       const barWidth = Math.min(840, COOP_WORLD_WIDTH - 80);
-      const barHeight = 26;
+      const barHeight = 39;
       const x = (COOP_WORLD_WIDTH - barWidth) / 2;
       const y = 26;
 
@@ -12185,7 +12185,7 @@
       ctx.strokeRect(x, y, barWidth, barHeight);
 
       // Label text
-      ctx.font = "900 14px Inter, system-ui, sans-serif";
+      ctx.font = "900 21px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#ffffff";
@@ -13781,7 +13781,7 @@
       }
     
       const barWidth = Math.min(680, SOLO_WORLD_WIDTH - 60);
-      const barHeight = 24;
+      const barHeight = 36;
       const x = (SOLO_WORLD_WIDTH - barWidth) / 2;
       const y = 24;
 
@@ -13820,7 +13820,7 @@
       ctx.strokeRect(x, y, barWidth, barHeight);
 
       // Label text
-      ctx.font = "900 13px Inter, system-ui, sans-serif";
+      ctx.font = "900 20px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#ffffff";
@@ -13839,17 +13839,29 @@
       if (timer <= 0) return;
 
       const progress = 1 - (timer / maxDuration);
+      const isBossWave = (currentWave > 0 && currentWave % 5 === 0);
       let alpha = 1;
       let scale = 1;
       let offsetY = 0;
+      let shakeX = 0;
 
-      if (progress < 0.2) {
-        const t = progress / 0.2;
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        const easeOut = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-        scale = 0.55 + easeOut * 0.45;
-        alpha = Math.min(1, t * 1.6);
+      if (progress < 0.15) {
+        // Punch-in with overshoot elastic ease
+        const t = progress / 0.15;
+        const overshoot = Math.sin(t * Math.PI * 2.5) * (1 - t) * 0.12;
+        scale = 0.3 + t * 0.7 + overshoot;
+        alpha = Math.min(1, t * 2.2);
+        if (isBossWave) {
+          shakeX = Math.sin(t * Math.PI * 8) * (1 - t) * 6;
+        }
+      } else if (progress < 0.25) {
+        // Settle from overshoot
+        const t = (progress - 0.15) / 0.1;
+        scale = 1 + (1 - t) * 0.04;
+        alpha = 1;
+        if (isBossWave) {
+          shakeX = Math.sin(t * Math.PI * 4) * (1 - t) * 3;
+        }
       } else if (progress > 0.75) {
         const t = (progress - 0.75) / 0.25;
         alpha = 1 - t;
@@ -13860,50 +13872,49 @@
         alpha = 1;
       }
 
-      const isBossWave = (currentWave > 0 && currentWave % 5 === 0);
       const primaryColor = isBossWave ? "#ff4f91" : "#55d8ff";
       const secondaryColor = isBossWave ? "#ff9b45" : "#7ee7ff";
       const titleText = isBossWave ? `БОСС: ВОЛНА ${currentWave}` : `ВОЛНА ${currentWave}`;
       const subtitleText = isBossWave ? "ВНИМАНИЕ: ОСОБО ОПАСНЫЙ ПРОТИВНИК" : `ПРОТИВНИКОВ: ${enemyCount}`;
 
       ctx.save();
-      ctx.translate(worldWidth / 2, worldHeight * 0.22 + offsetY);
+      ctx.translate(worldWidth / 2 + shakeX, worldHeight * 0.22 + offsetY);
       ctx.scale(scale, scale);
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      const ribbonWidth = Math.min(440, worldWidth - 60);
+      const ribbonWidth = Math.min(560, worldWidth - 60);
       const bgGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, ribbonWidth / 2);
-      bgGrad.addColorStop(0, isBossWave ? "rgba(255, 63, 143, 0.26)" : "rgba(85, 216, 255, 0.22)");
+      bgGrad.addColorStop(0, isBossWave ? "rgba(255, 63, 143, 0.32)" : "rgba(85, 216, 255, 0.26)");
       bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.fillStyle = bgGrad;
-      ctx.fillRect(-ribbonWidth / 2, -35, ribbonWidth, 70);
+      ctx.fillRect(-ribbonWidth / 2, -50, ribbonWidth, 100);
 
-      ctx.font = "900 42px Inter, system-ui, sans-serif";
+      ctx.font = "900 63px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#ffffff";
       ctx.shadowColor = primaryColor;
-      ctx.shadowBlur = isBossWave ? 28 : 22;
-      ctx.fillText(titleText, 0, -4);
+      ctx.shadowBlur = isBossWave ? 36 : 28;
+      ctx.fillText(titleText, 0, -6);
 
       ctx.strokeStyle = secondaryColor;
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 10;
+      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       const textWidth = ctx.measureText(titleText).width;
-      const wingStart = textWidth / 2 + 18;
-      const wingLen = 36;
-      ctx.moveTo(-wingStart, -4);
-      ctx.lineTo(-wingStart - wingLen, -4);
-      ctx.moveTo(wingStart, -4);
-      ctx.lineTo(wingStart + wingLen, -4);
+      const wingStart = textWidth / 2 + 22;
+      const wingLen = 48;
+      ctx.moveTo(-wingStart, -6);
+      ctx.lineTo(-wingStart - wingLen, -6);
+      ctx.moveTo(wingStart, -6);
+      ctx.lineTo(wingStart + wingLen, -6);
       ctx.stroke();
 
-      ctx.font = "700 13px Inter, system-ui, sans-serif";
+      ctx.font = "700 20px Inter, system-ui, sans-serif";
       ctx.fillStyle = secondaryColor;
       ctx.shadowColor = secondaryColor;
-      ctx.shadowBlur = 8;
-      ctx.fillText(subtitleText, 0, 32);
+      ctx.shadowBlur = 10;
+      ctx.fillText(subtitleText, 0, 42);
 
       ctx.restore();
     }
