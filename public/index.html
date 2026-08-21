@@ -6915,18 +6915,28 @@
       let forceX = 0;
       let forceY = 0;
 
-      // А. Сила отталкивания от врагов (динамический радиус в зависимости от фазы боя)
-      // При подборе патрона игрок готов аккуратно проскользнуть рядом с врагами (радиус 110px вместо 240px)
-      const enemyRepelRadius = (!hasHeldBullet && nearestGroundBullet && minBulletDist < 200) ? 90 : 160;
-      const repelBaseForce = (!hasHeldBullet && nearestGroundBullet && minBulletDist < 200) ? 260 : 380;
+      // Проверяем, заблокирован ли патрон стоящим прямо на нем врагом
+      let isBulletGuarded = false;
+      if (!hasHeldBullet && nearestGroundBullet) {
+        isBulletGuarded = enemies.some(e => e && e.hp > 0 && distance(e.x, e.y, nearestGroundBullet.x, nearestGroundBullet.y) < 70);
+      }
 
+      // А. Сила отталкивания от врагов с гарантированным буфером столкновения (Hard Body Clearance)
       for (const enemy of enemies) {
         if (!enemy || enemy.hp <= 0) continue;
         const d = distance(player.x, player.y, enemy.x, enemy.y);
-        if (d < enemyRepelRadius && d > 1) {
-          const repelMagnitude = Math.pow((enemyRepelRadius - d) / enemyRepelRadius, 1.5) * repelBaseForce;
-          forceX += ((player.x - enemy.x) / d) * repelMagnitude;
-          forceY += ((player.y - enemy.y) / d) * repelMagnitude;
+        const minBodyDistance = player.r + enemy.r + 28; // ~62px безопасной дистанции
+
+        if (d < minBodyDistance && d > 1) {
+          // Экстренное отталкивание от тела врага — никогда не врезаться!
+          const emergencyRepel = Math.pow((minBodyDistance - d) / minBodyDistance, 2) * 900;
+          forceX += ((player.x - enemy.x) / d) * emergencyRepel;
+          forceY += ((player.y - enemy.y) / d) * emergencyRepel;
+        } else if (d < 180 && d > 1) {
+          // Обычное тактическое отталкивание
+          const normalRepel = ((180 - d) / 180) * 320;
+          forceX += ((player.x - enemy.x) / d) * normalRepel;
+          forceY += ((player.y - enemy.y) / d) * normalRepel;
         }
       }
 
@@ -6938,7 +6948,7 @@
           const speed = Math.hypot(proj.vx, proj.vy) || 1;
           const perpX = -proj.vy / speed;
           const perpY = proj.vx / speed;
-          const dodgeStrength = ((160 - d) / 160) * 320;
+          const dodgeStrength = ((160 - d) / 160) * 350;
           forceX += perpX * dodgeStrength;
           forceY += perpY * dodgeStrength;
         }
@@ -6946,22 +6956,32 @@
 
       // В. Отталкивание от стен арены
       const wallBuffer = 110;
-      if (player.x < wallBuffer) forceX += (wallBuffer - player.x) * 3.0;
-      if (player.x > SOLO_WORLD_WIDTH - wallBuffer) forceX -= (player.x - (SOLO_WORLD_WIDTH - wallBuffer)) * 3.0;
-      if (player.y < wallBuffer) forceY += (wallBuffer - player.y) * 3.0;
-      if (player.y > SOLO_WORLD_HEIGHT - wallBuffer) forceY -= (player.y - (SOLO_WORLD_HEIGHT - wallBuffer)) * 3.0;
+      if (player.x < wallBuffer) forceX += (wallBuffer - player.x) * 3.5;
+      if (player.x > SOLO_WORLD_WIDTH - wallBuffer) forceX -= (player.x - (SOLO_WORLD_WIDTH - wallBuffer)) * 3.5;
+      if (player.y < wallBuffer) forceY += (wallBuffer - player.y) * 3.5;
+      if (player.y > SOLO_WORLD_HEIGHT - wallBuffer) forceY -= (player.y - (SOLO_WORLD_HEIGHT - wallBuffer)) * 3.5;
 
-      // Г. Решительное и быстрое движение к патрону (Bullet Snatch Drive)
+      // Г. Умный подбор патрона и выманивание врагов (Bait & Snatch)
       if (!hasHeldBullet && nearestGroundBullet) {
         const d = minBulletDist || 1;
-        // Высокий приоритет подбора: чем ближе патрон, тем решительнее рывок к нему
-        const pull = d < 180 ? 560 : 420;
-        forceX += ((nearestGroundBullet.x - player.x) / d) * pull;
-        forceY += ((nearestGroundBullet.y - player.y) / d) * pull;
+        if (isBulletGuarded) {
+          // Патрон накрыт врагом: выманиваем врага в сторону, кружась на безопасном расстоянии
+          if (targetEnemy) {
+            const angleToTarget = Math.atan2(player.y - targetEnemy.y, player.x - targetEnemy.x);
+            const baitAngle = angleToTarget + Math.PI * 0.4;
+            forceX += Math.cos(baitAngle) * 220;
+            forceY += Math.sin(baitAngle) * 220;
+          }
+        } else {
+          // Путь чист: решительный рывок за патроном
+          const pull = d < 160 ? 580 : 440;
+          forceX += ((nearestGroundBullet.x - player.x) / d) * pull;
+          forceY += ((nearestGroundBullet.y - player.y) / d) * pull;
 
-        if (nearestGroundBullet.state === "ground" && d <= player.r + nearestGroundBullet.r + 16) {
-          catchBullet(nearestGroundBullet);
-          menuDemoShootTimer = 0; // Мгновенный ответный выстрел после подбора!
+          if (nearestGroundBullet.state === "ground" && d <= player.r + nearestGroundBullet.r + 18) {
+            catchBullet(nearestGroundBullet);
+            menuDemoShootTimer = 0; // Мгновенный ответный выстрел после подбора!
+          }
         }
       }
 
@@ -6975,13 +6995,13 @@
       if (targetEnemy && hasHeldBullet) {
         const angleToTarget = Math.atan2(player.y - targetEnemy.y, player.x - targetEnemy.x);
         const strafeAngle = angleToTarget + (Math.PI / 2) * menuDemoStrafeDir;
-        forceX += Math.cos(strafeAngle) * 180;
-        forceY += Math.sin(strafeAngle) * 180;
+        forceX += Math.cos(strafeAngle) * 190;
+        forceY += Math.sin(strafeAngle) * 190;
 
         // Поддержание рабочей боевой дистанции ~240-300px
         if (minEnemyDist < 200) {
-          forceX += Math.cos(angleToTarget) * 220;
-          forceY += Math.sin(angleToTarget) * 220;
+          forceX += Math.cos(angleToTarget) * 240;
+          forceY += Math.sin(angleToTarget) * 240;
         } else if (minEnemyDist > 300) {
           forceX -= Math.cos(angleToTarget) * 140;
           forceY -= Math.sin(angleToTarget) * 140;
@@ -6989,7 +7009,7 @@
       }
 
       // Е. Плавная физическая интерполяция скорости игрока
-      const speedBoost = (!hasHeldBullet && minBulletDist < 180) ? 1.15 : 1.0;
+      const speedBoost = (!hasHeldBullet && !isBulletGuarded && minBulletDist < 160) ? 1.15 : 1.0;
       const maxSpeed = (stats.speed || 240) * speedBoost;
       const targetVelX = clamp(forceX, -maxSpeed, maxSpeed);
       const targetVelY = clamp(forceY, -maxSpeed, maxSpeed);
@@ -7002,6 +7022,10 @@
 
       player.x = clamp(player.x, player.r + 25, SOLO_WORLD_WIDTH - player.r - 25);
       player.y = clamp(player.y, player.r + 25, SOLO_WORLD_HEIGHT - player.r - 25);
+
+      // Сброс вспышки урона и неуязвимости
+      playerHitFlash = Math.max(0, playerHitFlash - 6 * dt);
+      player.invulnerability = Math.max(0, (player.invulnerability || 0) - dt);
 
       // 6. Обновление мира симуляции
       updateBullets(dt);
