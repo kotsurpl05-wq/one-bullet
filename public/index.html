@@ -1890,8 +1890,8 @@
 
     #overlay.fullscreen-menu-mode {
       padding: 0 !important;
-      background: radial-gradient(circle at 50% 40%, rgba(8, 16, 32, 0.65) 0%, rgba(2, 4, 10, 0.85) 100%) !important;
-      backdrop-filter: blur(3.5px) !important;
+      background: rgba(3, 7, 16, 0.42) !important;
+      backdrop-filter: blur(1px) !important;
       display: flex !important;
       flex-direction: column !important;
       align-items: center !important;
@@ -2490,7 +2490,7 @@
     </div>
   </div>
   
-  <div id="hud">
+  <div id="hud" class="hidden">
     <div class="hud-row">
       <span class="hud-label">Волна</span>
       <strong id="waveValue">1</strong>
@@ -2537,7 +2537,7 @@
 
   <aside id="playerStatsPanel" class="hidden"></aside>
 
-  <div id="help">
+  <div id="help" class="hidden">
     WASD / стрелки — движение<br>
     ЛКМ или пробел — выстрел<br>
     Подбери или поймай пулю<br>
@@ -6821,16 +6821,29 @@
         player.hp = player.maxHp;
         player.x = SOLO_WORLD_WIDTH / 2;
         player.y = SOLO_WORLD_HEIGHT / 2;
-        createParticles(player.x, player.y, "#00f2fe", 16, 200);
+        createParticles(player.x, player.y, "#00f2fe", 18, 220);
+        createRing(player.x, player.y, 40, "#00f2fe");
       }
 
-      // 2. Периодический спавн демо-врагов для динамичного боя
+      // 2. Постоянное поддержание 5-8 врагов на арене
       menuDemoSpawnTimer -= dt;
-      if (menuDemoSpawnTimer <= 0 && enemies.length < 7) {
-        const types = ["normal", "runner", "splitter", "shooter"];
+      if ((enemies.length < 5 || menuDemoSpawnTimer <= 0) && enemies.length < 8) {
+        const types = ["runner", "normal", "splitter", "shooter"];
         const randType = types[Math.floor(Math.random() * types.length)];
-        spawnEnemyFromEdge(randType);
-        menuDemoSpawnTimer = random(1.2, 2.0);
+        const side = Math.floor(Math.random() * 4);
+        let ex = random(80, SOLO_WORLD_WIDTH - 80);
+        let ey = random(80, SOLO_WORLD_HEIGHT - 80);
+        if (side === 0) ey = 60;
+        else if (side === 1) ex = SOLO_WORLD_WIDTH - 60;
+        else if (side === 2) ey = SOLO_WORLD_HEIGHT - 60;
+        else ex = 60;
+
+        const enemy = createEnemy(randType, ex, ey);
+        enemy.hasEnteredArena = true;
+        enemy.spawnDelay = 0;
+        enemy.spawnEdge = null;
+        enemies.push(enemy);
+        menuDemoSpawnTimer = random(1.0, 1.8);
       }
 
       // 3. Интеллектуальное прицеливание и стрельба демо-бота
@@ -6852,11 +6865,11 @@
 
         if (menuDemoShootTimer <= 0) {
           shoot();
-          menuDemoShootTimer = random(0.6, 1.1);
+          menuDemoShootTimer = random(0.4, 0.8);
         }
       }
 
-      // 4. Движение демо-бота (уклонение от врагов и сбор упавших пуль)
+      // 4. Движение демо-бота (сбор патронов, уклонение и кайтинг)
       let moveTargetX = SOLO_WORLD_WIDTH / 2;
       let moveTargetY = SOLO_WORLD_HEIGHT / 2;
 
@@ -6873,13 +6886,11 @@
       }
 
       if (nearestGroundBullet && player.hasBullet === 0) {
-        // Бежим подбирать патрон
         moveTargetX = nearestGroundBullet.x;
         moveTargetY = nearestGroundBullet.y;
       } else if (targetEnemy) {
-        // Кайтим врагов по кругу
-        menuDemoMoveAngle += dt * 1.5;
-        const kiteDist = 220;
+        menuDemoMoveAngle += dt * 1.8;
+        const kiteDist = 190;
         moveTargetX = targetEnemy.x + Math.cos(menuDemoMoveAngle) * kiteDist;
         moveTargetY = targetEnemy.y + Math.sin(menuDemoMoveAngle) * kiteDist;
       }
@@ -6887,17 +6898,17 @@
       const moveDx = moveTargetX - player.x;
       const moveDy = moveTargetY - player.y;
       const moveDist = Math.hypot(moveDx, moveDy) || 1;
-      const moveSpeed = (stats.speed || 240) * 0.9;
+      const moveSpeed = (stats.speed || 240) * 1.05;
 
-      if (moveDist > 10) {
+      if (moveDist > 8) {
         player.x += (moveDx / moveDist) * moveSpeed * dt;
         player.y += (moveDy / moveDist) * moveSpeed * dt;
       }
 
-      player.x = clamp(player.x, player.r + 25, SOLO_WORLD_WIDTH - player.r - 25);
-      player.y = clamp(player.y, player.r + 25, SOLO_WORLD_HEIGHT - player.r - 25);
+      player.x = clamp(player.x, player.r + 20, SOLO_WORLD_WIDTH - player.r - 20);
+      player.y = clamp(player.y, player.r + 20, SOLO_WORLD_HEIGHT - player.r - 20);
 
-      // 5. Обновление сущностей симуляции
+      // 5. Физика и эффекты симуляции
       updateBullets(dt);
       updateEnemies(dt);
       updateEnemyProjectiles(dt);
@@ -7211,19 +7222,41 @@
     function showMainMenu() {
       hidePauseMenu();
       hideUpgradeTooltip();
+      if (typeof hideLiveStats === "function") hideLiveStats();
+
+      // Скрываем игровые HUD элементы в главном меню
+      document.querySelector("#hud")?.classList.add("hidden");
+      document.querySelector("#help")?.classList.add("hidden");
+      document.querySelector("#coopStatusPanel")?.classList.add("hidden");
+      document.querySelector("#playerStatsPanel")?.classList.add("hidden");
     
       gameState = "menu";
       runMode = "solo";
       keys.clear();
     
+      overlay.classList.add("fullscreen-menu-mode");
+      overlay.classList.remove("hidden");
+      resetEntities();
+
+      // Сразу создаем динамичную арену с несколькими врагами для красивого фона
       enemies.length = 0;
       enemyProjectiles.length = 0;
       experienceCrystals.length = 0;
       particles.length = 0;
-    
-      overlay.classList.add("fullscreen-menu-mode");
-      overlay.classList.remove("hidden");
-      resetEntities();
+
+      const initialEnemyTypes = ["runner", "normal", "splitter", "runner", "shooter", "normal"];
+      for (let i = 0; i < initialEnemyTypes.length; i++) {
+        const type = initialEnemyTypes[i];
+        const angle = (i / initialEnemyTypes.length) * Math.PI * 2;
+        const dist = random(220, 360);
+        const ex = clamp(SOLO_WORLD_WIDTH / 2 + Math.cos(angle) * dist, 60, SOLO_WORLD_WIDTH - 60);
+        const ey = clamp(SOLO_WORLD_HEIGHT / 2 + Math.sin(angle) * dist, 60, SOLO_WORLD_HEIGHT - 60);
+        const enemy = createEnemy(type, ex, ey);
+        enemy.hasEnteredArena = true;
+        enemy.spawnDelay = 0;
+        enemy.spawnEdge = null;
+        enemies.push(enemy);
+      }
     
       panel.innerHTML = `
         <div class="main-menu-fullscreen">
