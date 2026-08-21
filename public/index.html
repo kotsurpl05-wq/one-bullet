@@ -7470,12 +7470,12 @@
 
     function showSettingsMenu() {
       panel.innerHTML = `
-        <div class="cyber-modal-container">
+        <div class="cyber-modal-container" style="max-width: 920px;">
           <div class="cyber-modal-header">
             <div class="cyber-modal-icon">⚙️</div>
             <div>
-              <h2 class="cyber-modal-title">Настройки игры</h2>
-              <div class="cyber-modal-subtitle">Параметры звука, управления и графики</div>
+              <h2 class="cyber-modal-title">Настройки игры // Параметры</h2>
+              <div class="cyber-modal-subtitle">Конфигурация звука, чувствительности мыши и визуальных эффектов</div>
             </div>
           </div>
 
@@ -7537,9 +7537,16 @@
             </div>
           </div>
 
-          <div class="network-actions" style="margin-top: 24px;">
-            <button type="button" class="secondary-button" id="settingsResetBtn">По умолчанию</button>
-            <button type="button" class="action-button" id="settingsSaveBtn" style="margin:0;">Сохранить и закрыть</button>
+          <div class="network-actions" style="margin-top: 28px; gap: 14px;">
+            <button type="button" class="secondary-button" id="settingsBackBtn" style="min-width: 150px;">
+              ← Назад в меню
+            </button>
+            <button type="button" class="secondary-button" id="settingsResetBtn" style="min-width: 150px;">
+              ↺ По умолчанию
+            </button>
+            <button type="button" class="action-button" id="settingsSaveBtn" style="min-width: 210px; margin: 0;">
+              ✓ Сохранить и закрыть
+            </button>
           </div>
         </div>
       `;
@@ -7550,6 +7557,7 @@
       const sensRange = panel.querySelector("#settingSensitivity");
       const sensVal = panel.querySelector("#settingSensVal");
       const shakeBtn = panel.querySelector("#settingShakeToggle");
+      const backBtn = panel.querySelector("#settingsBackBtn");
       const resetBtn = panel.querySelector("#settingsResetBtn");
       const saveBtn = panel.querySelector("#settingsSaveBtn");
 
@@ -7587,6 +7595,11 @@
         soundManager.playUiClick();
       };
 
+      backBtn.onclick = () => {
+        soundManager.playUiClick();
+        showMainMenu();
+      };
+
       resetBtn.onclick = () => {
         gameSettings = { volume: 0.7, mute: false, sensitivity: 1.0, screenShake: true };
         saveGameSettings();
@@ -7602,12 +7615,12 @@
 
     function showGuideMenu() {
       panel.innerHTML = `
-        <div class="cyber-modal-container">
+        <div class="cyber-modal-container" style="max-width: 920px;">
           <div class="cyber-modal-header">
             <div class="cyber-modal-icon">📖</div>
             <div>
-              <h2 class="cyber-modal-title">База знаний // Как играть</h2>
-              <div class="cyber-modal-subtitle">Ключевые механики и тактика выживания</div>
+              <h2 class="cyber-modal-title">База знаний // Руководство выживания</h2>
+              <div class="cyber-modal-subtitle">Ключевые механики, рикошеты, поведение боссов и тактика боя</div>
             </div>
           </div>
 
@@ -7645,11 +7658,24 @@
             </div>
           </div>
 
-          <div class="network-actions" style="margin-top: 24px;">
-            <button type="button" class="action-button" id="guideCloseBtn" style="margin:0 auto;">Понятно, в бой!</button>
+          <div class="network-actions" style="margin-top: 28px; gap: 14px;">
+            <button type="button" class="secondary-button" id="guideBackBtn" style="min-width: 150px;">
+              ← Назад в меню
+            </button>
+            <button type="button" class="action-button" id="guideCloseBtn" style="min-width: 220px; margin: 0;">
+              ✓ Всё понятно, в бой!
+            </button>
           </div>
         </div>
       `;
+
+      const backBtn = panel.querySelector("#guideBackBtn");
+      if (backBtn) {
+        backBtn.onclick = () => {
+          soundManager.playUiClick();
+          showMainMenu();
+        };
+      }
 
       const closeBtn = panel.querySelector("#guideCloseBtn");
       if (closeBtn) {
@@ -7695,21 +7721,21 @@
               .join("")}
           </div>
         
-          <div class="network-actions" style="margin-top: 32px; gap: 16px;">
+          <div class="network-actions" style="margin-top: 28px; gap: 14px;">
             <button
               type="button"
               class="secondary-button"
               data-action="main-menu"
-              style="min-width: 140px;"
+              style="min-width: 150px;"
             >
-              ← В главное меню
+              ← Назад в меню
             </button>
           
             <button
               type="button"
               class="action-button"
               data-action="start-solo"
-              style="min-width: 240px; margin: 0;"
+              style="min-width: 220px; margin: 0;"
             >
               🚀 Начать рейд
             </button>
@@ -7763,75 +7789,84 @@
       runMode = "coop";
     
       panel.innerHTML = `
-        <h1>Сетевая игра</h1>
-    
-        <p>
-          Создайте новую комнату или введите
-          код комнаты вашего друга.
-        </p>
-      
-        <div class="network-form">
-          <div class="network-field">
-            <label for="networkPlayerName">
-              ИМЯ ИГРОКА
-            </label>
-          
-            <input
-              id="networkPlayerName"
-              class="network-input"
-              type="text"
-              maxlength="18"
-              autocomplete="nickname"
-              value="${escapeHtml(playerName)}"
-            >
+        <div class="cyber-modal-container" style="max-width: 920px;">
+          <div class="cyber-modal-header">
+            <div class="cyber-modal-icon">👥</div>
+            <div>
+              <h2 class="cyber-modal-title">Совместный режим // Онлайн Кооп 2P</h2>
+              <div class="cyber-modal-subtitle">Создайте приватную комнату или присоединитесь к напарнику по 5-значному коду</div>
+            </div>
           </div>
-        
-          <div class="network-field">
-            <label for="networkRoomCode">
-              КОД КОМНАТЫ
-            </label>
+
+          <div class="network-form" style="width: 100%; max-width: 680px; margin: 12px auto 0;">
+            <div class="network-field">
+              <label for="networkPlayerName">
+                ПОЗЫВНОЙ ИГРОКА
+              </label>
+            
+              <input
+                id="networkPlayerName"
+                class="network-input"
+                type="text"
+                maxlength="18"
+                autocomplete="nickname"
+                value="${escapeHtml(playerName)}"
+                placeholder="Введите ваш ник"
+              >
+            </div>
           
-            <input
-              id="networkRoomCode"
-              class="network-input room-code-input"
-              type="text"
-              maxlength="5"
-              autocomplete="off"
-              placeholder="ABCDE"
-            >
-          </div>
-        
-          <div class="network-actions">
-            <button
-              type="button"
-              class="secondary-button"
-              data-network-action="back"
-            >
-              Назад
-            </button>
+            <div class="network-field">
+              <label for="networkRoomCode">
+                5-ЗНАЧНЫЙ КОД КОМНАТЫ
+              </label>
+            
+              <input
+                id="networkRoomCode"
+                class="network-input room-code-input"
+                type="text"
+                maxlength="5"
+                autocomplete="off"
+                placeholder="ABCDE"
+              >
+            </div>
           
-            <button
-              type="button"
-              class="secondary-button"
-              data-network-action="join"
-            >
-              Войти по коду
-            </button>
+            <div class="network-actions" style="margin-top: 28px; gap: 14px;">
+              <button
+                type="button"
+                class="secondary-button"
+                data-network-action="back"
+                style="min-width: 150px;"
+              >
+                ← Назад в меню
+              </button>
+            
+              <button
+                type="button"
+                class="secondary-button"
+                data-network-action="join"
+                style="min-width: 170px;"
+              >
+                🔑 Войти по коду
+              </button>
+            
+              <button
+                type="button"
+                class="action-button"
+                data-network-action="create"
+                style="min-width: 210px; margin: 0;"
+              >
+                🚀 Создать комнату
+              </button>
+            </div>
           
-            <button
-              type="button"
-              class="action-button"
-              data-network-action="create"
-            >
-              Создать комнату
-            </button>
+            <div id="networkMessageContainer" style="margin-top: 18px;">
+              ${getNetworkMessageHtml()}
+            </div>
+          
+            <div style="margin-top: 14px; text-align: center;">
+              ${getConnectionIndicatorHtml()}
+            </div>
           </div>
-        
-          <div id="networkMessageContainer">
-            ${getNetworkMessageHtml()}
-          </div>
-        
-          ${getConnectionIndicatorHtml()}
         </div>
       `;
       
