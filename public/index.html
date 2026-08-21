@@ -3807,7 +3807,7 @@
     }
 
     function shoot() {
-      if (gameState !== "playing") {
+      if (gameState !== "playing" && gameState !== "menu") {
         return;
       }
     
@@ -4175,7 +4175,7 @@
     function damagePlayer(amount) {
       if (
         player.invulnerability > 0 ||
-        gameState !== "playing"
+        (gameState !== "playing" && gameState !== "menu")
       ) {
         return false;
       }
@@ -4215,7 +4215,13 @@
       updateHud();
     
       if (player.hp <= 0) {
-        endGame();
+        if (gameState === "menu") {
+          player.hp = player.maxHp;
+          createParticles(player.x, player.y, "#00f2fe", 20, 240);
+          createRing(player.x, player.y, 44, "#00f2fe");
+        } else {
+          endGame();
+        }
       }
     
       return true;
@@ -6812,7 +6818,7 @@
     let menuDemoMoveAngle = 0;
 
     function updateMenuDemo(dt) {
-      if (!player) {
+      if (!player || !bullets.length) {
         resetEntities();
       }
 
@@ -6831,12 +6837,12 @@
         const types = ["runner", "normal", "splitter", "shooter"];
         const randType = types[Math.floor(Math.random() * types.length)];
         const side = Math.floor(Math.random() * 4);
-        let ex = random(80, SOLO_WORLD_WIDTH - 80);
-        let ey = random(80, SOLO_WORLD_HEIGHT - 80);
-        if (side === 0) ey = 60;
-        else if (side === 1) ex = SOLO_WORLD_WIDTH - 60;
-        else if (side === 2) ey = SOLO_WORLD_HEIGHT - 60;
-        else ex = 60;
+        let ex = random(90, SOLO_WORLD_WIDTH - 90);
+        let ey = random(90, SOLO_WORLD_HEIGHT - 90);
+        if (side === 0) ey = 70;
+        else if (side === 1) ex = SOLO_WORLD_WIDTH - 70;
+        else if (side === 2) ey = SOLO_WORLD_HEIGHT - 70;
+        else ex = 70;
 
         const enemy = createEnemy(randType, ex, ey);
         enemy.hasEnteredArena = true;
@@ -6846,7 +6852,10 @@
         menuDemoSpawnTimer = random(1.0, 1.8);
       }
 
-      // 3. Интеллектуальное прицеливание и стрельба демо-бота
+      // 3. Проверка наличия патрона в руках
+      const hasHeldBullet = bullets.some(b => b.state === "held");
+
+      // Поиск ближайшего живого врага
       let targetEnemy = null;
       let minEnemyDist = Infinity;
       for (const enemy of enemies) {
@@ -6858,25 +6867,26 @@
         }
       }
 
+      // 4. Прицеливание и стрельба демо-бота
       menuDemoShootTimer -= dt;
-      if (targetEnemy && player.hasBullet > 0) {
+      if (targetEnemy && hasHeldBullet) {
         pointer.x = targetEnemy.x;
         pointer.y = targetEnemy.y;
 
         if (menuDemoShootTimer <= 0) {
           shoot();
-          menuDemoShootTimer = random(0.4, 0.8);
+          menuDemoShootTimer = random(0.35, 0.7);
         }
       }
 
-      // 4. Движение демо-бота (сбор патронов, уклонение и кайтинг)
+      // 5. Движение демо-бота (подбор патронов, уклонение и перемещение по арене)
       let moveTargetX = SOLO_WORLD_WIDTH / 2;
       let moveTargetY = SOLO_WORLD_HEIGHT / 2;
 
       let nearestGroundBullet = null;
       let minBulletDist = Infinity;
       for (const bullet of bullets) {
-        if (bullet.state === "ground") {
+        if (bullet.state === "ground" || bullet.state === "flying") {
           const d = distance(player.x, player.y, bullet.x, bullet.y);
           if (d < minBulletDist) {
             minBulletDist = d;
@@ -6885,12 +6895,15 @@
         }
       }
 
-      if (nearestGroundBullet && player.hasBullet === 0) {
+      if (nearestGroundBullet && !hasHeldBullet) {
         moveTargetX = nearestGroundBullet.x;
         moveTargetY = nearestGroundBullet.y;
+        if (nearestGroundBullet.state === "ground" && minBulletDist <= player.r + nearestGroundBullet.r + 14) {
+          catchBullet(nearestGroundBullet);
+        }
       } else if (targetEnemy) {
-        menuDemoMoveAngle += dt * 1.8;
-        const kiteDist = 190;
+        menuDemoMoveAngle += dt * 1.5;
+        const kiteDist = 200;
         moveTargetX = targetEnemy.x + Math.cos(menuDemoMoveAngle) * kiteDist;
         moveTargetY = targetEnemy.y + Math.sin(menuDemoMoveAngle) * kiteDist;
       }
@@ -6898,17 +6911,17 @@
       const moveDx = moveTargetX - player.x;
       const moveDy = moveTargetY - player.y;
       const moveDist = Math.hypot(moveDx, moveDy) || 1;
-      const moveSpeed = (stats.speed || 240) * 1.05;
+      const moveSpeed = (stats.speed || 240) * 1.1;
 
-      if (moveDist > 8) {
+      if (moveDist > 6) {
         player.x += (moveDx / moveDist) * moveSpeed * dt;
         player.y += (moveDy / moveDist) * moveSpeed * dt;
       }
 
-      player.x = clamp(player.x, player.r + 20, SOLO_WORLD_WIDTH - player.r - 20);
-      player.y = clamp(player.y, player.r + 20, SOLO_WORLD_HEIGHT - player.r - 20);
+      player.x = clamp(player.x, player.r + 25, SOLO_WORLD_WIDTH - player.r - 25);
+      player.y = clamp(player.y, player.r + 25, SOLO_WORLD_HEIGHT - player.r - 25);
 
-      // 5. Физика и эффекты симуляции
+      // 6. Физика и эффекты симуляции
       updateBullets(dt);
       updateEnemies(dt);
       updateEnemyProjectiles(dt);
