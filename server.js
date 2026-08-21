@@ -295,10 +295,10 @@ function getServerExperienceRequirement(level) {
     level - 1
   );
 
-  return (
-    10 +
-    progression * 4 +
-    Math.floor(progression / 5) * 5
+  return Math.floor(
+    (10 +
+      progression * 4 +
+      Math.floor(progression / 5) * 5) * 0.8
   );
 }
 

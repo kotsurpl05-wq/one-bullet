@@ -42,13 +42,16 @@ runHarness("Repeated Determinism Benchmark (20 Iterations)", () => {
   const times = [];
   for (let i = 1; i <= 20; i++) {
     const t0 = Date.now();
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
     const out = execSync("node --test test/visuals_contract_r5.test.js test/e2e_integration.test.js", {
       encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"]
+      stdio: ["pipe", "pipe", "pipe"],
+      env
     });
     const dur = Date.now() - t0;
     times.push(dur);
-    assert.ok(out.includes("pass 43"), `Run ${i} must pass all 43 tests`);
+    assert.ok(out.includes("pass 58"), `Run ${i} must pass all 58 tests`);
     assert.ok(!out.includes("fail [^0]"), `Run ${i} must have 0 fails`);
   }
   const avg = times.reduce((a, b) => a + b, 0) / times.length;

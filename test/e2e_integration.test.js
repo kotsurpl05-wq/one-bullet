@@ -47,21 +47,21 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
   });
 
   await t.test("Tier 1.2: Smoothed stepped XP curve requirement calculation", () => {
-    // Formula: 10 + progression * 4 + Math.floor(progression / 5) * 5
+    // Formula: floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8)
     function getSmoothedXpRequirement(level) {
       const progression = Math.max(0, level - 1);
-      return 10 + progression * 4 + Math.floor(progression / 5) * 5;
+      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8);
     }
 
     const expectedXp = [
-      { level: 1, req: 10 },
-      { level: 2, req: 14 },
-      { level: 5, req: 26 },
-      { level: 6, req: 35 }, // progression = 5 -> floor(5/5)*5 = 5 step
-      { level: 10, req: 51 },
-      { level: 11, req: 60 }, // progression = 10 -> floor(10/5)*5 = 10 step
-      { level: 20, req: 101 },
-      { level: 30, req: 151 }
+      { level: 1, req: 8 },
+      { level: 2, req: 11 },
+      { level: 5, req: 20 },
+      { level: 6, req: 28 }, // progression = 5 -> floor(5/5)*5 = 5 step
+      { level: 10, req: 40 },
+      { level: 11, req: 48 }, // progression = 10 -> floor(10/5)*5 = 10 step
+      { level: 20, req: 80 },
+      { level: 30, req: 120 }
     ];
 
     for (const exp of expectedXp) {
@@ -548,7 +548,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     const { room, world, player1, player2 } = createTestWorld(ctx);
     world.level = 1;
     world.experience = 0;
-    world.experienceToNext = 10;
+    world.experienceToNext = 8;
     world.pendingLevelUps = 0;
     world.upgradePaused = false;
 
@@ -559,7 +559,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
       world.level = 2;
       world.pendingLevelUps = 1;
       world.upgradePaused = true;
-      world.experienceToNext = 14;
+      world.experienceToNext = 11;
     }
 
     assert.equal(world.level, 2);

@@ -217,26 +217,26 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   // =========================================================================
   // 6. SMOOTHED STEPPED XP CURVE (Item 7)
   // =========================================================================
-  await t.test("6.1 Stepped XP formula: 10 + progression * 4 + Math.floor(progression / 5) * 5", () => {
+  await t.test("6.1 Stepped XP formula: floor((10 + progression * 4 + floor(progression / 5) * 5) * 0.8)", () => {
     function expectedXp(lvl) {
       const progression = Math.max(0, lvl - 1);
-      return 10 + progression * 4 + Math.floor(progression / 5) * 5;
+      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8);
     }
 
     const testLevels = [
-      { level: 1, expected: 10 },
-      { level: 2, expected: 14 },
-      { level: 3, expected: 18 },
-      { level: 4, expected: 22 },
-      { level: 5, expected: 26 },
-      { level: 6, expected: 35 },   // +5 Step at progression 5
-      { level: 7, expected: 39 },
-      { level: 10, expected: 51 },
-      { level: 11, expected: 60 },  // +5 Step at progression 10
-      { level: 15, expected: 76 },
-      { level: 16, expected: 85 },  // +5 Step at progression 15
-      { level: 20, expected: 101 },
-      { level: 21, expected: 110 }  // +5 Step at progression 20
+      { level: 1, expected: 8 },
+      { level: 2, expected: 11 },
+      { level: 3, expected: 14 },
+      { level: 4, expected: 17 },
+      { level: 5, expected: 20 },
+      { level: 6, expected: 28 },   // +5 Step at progression 5
+      { level: 7, expected: 31 },
+      { level: 10, expected: 40 },
+      { level: 11, expected: 48 },  // +5 Step at progression 10
+      { level: 15, expected: 60 },
+      { level: 16, expected: 68 },  // +5 Step at progression 15
+      { level: 20, expected: 80 },
+      { level: 21, expected: 88 }  // +5 Step at progression 20
     ];
 
     for (const item of testLevels) {

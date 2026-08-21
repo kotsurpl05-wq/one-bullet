@@ -15,7 +15,7 @@
 | 4 | Second Bullet Rare Rarity | `second-bullet` upgrade fixed rarity changed from `"common"` to `"rare"`. | M1 | ORIGINAL_REQUEST §R1 |
 | 5 | Critical Mechanism Rebalance | Critical chance bonus set to +18% per common power (`0.18 * power`), crit multiplier set to 2.5x. | M1 | ORIGINAL_REQUEST §R1 |
 | 6 | Magnetic Field Consolidation | Merge `pickup` and `recall-magnet` into «Магнитное поле» (`magnetic-field` / `pickup`). | M1 | ORIGINAL_REQUEST §R1 |
-| 7 | Smoothed Stepped XP Curve | XP curve formula `10 + progression * 4 + Math.floor(progression / 5) * 5` where `progression = level - 1`. | M1 | ORIGINAL_REQUEST §R1 |
+| 7 | Smoothed Stepped XP Curve | XP curve formula `Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8)` where `progression = level - 1`. | M1 | ORIGINAL_REQUEST §R1 |
 | 8 | Manual Revive Beacon Spawn | Teammate death leaves a beacon at death coordinates in co-op. | M2 | ORIGINAL_REQUEST §R2 |
 | 9 | 3s Proximity Revive Mechanic | Living player within beacon radius (70-75px) for 3.0s revives partner with 30% HP and 1.5s invulnerability. | M2 | ORIGINAL_REQUEST §R2 |
 | 10 | Revive Visuals & HUD Sync | Pulsing beacon in arena, circular revive progress ring, and teammate HUD indicator synced to both players. | M2 | ORIGINAL_REQUEST §R2 |

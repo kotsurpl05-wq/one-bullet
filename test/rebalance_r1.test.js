@@ -146,23 +146,23 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
   });
 
   await t.test("Tier 1 - Unit 7: Smoothed Stepped XP Curve Formula", () => {
-    // Formula: 10 + progression * 4 + Math.floor(progression / 5) * 5 where progression = level - 1
+    // Formula: floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8) where progression = level - 1
     function expectedXp(lvl) {
       const progression = Math.max(0, lvl - 1);
-      return 10 + progression * 4 + Math.floor(progression / 5) * 5;
+      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8);
     }
 
     const testLevels = [
-      { level: 1, expected: 10 },
-      { level: 2, expected: 14 },
-      { level: 3, expected: 18 },
-      { level: 4, expected: 22 },
-      { level: 5, expected: 26 },
-      { level: 6, expected: 35 },  // Step transition at progression = 5
-      { level: 7, expected: 39 },
-      { level: 11, expected: 60 }, // Step transition at progression = 10
-      { level: 16, expected: 85 }, // Step transition at progression = 15
-      { level: 21, expected: 110 } // Step transition at progression = 20
+      { level: 1, expected: 8 },
+      { level: 2, expected: 11 },
+      { level: 3, expected: 14 },
+      { level: 4, expected: 17 },
+      { level: 5, expected: 20 },
+      { level: 6, expected: 28 },  // Step transition at progression = 5
+      { level: 7, expected: 31 },
+      { level: 11, expected: 48 }, // Step transition at progression = 10
+      { level: 16, expected: 68 }, // Step transition at progression = 15
+      { level: 21, expected: 88 } // Step transition at progression = 20
     ];
 
     for (const testCase of testLevels) {
@@ -224,13 +224,13 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     // Level 0 / 1 edge cases
     const reqLevel0 = ctx.getServerExperienceRequirement(0);
     const reqLevel1 = ctx.getServerExperienceRequirement(1);
-    assert.ok(reqLevel0 >= 10, "Level 0 progression should clamp to 0 progression (req >= 10)");
-    assert.equal(reqLevel1, 10, "Level 1 requirement must be 10");
+    assert.ok(reqLevel0 >= 8, "Level 0 progression should clamp to 0 progression (req >= 8)");
+    assert.equal(reqLevel1, 8, "Level 1 requirement must be 8");
 
     // Extreme level 100
     const reqLevel100 = ctx.getServerExperienceRequirement(100);
-    // progression = 99 -> 10 + 99*4 + Math.floor(99/5)*5 = 10 + 396 + 19*5 = 501
-    assert.equal(reqLevel100, 501, "Level 100 XP requirement should be 501");
+    // progression = 99 -> floor((10 + 99*4 + floor(99/5)*5) * 0.8) = floor(501 * 0.8) = 400
+    assert.equal(reqLevel100, 400, "Level 100 XP requirement should be 400");
     assert.ok(Number.isFinite(reqLevel100), "XP requirement at high level must be a finite number");
   });
 
@@ -354,7 +354,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     world.wave = 5;
     world.level = 1;
     world.experience = 0;
-    world.experienceToNext = ctx.getServerExperienceRequirement(1); // 10
+    world.experienceToNext = ctx.getServerExperienceRequirement(1); // 8
 
     const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
     world.enemies.set(boss.id, boss);
@@ -367,13 +367,13 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     if (world.experience >= world.experienceToNext) {
       world.experience -= world.experienceToNext;
       world.level += 1;
-      world.experienceToNext = ctx.getServerExperienceRequirement(world.level); // Level 2: 14
+      world.experienceToNext = ctx.getServerExperienceRequirement(world.level); // Level 2: 11
       world.pendingLevelUps = (world.pendingLevelUps || 0) + 1;
     }
 
     assert.equal(world.level, 2, "World level should advance to 2");
-    assert.equal(world.experience, 0, "Remaining XP should be 0");
-    assert.equal(world.experienceToNext, 14, "Level 2 requirement should be 14");
+    assert.equal(world.experience, 2, "Remaining XP should be 2");
+    assert.equal(world.experienceToNext, 11, "Level 2 requirement should be 11");
     assert.equal(world.pendingLevelUps, 1, "Should have 1 pending level up");
 
     // Generate upgrade offers for player at new level

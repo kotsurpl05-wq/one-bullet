@@ -158,7 +158,7 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
   await t.test("Focus 2.1: Stepped XP Curve Mathematical Invariants (Levels 1 to 100)", () => {
     function oracleXpRequirement(level) {
       const progression = Math.max(0, level - 1);
-      return 10 + progression * 4 + Math.floor(progression / 5) * 5;
+      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8);
     }
 
     let previousReq = 0;
@@ -189,48 +189,32 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     }
   });
 
-  await t.test("Focus 2.2: Exact Step Jump Verification (5-level periodic step of +5)", () => {
-    for (let lvl = 1; lvl < 100; lvl++) {
-      const currentReq = ctx.getServerExperienceRequirement(lvl);
-      const nextReq = ctx.getServerExperienceRequirement(lvl + 1);
-      const delta = nextReq - currentReq;
-
-      // Progression step occurs when progression transitions from (5k - 1) to 5k
-      // progression = lvl - 1. So when (lvl - 1) % 5 === 4 (i.e. lvl % 5 === 0):
-      // Level 5 -> 6 (progression 4 -> 5): delta = 35 - 26 = 9 (+4 base + 5 step)
-      // Level 10 -> 11 (progression 9 -> 10): delta = 60 - 51 = 9
-      // Level 15 -> 16 (progression 14 -> 15): delta = 85 - 76 = 9
-      // Level 20 -> 21 (progression 19 -> 20): delta = 110 - 101 = 9
-      // For all other levels: delta = 4
-      if (lvl % 5 === 0) {
-        assert.equal(
-          delta,
-          9,
-          `Level ${lvl}->${lvl + 1} step jump mismatch: expected delta 9 (4 base + 5 step), got ${delta}`
-        );
-      } else {
-        assert.equal(
-          delta,
-          4,
-          `Level ${lvl}->${lvl + 1} linear progression mismatch: expected delta 4, got ${delta}`
-        );
-      }
+  await t.test("Focus 2.2: Strict Monotonicity Verification (every level requires strictly more XP)", () => {
+    let prevReq = ctx.getServerExperienceRequirement(1);
+    for (let lvl = 2; lvl <= 100; lvl++) {
+      const req = ctx.getServerExperienceRequirement(lvl);
+      assert.ok(
+        req > prevReq,
+        `Strict monotonicity violated at level ${lvl}: ${req} <= ${prevReq}`
+      );
+      assert.ok(Number.isInteger(req), `Level ${lvl} requirement must be integer`);
+      prevReq = req;
     }
   });
 
   await t.test("Focus 2.3: XP Requirement Boundary & Defensive Robustness (Negative, 0, Non-Integer)", () => {
     // Level 1 baseline
-    assert.equal(ctx.getServerExperienceRequirement(1), 10);
+    assert.equal(ctx.getServerExperienceRequirement(1), 8);
 
     // Negative / 0 boundary checks
-    assert.equal(ctx.getServerExperienceRequirement(0), 10, "Level 0 should clamp progression to 0 (req 10)");
-    assert.equal(ctx.getServerExperienceRequirement(-1), 10, "Negative level -1 should clamp to req 10");
-    assert.equal(ctx.getServerExperienceRequirement(-99), 10, "Extreme negative level should clamp to req 10");
+    assert.equal(ctx.getServerExperienceRequirement(0), 8, "Level 0 should clamp progression to 0 (req 8)");
+    assert.equal(ctx.getServerExperienceRequirement(-1), 8, "Negative level -1 should clamp to req 8");
+    assert.equal(ctx.getServerExperienceRequirement(-99), 8, "Extreme negative level should clamp to req 8");
 
     // Float level test
     const floatReq = ctx.getServerExperienceRequirement(1.5);
     assert.ok(Number.isFinite(floatReq), "Float level should produce finite number");
-    assert.equal(floatReq, 12, "progression 0.5 -> 10 + 0.5*4 + 0 = 12");
+    assert.equal(floatReq, 9, "progression 0.5 -> floor((10 + 0.5*4 + 0) * 0.8) = floor(9.6) = 9");
   });
 
   await t.test("Focus 2.4: Client-Server XP Curve Parity Audit Across All 100 Levels", () => {
@@ -564,8 +548,8 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
 
     assert.equal(totalBossesDefeated, 20, "Must defeat exactly 20 bosses across 100 waves");
     assert.equal(totalXpCollected, 1540, "Total XP collected across 100 waves must be 1540");
-    assert.equal(world.level, 24, "World level after 1540 total XP must be exactly 24");
-    assert.equal(world.experience, 88, "Remaining XP towards level 25 must be exactly 88");
-    assert.equal(world.experienceToNext, 122, "Level 24 XP requirement to reach 25 must be 122");
+    assert.equal(world.level, 27, "World level after 1540 total XP must be exactly 27");
+    assert.equal(world.experience, 82, "Remaining XP towards level 28 must be exactly 82");
+    assert.equal(world.experienceToNext, 111, "Level 27 XP requirement to reach 28 must be 111");
   });
 });
