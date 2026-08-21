@@ -3197,6 +3197,12 @@
       overlay.classList.add("hidden");
       overlay.classList.remove("fullscreen-menu-mode");
       panel.onclick = null;
+
+      /*
+       * Показываем игровые HUD-элементы, скрытые в меню.
+       */
+      document.querySelector("#hud")?.classList.remove("hidden");
+      document.querySelector("#help")?.classList.remove("hidden");
     
       resetEntities();
       spawnWave();
