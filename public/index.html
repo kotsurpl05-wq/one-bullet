@@ -4689,15 +4689,18 @@
         let hitHorizontal = false;
         let hitVertical = false;
       
+        const currentWorldW = gameState === "menu" ? width : SOLO_WORLD_WIDTH;
+        const currentWorldH = gameState === "menu" ? height : SOLO_WORLD_HEIGHT;
+
         if (bullet.x <= bullet.r) {
           bullet.x = bullet.r;
           hitHorizontal = true;
         } else if (
           bullet.x >=
-          SOLO_WORLD_WIDTH - bullet.r
+          currentWorldW - bullet.r
         ) {
           bullet.x =
-            SOLO_WORLD_WIDTH - bullet.r;
+            currentWorldW - bullet.r;
         
           hitHorizontal = true;
         }
@@ -4705,8 +4708,8 @@
         if (bullet.y <= bullet.r) {
           bullet.y = bullet.r;
           hitVertical = true;
-        } else if (bullet.y >= SOLO_WORLD_HEIGHT - bullet.r) {
-          bullet.y = SOLO_WORLD_HEIGHT - bullet.r;
+        } else if (bullet.y >= currentWorldH - bullet.r) {
+          bullet.y = currentWorldH - bullet.r;
           hitVertical = true;
         }
       
@@ -6848,11 +6851,13 @@
         const types = ["runner", "normal", "splitter", "shooter"];
         const randType = types[Math.floor(Math.random() * types.length)];
         const side = Math.floor(Math.random() * 4);
-        let ex = random(120, SOLO_WORLD_WIDTH - 120);
-        let ey = random(120, SOLO_WORLD_HEIGHT - 120);
+        const curW = width || SOLO_WORLD_WIDTH;
+        const curH = height || SOLO_WORLD_HEIGHT;
+        let ex = random(120, curW - 120);
+        let ey = random(120, curH - 120);
         if (side === 0) ey = 70;
-        else if (side === 1) ex = SOLO_WORLD_WIDTH - 70;
-        else if (side === 2) ey = SOLO_WORLD_HEIGHT - 70;
+        else if (side === 1) ex = curW - 70;
+        else if (side === 2) ey = curH - 70;
         else ex = 70;
 
         const enemy = createEnemy(randType, ex, ey);
@@ -6955,11 +6960,13 @@
       }
 
       // В. Отталкивание от стен арены
+      const curW = width || SOLO_WORLD_WIDTH;
+      const curH = height || SOLO_WORLD_HEIGHT;
       const wallBuffer = 110;
       if (player.x < wallBuffer) forceX += (wallBuffer - player.x) * 3.5;
-      if (player.x > SOLO_WORLD_WIDTH - wallBuffer) forceX -= (player.x - (SOLO_WORLD_WIDTH - wallBuffer)) * 3.5;
+      if (player.x > curW - wallBuffer) forceX -= (player.x - (curW - wallBuffer)) * 3.5;
       if (player.y < wallBuffer) forceY += (wallBuffer - player.y) * 3.5;
-      if (player.y > SOLO_WORLD_HEIGHT - wallBuffer) forceY -= (player.y - (SOLO_WORLD_HEIGHT - wallBuffer)) * 3.5;
+      if (player.y > curH - wallBuffer) forceY -= (player.y - (curH - wallBuffer)) * 3.5;
 
       // Г. Умный подбор патрона и выманивание врагов (Bait & Snatch)
       if (!hasHeldBullet && nearestGroundBullet) {
@@ -7020,8 +7027,8 @@
       player.x += menuDemoVelX * dt;
       player.y += menuDemoVelY * dt;
 
-      player.x = clamp(player.x, player.r + 25, SOLO_WORLD_WIDTH - player.r - 25);
-      player.y = clamp(player.y, player.r + 25, SOLO_WORLD_HEIGHT - player.r - 25);
+      player.x = clamp(player.x, player.r + 25, curW - player.r - 25);
+      player.y = clamp(player.y, player.r + 25, curH - player.r - 25);
 
       // Сброс вспышки урона и неуязвимости
       playerHitFlash = Math.max(0, playerHitFlash - 6 * dt);
@@ -7358,13 +7365,19 @@
       experienceCrystals.length = 0;
       particles.length = 0;
 
+      const curW = width || SOLO_WORLD_WIDTH;
+      const curH = height || SOLO_WORLD_HEIGHT;
+      if (player) {
+        player.x = curW / 2;
+        player.y = curH / 2;
+      }
       const initialEnemyTypes = ["runner", "normal", "splitter", "runner", "shooter", "normal"];
       for (let i = 0; i < initialEnemyTypes.length; i++) {
         const type = initialEnemyTypes[i];
         const angle = (i / initialEnemyTypes.length) * Math.PI * 2;
-        const dist = random(220, 360);
-        const ex = clamp(SOLO_WORLD_WIDTH / 2 + Math.cos(angle) * dist, 60, SOLO_WORLD_WIDTH - 60);
-        const ey = clamp(SOLO_WORLD_HEIGHT / 2 + Math.sin(angle) * dist, 60, SOLO_WORLD_HEIGHT - 60);
+        const dist = random(240, 420);
+        const ex = clamp(curW / 2 + Math.cos(angle) * dist, 80, curW - 80);
+        const ey = clamp(curH / 2 + Math.sin(angle) * dist, 80, curH - 80);
         const enemy = createEnemy(type, ex, ey);
         enemy.hasEnteredArena = true;
         enemy.spawnDelay = 0;
@@ -11820,14 +11833,17 @@
 
     }
 
-    function drawBackground() {
+    function drawBackground(customW, customH) {
+      const worldW = customW || SOLO_WORLD_WIDTH;
+      const worldH = customH || SOLO_WORLD_HEIGHT;
+
       ctx.fillStyle = "#070a12";
     
       ctx.fillRect(
         0,
         0,
-        SOLO_WORLD_WIDTH,
-        SOLO_WORLD_HEIGHT
+        worldW,
+        worldH
       );
     
       const gridSize = 48;
@@ -11840,24 +11856,24 @@
     
       for (
         let x = 0;
-        x <= SOLO_WORLD_WIDTH;
+        x <= worldW;
         x += gridSize
       ) {
         ctx.moveTo(x, 0);
         ctx.lineTo(
           x,
-          SOLO_WORLD_HEIGHT
+          worldH
         );
       }
     
       for (
         let y = 0;
-        y <= SOLO_WORLD_HEIGHT;
+        y <= worldH;
         y += gridSize
       ) {
         ctx.moveTo(0, y);
         ctx.lineTo(
-          SOLO_WORLD_WIDTH,
+          worldW,
           y
         );
       }
@@ -12749,17 +12765,25 @@
       ctx.restore();
     
       ctx.save();
+
+      const isMenu = gameState === "menu";
+      const worldW = isMenu ? width : SOLO_WORLD_WIDTH;
+      const worldH = isMenu ? height : SOLO_WORLD_HEIGHT;
+
+      if (isMenu) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      } else {
+        ctx.setTransform(
+          dpr * soloView.scale,
+          0,
+          0,
+          dpr * soloView.scale,
+          dpr * soloView.offsetX,
+          dpr * soloView.offsetY
+        );
+      }
     
-      ctx.setTransform(
-        dpr * soloView.scale,
-        0,
-        0,
-        dpr * soloView.scale,
-        dpr * soloView.offsetX,
-        dpr * soloView.offsetY
-      );
-    
-      drawBackground();
+      drawBackground(worldW, worldH);
     
       /*
        * Всё игровое содержимое обрезается
@@ -12771,8 +12795,8 @@
       ctx.rect(
         0,
         0,
-        SOLO_WORLD_WIDTH,
-        SOLO_WORLD_HEIGHT
+        worldW,
+        worldH
       );
     
       ctx.clip();
@@ -12781,7 +12805,7 @@
     
       ctx.save();
     
-      if (screenShake > 0) {
+      if (screenShake > 0 && !isMenu) {
         ctx.translate(
           random(-screenShake, screenShake),
           random(-screenShake, screenShake)
@@ -12800,17 +12824,18 @@
       ctx.restore();
     
       /*
-       * Рамка рисуется последней, поэтому враги
-       * визуально выезжают из-под неё.
+       * Рамка рисуется последней во время игры.
+       * В меню симуляция заполняет весь экран.
        */
-      drawArenaFrame(
-        SOLO_WORLD_WIDTH,
-        SOLO_WORLD_HEIGHT
-      );
-    
-      drawBossHealthBar();
-      drawWaveToast();
-      drawCrosshair();
+      if (!isMenu) {
+        drawArenaFrame(
+          SOLO_WORLD_WIDTH,
+          SOLO_WORLD_HEIGHT
+        );
+        drawBossHealthBar();
+        drawWaveToast();
+        drawCrosshair();
+      }
     
       ctx.restore();
     }
