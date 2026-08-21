@@ -10816,13 +10816,28 @@
               Boolean(
                 snapshotEnemy.hasEnteredArena
               ),
-          
+
             isCharging:
               Boolean(
                 snapshotEnemy.isCharging
-              )
+              ),
+
+            isPhased:
+              Boolean(snapshotEnemy.isPhased),
+
+            twinPartnerId:
+              snapshotEnemy.twinPartnerId || null,
+
+            isEnraged:
+              Boolean(snapshotEnemy.isEnraged),
+
+            targetMarked:
+              Boolean(snapshotEnemy.targetMarked),
+
+            stunTimer:
+              snapshotEnemy.stunTimer || 0
           };
-        
+
           coopSession.enemies.set(
             coopEnemy.id,
             coopEnemy
@@ -10948,6 +10963,21 @@
           Boolean(
             snapshotEnemy.isCharging
           );
+
+        coopEnemy.isPhased =
+          Boolean(snapshotEnemy.isPhased);
+
+        coopEnemy.twinPartnerId =
+          snapshotEnemy.twinPartnerId || null;
+
+        coopEnemy.isEnraged =
+          Boolean(snapshotEnemy.isEnraged);
+
+        coopEnemy.targetMarked =
+          Boolean(snapshotEnemy.targetMarked);
+
+        coopEnemy.stunTimer =
+          snapshotEnemy.stunTimer || 0;
       
         /*
          * Новый враг сразу появляется в серверной
@@ -12378,6 +12408,21 @@
       ctx.save();
       ctx.translate(enemy.displayX, enemy.displayY);
 
+      /*
+       * Фантом в фазе неуязвимости — полупрозрачный.
+       */
+      if (enemy.type === "phantom" && enemy.isPhased) {
+        ctx.globalAlpha = 0.35 + Math.sin(Date.now() * 0.01) * 0.1;
+      }
+
+      /*
+       * Метка цели — подсветка.
+       */
+      if (enemy.targetMarked) {
+        ctx.shadowColor = "#ff0";
+        ctx.shadowBlur = 12;
+      }
+
       ctx.beginPath();
       ctx.arc(0, 0, enemy.r + 5, 0, Math.PI * 2);
       ctx.fillStyle = `${enemy.color}18`;
@@ -12623,6 +12668,75 @@
         drawCoopEnemy(
           coopEnemy
         );
+      }
+
+      /*
+       * Лазерная нить между Связанными Близнецами.
+       */
+      const twinDrawn = new Set();
+      for (const coopEnemy of coopSession.enemies.values()) {
+        if (
+          coopEnemy.type !== "twin" ||
+          !coopEnemy.twinPartnerId ||
+          twinDrawn.has(coopEnemy.id)
+        ) {
+          continue;
+        }
+
+        const partner = coopSession.enemies.get(coopEnemy.twinPartnerId);
+        if (!partner) continue;
+
+        twinDrawn.add(coopEnemy.id);
+        twinDrawn.add(partner.id);
+
+        ctx.save();
+        ctx.strokeStyle = coopEnemy.isEnraged || partner.isEnraged
+          ? "#ff2244"
+          : "#ff6b9d";
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.7;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(coopEnemy.displayX, coopEnemy.displayY);
+        ctx.lineTo(partner.displayX, partner.displayY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      /*
+       * Маяк воскрешения для мёртвых игроков.
+       */
+      for (const coopPlayer of coopSession.players.values()) {
+        const beacon = coopPlayer.reviveBeacon;
+        if (!beacon || !beacon.active) continue;
+
+        const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = "#00f2fe";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(beacon.x, beacon.y, beacon.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        /* Прогресс-бар воскрешения */
+        if (beacon.progress > 0) {
+          const progressAngle = (beacon.progress / beacon.requiredTime) * Math.PI * 2;
+          ctx.strokeStyle = "#7ee7ff";
+          ctx.lineWidth = 4;
+          ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.arc(
+            beacon.x, beacon.y,
+            beacon.radius - 6,
+            -Math.PI / 2,
+            -Math.PI / 2 + progressAngle
+          );
+          ctx.stroke();
+        }
+
+        ctx.restore();
       }
 
       drawCoopEnemyProjectiles();
@@ -13326,9 +13440,58 @@
     }
 
     function drawEnemies() {
+      /*
+       * Лазерная нить между Связанными Близнецами (соло).
+       */
+      const twinDone = new Set();
+      for (const enemy of enemies) {
+        if (
+          enemy.type !== "twin" ||
+          !enemy.twinPartnerId ||
+          twinDone.has(enemy.id)
+        ) {
+          continue;
+        }
+
+        const partner = enemies.find(e => e.id === enemy.twinPartnerId);
+        if (!partner || partner.hp <= 0) continue;
+
+        twinDone.add(enemy.id);
+        twinDone.add(partner.id);
+
+        ctx.save();
+        ctx.strokeStyle = enemy.isEnraged || partner.isEnraged
+          ? "#ff2244"
+          : "#ff6b9d";
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.7;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(enemy.x, enemy.y);
+        ctx.lineTo(partner.x, partner.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       for (const enemy of enemies) {
         ctx.save();
         ctx.translate(enemy.x, enemy.y);
+
+        /*
+         * Фантом мигает полупрозрачностью.
+         */
+        if (enemy.type === "phantom" && enemy.isPhased) {
+          ctx.globalAlpha = 0.35 + Math.sin(Date.now() * 0.01) * 0.1;
+        }
+
+        /*
+         * Метка цели — жёлтая подсветка.
+         */
+        if (enemy.targetMarked) {
+          ctx.shadowColor = "#ff0";
+          ctx.shadowBlur = 12;
+        }
 
         // Внешнее свечение.
         ctx.beginPath();
