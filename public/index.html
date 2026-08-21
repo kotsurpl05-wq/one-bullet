@@ -3193,8 +3193,9 @@
       playerHitFlash = 0;
     
       gameState = "playing";
-    
+
       overlay.classList.add("hidden");
+      overlay.classList.remove("fullscreen-menu-mode");
       panel.onclick = null;
     
       resetEntities();
@@ -9484,9 +9485,9 @@
       );
       
       overlay.classList.add("hidden");
+      overlay.classList.remove("fullscreen-menu-mode");
       hidePauseMenu();
       hideUpgradeTooltip();
-      
       document.body.classList.add(
         "coop-session"
       );
