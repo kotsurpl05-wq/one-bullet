@@ -6815,30 +6815,41 @@
        ========================================================================= */
     let menuDemoShootTimer = 0;
     let menuDemoSpawnTimer = 0;
-    let menuDemoMoveAngle = 0;
+    let menuDemoStrafeDir = 1;
+    let menuDemoStrafeTimer = 0;
+    let menuDemoAimX = SOLO_WORLD_WIDTH / 2;
+    let menuDemoAimY = SOLO_WORLD_HEIGHT / 2;
+    let menuDemoVelX = 0;
+    let menuDemoVelY = 0;
 
     function updateMenuDemo(dt) {
       if (!player || !bullets.length) {
         resetEntities();
+        menuDemoVelX = 0;
+        menuDemoVelY = 0;
       }
 
-      // 1. Автоматическое восстановление демо-игрока
+      // Всегда стабилизируем экран меню (без тряски интерфейса)
+      screenShake = 0;
+
+      // 1. Автоматическое восстановление при падении здоровья
       if (player.hp <= 0) {
         player.hp = player.maxHp;
         player.x = SOLO_WORLD_WIDTH / 2;
         player.y = SOLO_WORLD_HEIGHT / 2;
-        createParticles(player.x, player.y, "#00f2fe", 18, 220);
-        createRing(player.x, player.y, 40, "#00f2fe");
+        menuDemoVelX = 0;
+        menuDemoVelY = 0;
+        createParticles(player.x, player.y, "#00f2fe", 16, 200);
       }
 
-      // 2. Постоянное поддержание 5-8 врагов на арене
+      // 2. Умеренный спавн врагов для комфортного и зрелищного боя (3-5 врагов)
       menuDemoSpawnTimer -= dt;
-      if ((enemies.length < 5 || menuDemoSpawnTimer <= 0) && enemies.length < 8) {
+      if ((enemies.length < 3 || menuDemoSpawnTimer <= 0) && enemies.length < 5) {
         const types = ["runner", "normal", "splitter", "shooter"];
         const randType = types[Math.floor(Math.random() * types.length)];
         const side = Math.floor(Math.random() * 4);
-        let ex = random(90, SOLO_WORLD_WIDTH - 90);
-        let ey = random(90, SOLO_WORLD_HEIGHT - 90);
+        let ex = random(120, SOLO_WORLD_WIDTH - 120);
+        let ey = random(120, SOLO_WORLD_HEIGHT - 120);
         if (side === 0) ey = 70;
         else if (side === 1) ex = SOLO_WORLD_WIDTH - 70;
         else if (side === 2) ey = SOLO_WORLD_HEIGHT - 70;
@@ -6849,13 +6860,11 @@
         enemy.spawnDelay = 0;
         enemy.spawnEdge = null;
         enemies.push(enemy);
-        menuDemoSpawnTimer = random(1.0, 1.8);
+        menuDemoSpawnTimer = random(2.5, 4.0);
       }
 
-      // 3. Проверка наличия патрона в руках
+      // 3. Поиск целей и проверка патрона
       const hasHeldBullet = bullets.some(b => b.state === "held");
-
-      // Поиск ближайшего живого врага
       let targetEnemy = null;
       let minEnemyDist = Infinity;
       for (const enemy of enemies) {
@@ -6866,22 +6875,6 @@
           targetEnemy = enemy;
         }
       }
-
-      // 4. Прицеливание и стрельба демо-бота
-      menuDemoShootTimer -= dt;
-      if (targetEnemy && hasHeldBullet) {
-        pointer.x = targetEnemy.x;
-        pointer.y = targetEnemy.y;
-
-        if (menuDemoShootTimer <= 0) {
-          shoot();
-          menuDemoShootTimer = random(0.35, 0.7);
-        }
-      }
-
-      // 5. Движение демо-бота (подбор патронов, уклонение и перемещение по арене)
-      let moveTargetX = SOLO_WORLD_WIDTH / 2;
-      let moveTargetY = SOLO_WORLD_HEIGHT / 2;
 
       let nearestGroundBullet = null;
       let minBulletDist = Infinity;
@@ -6895,42 +6888,121 @@
         }
       }
 
-      if (nearestGroundBullet && !hasHeldBullet) {
-        moveTargetX = nearestGroundBullet.x;
-        moveTargetY = nearestGroundBullet.y;
-        if (nearestGroundBullet.state === "ground" && minBulletDist <= player.r + nearestGroundBullet.r + 14) {
+      // 4. Человекоподобное плавное прицеливание с упреждением
+      if (targetEnemy) {
+        const leadFactor = Math.min(0.4, minEnemyDist / (stats.bulletSpeed || 600));
+        const predictedX = targetEnemy.x + (targetEnemy.vx || 0) * leadFactor;
+        const predictedY = targetEnemy.y + (targetEnemy.vy || 0) * leadFactor;
+        menuDemoAimX += (predictedX - menuDemoAimX) * Math.min(1, dt * 10);
+        menuDemoAimY += (predictedY - menuDemoAimY) * Math.min(1, dt * 10);
+      } else if (nearestGroundBullet) {
+        menuDemoAimX += (nearestGroundBullet.x - menuDemoAimX) * Math.min(1, dt * 6);
+        menuDemoAimY += (nearestGroundBullet.y - menuDemoAimY) * Math.min(1, dt * 6);
+      }
+      pointer.x = menuDemoAimX;
+      pointer.y = menuDemoAimY;
+
+      // Стрельба только при готовности и надежном прицеле
+      menuDemoShootTimer -= dt;
+      if (targetEnemy && hasHeldBullet && minEnemyDist > 80) {
+        if (menuDemoShootTimer <= 0) {
+          shoot();
+          menuDemoShootTimer = random(0.5, 0.9);
+        }
+      }
+
+      // 5. Векторное поле профессионального уклонения (Pro Strafe & Avoidance AI)
+      let forceX = 0;
+      let forceY = 0;
+
+      // А. Сила отталкивания от врагов (соблюдение безопасной дистанции)
+      for (const enemy of enemies) {
+        if (!enemy || enemy.hp <= 0) continue;
+        const d = distance(player.x, player.y, enemy.x, enemy.y);
+        const safeRadius = 240;
+        if (d < safeRadius && d > 1) {
+          const repelMagnitude = Math.pow((safeRadius - d) / safeRadius, 1.8) * 450;
+          forceX += ((player.x - enemy.x) / d) * repelMagnitude;
+          forceY += ((player.y - enemy.y) / d) * repelMagnitude;
+        }
+      }
+
+      // Б. Уклонение от вражеских снарядов (боковой стрейф от летящих пуль)
+      for (const proj of enemyProjectiles) {
+        if (!proj) continue;
+        const d = distance(player.x, player.y, proj.x, proj.y);
+        if (d < 180 && d > 1) {
+          const speed = Math.hypot(proj.vx, proj.vy) || 1;
+          const perpX = -proj.vy / speed;
+          const perpY = proj.vx / speed;
+          const dodgeStrength = ((180 - d) / 180) * 350;
+          forceX += perpX * dodgeStrength;
+          forceY += perpY * dodgeStrength;
+        }
+      }
+
+      // В. Отталкивание от стен арены (чтобы не зажиматься в углы)
+      const wallBuffer = 130;
+      if (player.x < wallBuffer) forceX += (wallBuffer - player.x) * 3.5;
+      if (player.x > SOLO_WORLD_WIDTH - wallBuffer) forceX -= (player.x - (SOLO_WORLD_WIDTH - wallBuffer)) * 3.5;
+      if (player.y < wallBuffer) forceY += (wallBuffer - player.y) * 3.5;
+      if (player.y > SOLO_WORLD_HEIGHT - wallBuffer) forceY -= (player.y - (SOLO_WORLD_HEIGHT - wallBuffer)) * 3.5;
+
+      // Г. Движение к патрону при отсутствии заряда (с осторожным обходом)
+      if (!hasHeldBullet && nearestGroundBullet) {
+        const d = minBulletDist || 1;
+        const pull = d > 50 ? 280 : 180;
+        forceX += ((nearestGroundBullet.x - player.x) / d) * pull;
+        forceY += ((nearestGroundBullet.y - player.y) / d) * pull;
+
+        if (nearestGroundBullet.state === "ground" && d <= player.r + nearestGroundBullet.r + 14) {
           catchBullet(nearestGroundBullet);
         }
-      } else if (targetEnemy) {
-        menuDemoMoveAngle += dt * 1.5;
-        const kiteDist = 200;
-        moveTargetX = targetEnemy.x + Math.cos(menuDemoMoveAngle) * kiteDist;
-        moveTargetY = targetEnemy.y + Math.sin(menuDemoMoveAngle) * kiteDist;
       }
 
-      const moveDx = moveTargetX - player.x;
-      const moveDy = moveTargetY - player.y;
-      const moveDist = Math.hypot(moveDx, moveDy) || 1;
-      const moveSpeed = (stats.speed || 240) * 1.1;
-
-      if (moveDist > 6) {
-        player.x += (moveDx / moveDist) * moveSpeed * dt;
-        player.y += (moveDy / moveDist) * moveSpeed * dt;
+      // Д. Тактический круговой стрейф вокруг цели
+      menuDemoStrafeTimer -= dt;
+      if (menuDemoStrafeTimer <= 0) {
+        menuDemoStrafeDir = Math.random() < 0.5 ? -1 : 1;
+        menuDemoStrafeTimer = random(1.8, 3.2);
       }
 
-      player.x = clamp(player.x, player.r + 25, SOLO_WORLD_WIDTH - player.r - 25);
-      player.y = clamp(player.y, player.r + 25, SOLO_WORLD_HEIGHT - player.r - 25);
+      if (targetEnemy && hasHeldBullet) {
+        const angleToTarget = Math.atan2(player.y - targetEnemy.y, player.x - targetEnemy.x);
+        const strafeAngle = angleToTarget + (Math.PI / 2) * menuDemoStrafeDir;
+        forceX += Math.cos(strafeAngle) * 160;
+        forceY += Math.sin(strafeAngle) * 160;
 
-      // 6. Физика и эффекты симуляции
+        // Поддержание идеальной дистанции ~280px
+        if (minEnemyDist < 250) {
+          forceX += Math.cos(angleToTarget) * 200;
+          forceY += Math.sin(angleToTarget) * 200;
+        } else if (minEnemyDist > 340) {
+          forceX -= Math.cos(angleToTarget) * 120;
+          forceY -= Math.sin(angleToTarget) * 120;
+        }
+      }
+
+      // Е. Плавная физическая интерполяция скорости игрока
+      const maxSpeed = (stats.speed || 240) * 0.95;
+      const targetVelX = clamp(forceX, -maxSpeed, maxSpeed);
+      const targetVelY = clamp(forceY, -maxSpeed, maxSpeed);
+
+      menuDemoVelX += (targetVelX - menuDemoVelX) * Math.min(1, dt * 7);
+      menuDemoVelY += (targetVelY - menuDemoVelY) * Math.min(1, dt * 7);
+
+      player.x += menuDemoVelX * dt;
+      player.y += menuDemoVelY * dt;
+
+      player.x = clamp(player.x, player.r + 30, SOLO_WORLD_WIDTH - player.r - 30);
+      player.y = clamp(player.y, player.r + 30, SOLO_WORLD_HEIGHT - player.r - 30);
+
+      // 6. Обновление мира симуляции
       updateBullets(dt);
       updateEnemies(dt);
       updateEnemyProjectiles(dt);
       updateExperienceCrystals(dt);
       updateParticles(dt);
-
-      if (screenShake > 0) {
-        screenShake = Math.max(0, screenShake - dt * 8);
-      }
     }
 
     /* =========================================================================
@@ -13291,6 +13363,10 @@
     }
 
     function handlePointerUpdate(event) {
+      // В главном меню бот целится сам и не должен следить за курсором пользователя
+      if (gameState === "menu") {
+        return;
+      }
       const events = (typeof event.getCoalescedEvents === "function")
         ? event.getCoalescedEvents()
         : [event];
