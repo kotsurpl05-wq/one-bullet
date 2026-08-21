@@ -1883,6 +1883,464 @@
         grid-template-columns: repeat(4, 1fr);
       }
     }
+  
+    /* =========================================================================
+       ПОЛНОЭКРАННОЕ ГЛАВНОЕ МЕНЮ И НАСТРОЙКИ (CYBER ROGUELIKE UI)
+       ========================================================================= */
+
+    .main-menu-fullscreen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 10px 0;
+      gap: 20px;
+    }
+
+    .hero-brand-container {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .hero-version-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 18px;
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid rgba(0, 242, 254, 0.4);
+      border-radius: 20px;
+      color: #7ee7ff;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(0, 242, 254, 0.2);
+      margin-bottom: 12px;
+    }
+
+    .hero-cyber-logo {
+      font-size: clamp(38px, 7vw, 68px) !important;
+      font-weight: 900 !important;
+      letter-spacing: 4px !important;
+      color: #ffffff !important;
+      margin: 0 !important;
+      line-height: 1.1 !important;
+      background: linear-gradient(135deg, #ffffff 30%, #7ee7ff 70%, #ff4fa7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 35px rgba(0, 242, 254, 0.45);
+      position: relative;
+    }
+
+    .hero-cyber-subtitle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+
+    .hero-cyber-subtitle span {
+      color: #cbd5e1;
+    }
+
+    .main-mode-grid-cyber {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      width: 100%;
+      margin: 4px 0;
+    }
+
+    @media (max-width: 640px) {
+      .main-mode-grid-cyber {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+    }
+
+    .mode-card-cyber {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, rgba(22, 34, 56, 0.85) 0%, rgba(13, 21, 37, 0.95) 100%);
+      border: 1.5px solid #283a54;
+      border-radius: 18px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .mode-card-cyber::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 10% 50%, rgba(0, 242, 254, 0.15), transparent 60%);
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+
+    .mode-card-cyber:hover {
+      transform: translateY(-4px) scale(1.015);
+      border-color: rgba(0, 242, 254, 0.8);
+      box-shadow: 0 14px 38px rgba(0, 242, 254, 0.25), inset 0 0 24px rgba(0, 242, 254, 0.1);
+    }
+
+    .mode-card-cyber:hover::before {
+      opacity: 1;
+    }
+
+    .mode-card-cyber.solo-card:hover {
+      border-color: #00f2fe;
+    }
+
+    .mode-card-cyber.coop-card:hover {
+      border-color: #ff4fa7;
+      box-shadow: 0 14px 38px rgba(255, 79, 167, 0.25), inset 0 0 24px rgba(255, 79, 167, 0.1);
+    }
+
+    .mode-card-cyber.settings-card:hover {
+      border-color: #ffaa55;
+      box-shadow: 0 14px 38px rgba(255, 170, 85, 0.25), inset 0 0 24px rgba(255, 170, 85, 0.1);
+    }
+
+    .mode-card-cyber.guide-card:hover {
+      border-color: #72f5a0;
+      box-shadow: 0 14px 38px rgba(114, 245, 160, 0.25), inset 0 0 24px rgba(114, 245, 160, 0.1);
+    }
+
+    .mode-card-icon {
+      font-size: 32px;
+      line-height: 1;
+      flex-shrink: 0;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: transform 180ms ease;
+    }
+
+    .mode-card-cyber:hover .mode-card-icon {
+      transform: scale(1.12) rotate(-4deg);
+    }
+
+    .mode-card-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mode-card-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 1.2px;
+      color: #7ee7ff;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .coop-card .mode-card-badge {
+      color: #ff85c0;
+    }
+
+    .settings-card .mode-card-badge {
+      color: #ffbe76;
+    }
+
+    .guide-card .mode-card-badge {
+      color: #85f5ac;
+    }
+
+    .mode-card-body h3 {
+      margin: 0 0 6px 0;
+      font-size: 20px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 0.4px;
+    }
+
+    .mode-card-body p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #94a3b8;
+    }
+
+    .mode-card-arrow {
+      font-size: 22px;
+      color: #64748b;
+      flex-shrink: 0;
+      transition: all 180ms ease;
+    }
+
+    .mode-card-cyber:hover .mode-card-arrow {
+      color: #ffffff;
+      transform: translateX(5px);
+    }
+
+    /* Нижний HUD-футер */
+    .main-menu-hud-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 14px 22px;
+      background: rgba(14, 23, 38, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      margin-top: 6px;
+      gap: 14px;
+    }
+
+    .hud-stat-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .hud-stat-icon {
+      font-size: 16px;
+    }
+
+    .hud-stat-label {
+      font-weight: 700;
+    }
+
+    .hud-stat-value {
+      color: #7ee7ff;
+      font-weight: 900;
+    }
+
+    .hud-stat-item.server-stat {
+      margin-left: auto;
+    }
+
+    .hud-stat-item.server-stat .connection-indicator {
+      margin-top: 0;
+    }
+
+    /* Модальные окна (Настройки и Гайд) */
+    .cyber-modal-container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      text-align: left;
+    }
+
+    .cyber-modal-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 22px;
+    }
+
+    .cyber-modal-icon {
+      font-size: 32px;
+      padding: 10px;
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      border-radius: 14px;
+      line-height: 1;
+    }
+
+    .cyber-modal-title {
+      font-size: 24px !important;
+      font-weight: 900 !important;
+      color: #ffffff !important;
+      margin: 0 0 4px 0 !important;
+      text-align: left !important;
+    }
+
+    .cyber-modal-subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .settings-group {
+      background: rgba(18, 28, 45, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+
+    .settings-group-title {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1.2px;
+      color: #7ee7ff;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      gap: 16px;
+    }
+
+    .setting-row:not(:last-child) {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .setting-info {
+      flex: 1;
+    }
+
+    .setting-name {
+      display: block;
+      font-size: 15px;
+      font-weight: 800;
+      color: #f1f5f9;
+      margin-bottom: 3px;
+    }
+
+    .setting-desc {
+      display: block;
+      font-size: 12px;
+      color: #74869d;
+    }
+
+    .setting-control {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .cyber-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 140px;
+      height: 7px;
+      background: #1e293b;
+      border-radius: 4px;
+      outline: none;
+      border: 1px solid #334155;
+    }
+
+    .cyber-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 242, 254, 0.7);
+      transition: transform 120ms ease;
+    }
+
+    .cyber-range::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .setting-val-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 52px;
+      padding: 4px 8px;
+      background: #152238;
+      border: 1px solid #2a3e5c;
+      border-radius: 8px;
+      color: #7ee7ff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .cyber-toggle-btn {
+      padding: 8px 16px;
+      background: #1e293b;
+      border: 1.5px solid #334155;
+      border-radius: 10px;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 140ms ease;
+    }
+
+    .cyber-toggle-btn.active {
+      background: rgba(0, 242, 254, 0.15);
+      border-color: var(--cyan);
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(0, 242, 254, 0.3);
+    }
+
+    .guide-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 600px) {
+      .guide-cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .guide-card-item {
+      background: rgba(18, 28, 45, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .guide-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .guide-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: rgba(0, 242, 254, 0.15);
+      border: 1px solid rgba(0, 242, 254, 0.4);
+      border-radius: 6px;
+      color: #7ee7ff;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .guide-card-header h4 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .guide-card-item p {
+      margin: 0;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #94a3b8;
+    }
+
   </style>
 
 </head>
@@ -3284,6 +3742,7 @@
     }
 
     function catchBullet(bullet) {
+      soundManager.playCatch();
       bullet.state = "held";
       bullet.vx = 0;
       bullet.vy = 0;
@@ -4133,7 +4592,8 @@
             bullet.bouncesLeft -= 1;
             bullet.hitEnemies.clear();
             if (bullet.hitCooldowns) bullet.hitCooldowns.clear();
-            screenShake = Math.max(screenShake, 3);
+            if (gameSettings.screenShake) screenShake = Math.max(screenShake, 3);
+            soundManager.playBounce();
           
             createParticles(
               bullet.x,
@@ -6217,6 +6677,210 @@
       }
     }
 
+
+    /* =========================================================================
+       ЗВУКОВОЙ ДВИЖОК (WEB AUDIO API SYNTHESIZER)
+       ========================================================================= */
+    class SoundManager {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.ctx = new AudioContextClass();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.connect(this.ctx.destination);
+            this.updateVolume();
+          }
+        }
+        if (this.ctx && this.ctx.state === "suspended") {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      updateVolume() {
+        if (!this.masterGain || !this.ctx) return;
+        const vol = gameSettings.mute ? 0 : (gameSettings.volume ?? 0.7);
+        this.masterGain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      }
+
+      playShoot() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(820, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      }
+
+      playBounce() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(900, now);
+        osc.frequency.exponentialRampToValueAtTime(1250, now + 0.08);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      playHit() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      }
+
+      playCatch() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + i * 0.04);
+          gain.gain.setValueAtTime(0.2, now + i * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.12);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(now + i * 0.04);
+          osc.stop(now + i * 0.04 + 0.12);
+        });
+      }
+
+      playExplosion() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+
+      playUpgrade() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        [440, 554.37, 659.25, 880].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + i * 0.05);
+          gain.gain.setValueAtTime(0.25, now + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.2);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(now + i * 0.05);
+          osc.stop(now + i * 0.05 + 0.2);
+        });
+      }
+
+      playUiClick() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(750, now);
+        osc.frequency.exponentialRampToValueAtTime(500, now + 0.04);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      }
+    }
+    const soundManager = new SoundManager();
+
+    /* =========================================================================
+       СИСТЕМА НАСТРОЕК И СТАТИСТИКИ
+       ========================================================================= */
+    function loadGameSettings() {
+      try {
+        const raw = localStorage.getItem("one_bullet_settings_v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            volume: typeof parsed.volume === "number" ? Math.max(0, Math.min(1, parsed.volume)) : 0.7,
+            mute: Boolean(parsed.mute),
+            sensitivity: typeof parsed.sensitivity === "number" ? Math.max(0.4, Math.min(2.5, parsed.sensitivity)) : 1.0,
+            screenShake: parsed.screenShake !== false
+          };
+        }
+      } catch {}
+      return { volume: 0.7, mute: false, sensitivity: 1.0, screenShake: true };
+    }
+
+    function saveGameSettings() {
+      try {
+        localStorage.setItem("one_bullet_settings_v1", JSON.stringify(gameSettings));
+      } catch {}
+      if (soundManager) soundManager.updateVolume();
+    }
+
+    let gameSettings = loadGameSettings();
+
+    function loadGameStats() {
+      try {
+        const raw = localStorage.getItem("one_bullet_stats_v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            totalRuns: Number(parsed.totalRuns) || 0,
+            totalBossKills: Number(parsed.totalBossKills) || 0
+          };
+        }
+      } catch {}
+      return { totalRuns: 0, totalBossKills: 0 };
+    }
+
+    function saveGameStats() {
+      try {
+        localStorage.setItem("one_bullet_stats_v1", JSON.stringify(gameStats));
+      } catch {}
+    }
+
+    let gameStats = loadGameStats();
+
     function normalizeRoomCode(value) {
       return String(value || "")
         .toUpperCase()
@@ -6326,72 +6990,305 @@
       particles.length = 0;
     
       overlay.classList.remove("hidden");
-    
       resetEntities();
     
       panel.innerHTML = `
-        <h1>Один патрон</h1>
-    
-        <p>
-          Выберите одиночный забег или создайте
-          совместную комнату для игры с другом.
-        </p>
-      
-        <div class="main-mode-grid">
-          <button
-            type="button"
-            class="mode-button"
-            data-main-mode="solo"
-          >
-            <strong>Одиночная игра</strong>
-        
-            <span>
-              Классический забег с локальной паузой
-              и личным рекордом.
-            </span>
-          </button>
-        
-          <button
-            type="button"
-            class="mode-button"
-            data-main-mode="network"
-          >
-            <strong>Сетевая игра</strong>
-        
-            <span>
-              Общий опыт, отдельные сборки и
-              усиленные волны для двух игроков.
-            </span>
-          </button>
+        <div class="main-menu-fullscreen">
+          <div class="hero-brand-container">
+            <div class="hero-version-pill">
+              <span class="status-dot"></span>
+              <span>v1.4 CO-OP EDITION // ROGUELIKE</span>
+            </div>
+            
+            <h1 class="hero-cyber-logo">ONE BULLET</h1>
+            <div class="hero-cyber-subtitle">
+              <span>ОДИН ВЫСТРЕЛ</span> • <span>РИКОШЕТЫ</span> • <span>ВЫЖИВИ НА АРЕНЕ</span>
+            </div>
+          </div>
+
+          <div class="main-mode-grid-cyber">
+            <button type="button" class="mode-card-cyber solo-card" data-main-action="solo">
+              <div class="mode-card-icon">⚡</div>
+              <div class="mode-card-body">
+                <div class="mode-card-badge">SINGLEPLAYER</div>
+                <h3>Одиночный рейд</h3>
+                <p>Классический забег с личным рекордом, локальной паузой и тактическими апгрейдами.</p>
+              </div>
+              <div class="mode-card-arrow">→</div>
+            </button>
+
+            <button type="button" class="mode-card-cyber coop-card" data-main-action="network">
+              <div class="mode-card-icon">👥</div>
+              <div class="mode-card-body">
+                <div class="mode-card-badge">ONLINE CO-OP 2P</div>
+                <h3>Совместный режим</h3>
+                <p>Общий опыт, синхронный бой, комната по коду и воскрешение напарника.</p>
+              </div>
+              <div class="mode-card-arrow">→</div>
+            </button>
+
+            <button type="button" class="mode-card-cyber settings-card" data-main-action="settings">
+              <div class="mode-card-icon">⚙️</div>
+              <div class="mode-card-body">
+                <div class="mode-card-badge">CONFIGURATION</div>
+                <h3>Настройки</h3>
+                <p>Регулировка громкости звука, чувствительности мыши и визуальных эффектов.</p>
+              </div>
+              <div class="mode-card-arrow">→</div>
+            </button>
+
+            <button type="button" class="mode-card-cyber guide-card" data-main-action="guide">
+              <div class="mode-card-icon">📖</div>
+              <div class="mode-card-body">
+                <div class="mode-card-badge">DATABASE</div>
+                <h3>Как играть</h3>
+                <p>Справочник механик: рикошеты, подбор пули, возвратный магнит и боссы.</p>
+              </div>
+              <div class="mode-card-arrow">→</div>
+            </button>
+          </div>
+
+          <div class="main-menu-hud-footer">
+            <div class="hud-stat-item">
+              <span class="hud-stat-icon">🏆</span>
+              <span class="hud-stat-label">Рекорд:</span>
+              <strong class="hud-stat-value">${getHighScore()} волн</strong>
+            </div>
+
+            <div class="hud-stat-item">
+              <span class="hud-stat-icon">💀</span>
+              <span class="hud-stat-label">Боссов:</span>
+              <strong class="hud-stat-value">${gameStats.totalBossKills}</strong>
+            </div>
+
+            <div class="hud-stat-item">
+              <span class="hud-stat-icon">🎮</span>
+              <span class="hud-stat-label">Забегов:</span>
+              <strong class="hud-stat-value">${gameStats.totalRuns}</strong>
+            </div>
+
+            <div class="hud-stat-item server-stat">
+              ${getConnectionIndicatorHtml()}
+            </div>
+          </div>
         </div>
-      
-        <div class="menu-record">
-          Рекорд: ${getHighScore()}
-        </div>
-      
-        ${getConnectionIndicatorHtml()}
       `;
       
       panel.onclick = event => {
-        const modeButton =
-          event.target.closest("[data-main-mode]");
-      
-        if (!modeButton) {
-          return;
-        }
-      
-        const selectedMode =
-          modeButton.dataset.mainMode;
-      
-        if (selectedMode === "solo") {
+        const actionBtn = event.target.closest("[data-main-action]");
+        if (!actionBtn) return;
+        soundManager.playUiClick();
+        const action = actionBtn.dataset.mainAction;
+
+        if (action === "solo") {
           showSoloMenu();
           return;
         }
-      
-        if (selectedMode === "network") {
+        if (action === "network") {
           showNetworkMenu();
+          return;
+        }
+        if (action === "settings") {
+          showSettingsMenu();
+          return;
+        }
+        if (action === "guide") {
+          showGuideMenu();
+          return;
         }
       };
+    }
+
+    function showSettingsMenu() {
+      panel.innerHTML = `
+        <div class="cyber-modal-container">
+          <div class="cyber-modal-header">
+            <div class="cyber-modal-icon">⚙️</div>
+            <div>
+              <h2 class="cyber-modal-title">Настройки игры</h2>
+              <div class="cyber-modal-subtitle">Параметры звука, управления и графики</div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">🔊 ЗВУК И АУДИОЭФФЕКТЫ</div>
+            
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-name">Громкость звуков (SFX)</span>
+                <span class="setting-desc">Выстрелы, рикошеты, взрывы и подбор</span>
+              </div>
+              <div class="setting-control">
+                <input type="range" id="settingVolume" min="0" max="100" value="${Math.round(gameSettings.volume * 100)}" class="cyber-range">
+                <span class="setting-val-badge" id="settingVolumeVal">${Math.round(gameSettings.volume * 100)}%</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-name">Отключить звук (Mute)</span>
+                <span class="setting-desc">Быстрое отключение всех звуковых эффектов</span>
+              </div>
+              <div class="setting-control">
+                <button type="button" id="settingMuteToggle" class="cyber-toggle-btn ${gameSettings.mute ? 'active' : ''}">
+                  ${gameSettings.mute ? '🔇 ВЫКЛЮЧЕН' : '🔊 ВКЛЮЧЕН'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">🎯 УПРАВЛЕНИЕ И СЕНСА</div>
+            
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-name">Чувствительность мыши</span>
+                <span class="setting-desc">Скорость перемещения и доводки прицела</span>
+              </div>
+              <div class="setting-control">
+                <input type="range" id="settingSensitivity" min="40" max="220" value="${Math.round(gameSettings.sensitivity * 100)}" class="cyber-range">
+                <span class="setting-val-badge" id="settingSensVal">${(gameSettings.sensitivity).toFixed(1)}x</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">📺 ВИЗУАЛЬНЫЕ ЭФФЕКТЫ</div>
+            
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-name">Тряска экрана (Screen Shake)</span>
+                <span class="setting-desc">Динамическая отдача при взрывах и рикошетах</span>
+              </div>
+              <div class="setting-control">
+                <button type="button" id="settingShakeToggle" class="cyber-toggle-btn ${gameSettings.screenShake ? 'active' : ''}">
+                  ${gameSettings.screenShake ? '⚡ ВКЛ' : '✖ ВЫКЛ'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="network-actions" style="margin-top: 24px;">
+            <button type="button" class="secondary-button" id="settingsResetBtn">По умолчанию</button>
+            <button type="button" class="action-button" id="settingsSaveBtn" style="margin:0;">Сохранить и закрыть</button>
+          </div>
+        </div>
+      `;
+
+      const volRange = panel.querySelector("#settingVolume");
+      const volVal = panel.querySelector("#settingVolumeVal");
+      const muteBtn = panel.querySelector("#settingMuteToggle");
+      const sensRange = panel.querySelector("#settingSensitivity");
+      const sensVal = panel.querySelector("#settingSensVal");
+      const shakeBtn = panel.querySelector("#settingShakeToggle");
+      const resetBtn = panel.querySelector("#settingsResetBtn");
+      const saveBtn = panel.querySelector("#settingsSaveBtn");
+
+      volRange.oninput = () => {
+        const val = Number(volRange.value);
+        volVal.textContent = val + "%";
+        gameSettings.volume = val / 100;
+        gameSettings.mute = false;
+        muteBtn.textContent = "🔊 ВКЛЮЧЕН";
+        muteBtn.classList.remove("active");
+        saveGameSettings();
+        soundManager.playUiClick();
+      };
+
+      muteBtn.onclick = () => {
+        gameSettings.mute = !gameSettings.mute;
+        muteBtn.textContent = gameSettings.mute ? "🔇 ВЫКЛЮЧЕН" : "🔊 ВКЛЮЧЕН";
+        muteBtn.classList.toggle("active", gameSettings.mute);
+        saveGameSettings();
+        if (!gameSettings.mute) soundManager.playUiClick();
+      };
+
+      sensRange.oninput = () => {
+        const val = Number(sensRange.value) / 100;
+        sensVal.textContent = val.toFixed(1) + "x";
+        gameSettings.sensitivity = val;
+        saveGameSettings();
+      };
+
+      shakeBtn.onclick = () => {
+        gameSettings.screenShake = !gameSettings.screenShake;
+        shakeBtn.textContent = gameSettings.screenShake ? "⚡ ВКЛ" : "✖ ВЫКЛ";
+        shakeBtn.classList.toggle("active", gameSettings.screenShake);
+        saveGameSettings();
+        soundManager.playUiClick();
+      };
+
+      resetBtn.onclick = () => {
+        gameSettings = { volume: 0.7, mute: false, sensitivity: 1.0, screenShake: true };
+        saveGameSettings();
+        soundManager.playUiClick();
+        showSettingsMenu();
+      };
+
+      saveBtn.onclick = () => {
+        soundManager.playUiClick();
+        showMainMenu();
+      };
+    }
+
+    function showGuideMenu() {
+      panel.innerHTML = `
+        <div class="cyber-modal-container">
+          <div class="cyber-modal-header">
+            <div class="cyber-modal-icon">📖</div>
+            <div>
+              <h2 class="cyber-modal-title">База знаний // Как играть</h2>
+              <div class="cyber-modal-subtitle">Ключевые механики и тактика выживания</div>
+            </div>
+          </div>
+
+          <div class="guide-cards-grid">
+            <div class="guide-card-item">
+              <div class="guide-card-header">
+                <span class="guide-num">01</span>
+                <h4>🎯 Единственный патрон</h4>
+              </div>
+              <p>У вас только <strong>1 патрон</strong> в магазине. Выстрелив, вы остаетесь безоружным, пока не подберете его с пола или не притянете <em>Возвратным магнитом</em>.</p>
+            </div>
+
+            <div class="guide-card-item">
+              <div class="guide-card-header">
+                <span class="guide-num">02</span>
+                <h4>⚡ Рикошеты и пробитие</h4>
+              </div>
+              <p>Патрон отскакивает от стен арены. Каждый рикошет <strong>сбрасывает кулдаун урона</strong>, позволяя поражать врагов снова и снова на обратной траектории!</p>
+            </div>
+
+            <div class="guide-card-item">
+              <div class="guide-card-header">
+                <span class="guide-num">03</span>
+                <h4>👑 Боссы и их фазы</h4>
+              </div>
+              <p>Каждые 5 волн появляется Босс с 3 фазами: рывки с ударной волной, щиты с орбитальными дронами и яростный спиральный шторм пуль.</p>
+            </div>
+
+            <div class="guide-card-item">
+              <div class="guide-card-header">
+                <span class="guide-num">04</span>
+                <h4>👥 Кооперативный бой</h4>
+              </div>
+              <p>В сетевом режиме напарники делят общий опыт и кристаллы. Если напарник погиб, выживший может спасти раунд, уничтожив остаток волны!</p>
+            </div>
+          </div>
+
+          <div class="network-actions" style="margin-top: 24px;">
+            <button type="button" class="action-button" id="guideCloseBtn" style="margin:0 auto;">Понятно, в бой!</button>
+          </div>
+        </div>
+      `;
+
+      const closeBtn = panel.querySelector("#guideCloseBtn");
+      if (closeBtn) {
+        closeBtn.onclick = () => {
+          soundManager.playUiClick();
+          showMainMenu();
+        };
+      }
     }
 
     function showSoloMenu() {
@@ -9205,25 +10102,18 @@
     }
 
     function updateCoopPointer(event) {
-      coopPointer.x = clamp(
-        (
-          event.clientX -
-          coopView.offsetX
-        ) /
-        coopView.scale,
-        0,
-        COOP_WORLD_WIDTH
-      );
-    
-      coopPointer.y = clamp(
-        (
-          event.clientY -
-          coopView.offsetY
-        ) /
-        coopView.scale,
-        0,
-        COOP_WORLD_HEIGHT
-      );
+      const rawX = (event.clientX - coopView.offsetX) / coopView.scale;
+      const rawY = (event.clientY - coopView.offsetY) / coopView.scale;
+      const sens = gameSettings?.sensitivity ?? 1.0;
+      const myPlayer = coopSession.players.get(window.net?.playerId);
+
+      if (sens === 1.0 || !myPlayer) {
+        coopPointer.x = clamp(rawX, 0, COOP_WORLD_WIDTH);
+        coopPointer.y = clamp(rawY, 0, COOP_WORLD_HEIGHT);
+      } else {
+        coopPointer.x = clamp(myPlayer.displayX + (rawX - myPlayer.displayX) * sens, 0, COOP_WORLD_WIDTH);
+        coopPointer.y = clamp(myPlayer.displayY + (rawY - myPlayer.displayY) * sens, 0, COOP_WORLD_HEIGHT);
+      }
     }
 
     function drawCoopBackground() {
@@ -12130,25 +13020,17 @@
     );
 
     function updatePointer(event) {
-      pointer.x = clamp(
-        (
-          event.clientX -
-          soloView.offsetX
-        ) /
-        soloView.scale,
-        0,
-        SOLO_WORLD_WIDTH
-      );
-    
-      pointer.y = clamp(
-        (
-          event.clientY -
-          soloView.offsetY
-        ) /
-        soloView.scale,
-        0,
-        SOLO_WORLD_HEIGHT
-      );
+      const rawX = (event.clientX - soloView.offsetX) / soloView.scale;
+      const rawY = (event.clientY - soloView.offsetY) / soloView.scale;
+      const sens = gameSettings?.sensitivity ?? 1.0;
+
+      if (sens === 1.0 || !player) {
+        pointer.x = clamp(rawX, 0, SOLO_WORLD_WIDTH);
+        pointer.y = clamp(rawY, 0, SOLO_WORLD_HEIGHT);
+      } else {
+        pointer.x = clamp(player.x + (rawX - player.x) * sens, 0, SOLO_WORLD_WIDTH);
+        pointer.y = clamp(player.y + (rawY - player.y) * sens, 0, SOLO_WORLD_HEIGHT);
+      }
     }
 
     function handlePointerUpdate(event) {
