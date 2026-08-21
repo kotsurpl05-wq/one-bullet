@@ -3112,19 +3112,25 @@
         bulletRadius: 7,
         magazineSize: 1,
         groundPullSpeed: 0,
-      
+
         damage: 1,
         maxBounces: 1,
         pierce: 0,
         pickupRadius: 0,
         catchBlast: 0,
         healEvery: 0,
-      
+
         critChance: 0,
         explosionRadius: 0,
         chainCount: 0,
         chainRange: 175,
-        homing: 0
+        homing: 0,
+
+        boomerang: false,
+        splinter: false,
+        stun: 0,
+        reactiveArmor: false,
+        targetMark: false
       };
 
       const startingHp =
@@ -3387,7 +3393,59 @@
           color: "#79d7ff"
         };
       }
-    
+
+      if (type === "phantom") {
+        const hp = 1 + Math.floor(wave / 8);
+
+        return {
+          id: ++enemyId,
+          type,
+          x,
+          y,
+          r: 12,
+          speed: 75 + wave * 2,
+          hp,
+          maxHp: hp,
+          color: "#88eedd",
+          phaseTimer: 0,
+          isPhased: true
+        };
+      }
+
+      if (type === "magnetizer") {
+        const hp = 3 + Math.floor(wave / 4);
+
+        return {
+          id: ++enemyId,
+          type,
+          x,
+          y,
+          r: 16,
+          speed: 40 + wave * 1.2,
+          hp,
+          maxHp: hp,
+          color: "#c084fc"
+        };
+      }
+
+      if (type === "twin") {
+        const hp = 2 + Math.floor(wave / 5);
+
+        return {
+          id: ++enemyId,
+          type,
+          x,
+          y,
+          r: 10,
+          speed: 90 + wave * 2,
+          hp,
+          maxHp: hp,
+          color: "#ff6b9d",
+          twinPartnerId: null,
+          isEnraged: false
+        };
+      }
+
       const hp = 1 + Math.floor(level / 5);
     
       return {
@@ -3788,35 +3846,59 @@
             Math.random();
         
           let type = "normal";
-        
+
           if (
+            wave >= 12 &&
+            roll < 0.06
+          ) {
+            type = "twin";
+          } else if (
+            wave >= 10 &&
+            roll < 0.10
+          ) {
+            type = "phantom";
+          } else if (
+            wave >= 8 &&
+            roll < 0.15
+          ) {
+            type = "magnetizer";
+          } else if (
             wave >= 7 &&
-            roll < 0.1
+            roll < 0.22
           ) {
             type = "splitter";
           } else if (
             wave >= 5 &&
-            roll < 0.22
+            roll < 0.34
           ) {
             type = "shooter";
           } else if (
             wave >= 4 &&
-            roll < 0.33
+            roll < 0.42
           ) {
             type = "charger";
           } else if (
             wave >= 3 &&
-            roll < 0.46
+            roll < 0.56
           ) {
             type = "tank";
           } else if (
             wave >= 2 &&
-            roll < 0.64
+            roll < 0.76
           ) {
             type = "runner";
           }
-        
-          spawnEnemyFromEdge(type);
+
+          if (type === "twin") {
+            const twin1 = spawnEnemyFromEdge("twin");
+            const twin2 = spawnEnemyFromEdge("twin");
+            if (twin1 && twin2) {
+              twin1.twinPartnerId = twin2.id;
+              twin2.twinPartnerId = twin1.id;
+            }
+          } else {
+            spawnEnemyFromEdge(type);
+          }
         }
       }
     
@@ -4072,6 +4154,24 @@
         return;
       }
 
+      /*
+       * Фантом в фазе неуязвимости: урон не проходит.
+       */
+      if (
+        enemy.type === "phantom" &&
+        enemy.isPhased &&
+        (enemy.phaseTimer || 0) < 2.0
+      ) {
+        return;
+      }
+
+      /*
+       * Метка Цели: помеченный враг получает +30% урона.
+       */
+      if (enemy.targetMarked) {
+        damage = Math.round(damage * 1.3);
+      }
+
       enemy.hp -= damage;
       createParticles(enemy.x, enemy.y, enemy.color, 6, 130);
 
@@ -4179,6 +4279,22 @@
     
       dropExperienceCrystals(enemy);
       enemies.splice(index, 1);
+
+      /*
+       * Связанные Близнецы: при гибели одного
+       * партнёр впадает в ярость (+50% speed).
+       */
+      if (enemy.type === "twin" && enemy.twinPartnerId) {
+        const partner = enemies.find(
+          e => e.id === enemy.twinPartnerId
+        );
+
+        if (partner && partner.hp > 0) {
+          partner.isEnraged = true;
+          partner.speed *= 1.5;
+          partner.color = "#ff2244";
+        }
+      }
     
       createRing(
         deathX,
@@ -4257,6 +4373,33 @@
     
       player.invulnerability =
         PLAYER_HIT_INVULNERABILITY;
+
+      /*
+       * Реактивная Броня: отбрасывает врагов в радиусе 120px.
+       */
+      if (
+        stats.reactiveArmor &&
+        (player.reactiveArmorCooldown || 0) <= 0
+      ) {
+        player.reactiveArmorCooldown = 3.0;
+
+        for (const nearby of enemies) {
+          const dist = Math.hypot(
+            nearby.x - player.x,
+            nearby.y - player.y
+          );
+
+          if (dist <= 120 && dist > 0.01) {
+            const pushDx = (nearby.x - player.x) / dist;
+            const pushDy = (nearby.y - player.y) / dist;
+            const pushForce = 80;
+            nearby.x += pushDx * pushForce;
+            nearby.y += pushDy * pushForce;
+          }
+        }
+
+        createRing(player.x, player.y, 120, "#ff496c");
+      }
     
       screenShake = Math.max(
         screenShake,
@@ -4796,6 +4939,34 @@
         
           bullet.x += dx * pullStep;
           bullet.y += dy * pullStep;
+
+          /*
+           * Эффект Бумеранга: возвращающаяся пуля (pull)
+           * наносит +50% урона по врагам на пути.
+           */
+          if (stats.boomerang) {
+            for (let ei = enemies.length - 1; ei >= 0; ei--) {
+              const enemy = enemies[ei];
+              if (!enemy || !enemy.hasEnteredArena) continue;
+              if (enemy.type === "phantom" && enemy.isPhased) continue;
+              if (bullet.hitEnemies.has(enemy.id)) continue;
+
+              const hitDist = bullet.r + enemy.r;
+              const eDist = Math.hypot(
+                enemy.x - bullet.x,
+                enemy.y - bullet.y
+              );
+
+              if (eDist <= hitDist) {
+                bullet.hitEnemies.add(enemy.id);
+                const boomerangDmg = Math.floor(
+                  stats.damage * 1.5
+                );
+
+                damageEnemy(ei, boomerangDmg);
+              }
+            }
+          }
         }
       
         const pickupDistance =
@@ -4957,7 +5128,30 @@
       }
 
       damageEnemy(index, damage, critical);
-    
+
+      /*
+       * Кинетический Удар: оглушение при попадании.
+       */
+      if (stats.stun > 0) {
+        const target = enemies[index] || enemies.find(e => e.id === targetId);
+        if (target) {
+          target.stunTimer = Math.max(
+            target.stunTimer || 0,
+            stats.stun
+          );
+        }
+      }
+
+      /*
+       * Метка Цели: первое попадание помечает на 4с.
+       */
+      if (stats.targetMark) {
+        const target = enemies[index] || enemies.find(e => e.id === targetId);
+        if (target && !target.targetMarked && target.hasEnteredArena !== false) {
+          target.targetMarked = true;
+          target.targetMarkTimer = 4.0;
+        }
+      }
       if (stats.explosionRadius > 0) {
         createRing(
           impactX,
@@ -5152,7 +5346,24 @@
         if (stats.homing > 0 && enemies.length > 0) {
           applySmartHoming(bullet, enemies, stats.homing, dt);
         }
-      
+
+        /*
+         * Магнетизатор: искривляет траекторию пуль в 200px.
+         */
+        for (const mag of enemies) {
+          if (mag.type !== "magnetizer") continue;
+          const magDist = Math.hypot(
+            mag.x - bullet.x,
+            mag.y - bullet.y
+          );
+
+          if (magDist < 200 && magDist > 0.1) {
+            const pullStrength = 120 * dt;
+            bullet.vx += ((mag.x - bullet.x) / magDist) * pullStrength;
+            bullet.vy += ((mag.y - bullet.y) / magDist) * pullStrength;
+          }
+        }
+
         bullet.age += dt;
         bullet.x += bullet.vx * dt;
         bullet.y += bullet.vy * dt;
@@ -5235,6 +5446,36 @@
               18,
               "#7ee7ff"
             );
+
+            /*
+             * Осколочный Рикошет: при отскоке от стены
+             * спавн 2 самонаводящихся осколков.
+             */
+            if (stats.splinter) {
+              const shardDmg = Math.max(
+                1,
+                Math.floor(stats.damage * 0.25)
+              );
+
+              for (let si = 0; si < 2; si++) {
+                const sAngle = Math.random() * Math.PI * 2;
+                const sSpeed = 200;
+
+                enemyProjectiles.push({
+                  id: ++enemyId,
+                  x: bullet.x,
+                  y: bullet.y,
+                  vx: Math.cos(sAngle) * sSpeed,
+                  vy: Math.sin(sAngle) * sSpeed,
+                  r: 4,
+                  color: "#7ee7ff",
+                  isSplinter: true,
+                  damage: shardDmg,
+                  life: 1.5,
+                  homing: true
+                });
+              }
+            }
           } else {
             dropBullet(bullet);
             continue;
@@ -5564,7 +5805,74 @@
     function updateEnemyProjectiles(dt) {
       for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
         const projectile = enemyProjectiles[i];
-      
+
+        /*
+         * Осколки от рикошета — дружественные снаряды,
+         * наводятся на врагов и наносят им урон.
+         */
+        if (projectile.isSplinter) {
+          projectile.life -= dt;
+          if (projectile.life <= 0) {
+            enemyProjectiles.splice(i, 1);
+            continue;
+          }
+
+          /* Самонаведение на ближайшего врага */
+          if (projectile.homing && enemies.length > 0) {
+            let closest = null;
+            let closestDist = Infinity;
+
+            for (const enemy of enemies) {
+              if (!enemy.hasEnteredArena) continue;
+              const d = Math.hypot(
+                enemy.x - projectile.x,
+                enemy.y - projectile.y
+              );
+
+              if (d < closestDist) {
+                closestDist = d;
+                closest = enemy;
+              }
+            }
+
+            if (closest && closestDist > 0.1) {
+              const homeDx = (closest.x - projectile.x) / closestDist;
+              const homeDy = (closest.y - projectile.y) / closestDist;
+              const turnRate = 6 * dt;
+              projectile.vx += homeDx * turnRate * 200;
+              projectile.vy += homeDy * turnRate * 200;
+              const speed = Math.hypot(projectile.vx, projectile.vy);
+              if (speed > 250) {
+                projectile.vx = (projectile.vx / speed) * 250;
+                projectile.vy = (projectile.vy / speed) * 250;
+              }
+            }
+          }
+
+          projectile.x += projectile.vx * dt;
+          projectile.y += projectile.vy * dt;
+
+          /* Проверка попадания по врагам */
+          for (let ei = enemies.length - 1; ei >= 0; ei--) {
+            const enemy = enemies[ei];
+            if (!enemy || !enemy.hasEnteredArena) continue;
+
+            if (
+              distance(projectile.x, projectile.y, enemy.x, enemy.y) <=
+              projectile.r + enemy.r
+            ) {
+              damageEnemy(ei, projectile.damage);
+              createParticles(
+                projectile.x, projectile.y,
+                "#7ee7ff", 5, 100
+              );
+              enemyProjectiles.splice(i, 1);
+              break;
+            }
+          }
+          continue;
+        }
+
         projectile.x += projectile.vx * dt;
         projectile.y += projectile.vy * dt;
       
@@ -5784,7 +6092,40 @@
           0,
           (enemy.contactCooldown || 0) - dt
         );
-      
+
+        /*
+         * Метка цели: таймер истекает с временем.
+         */
+        if (enemy.targetMarkTimer > 0) {
+          enemy.targetMarkTimer = Math.max(
+            0,
+            enemy.targetMarkTimer - dt
+          );
+
+          if (enemy.targetMarkTimer <= 0) {
+            enemy.targetMarked = false;
+          }
+        }
+
+        /*
+         * Оглушение: пока stunTimer > 0, враг не двигается.
+         */
+        if (enemy.stunTimer > 0) {
+          enemy.stunTimer = Math.max(0, enemy.stunTimer - dt);
+          continue;
+        }
+
+        /*
+         * Фантом: цикл фаз 5с (2с неуязвим, 3с уязвим).
+         */
+        if (enemy.type === "phantom") {
+          enemy.phaseTimer = (enemy.phaseTimer || 0) + dt;
+          if (enemy.phaseTimer >= 5.0) {
+            enemy.phaseTimer -= 5.0;
+          }
+          enemy.isPhased = enemy.phaseTimer < 2.0;
+        }
+
         enemy.isCharging = false;
       
         let dx = player.x - enemy.x;
@@ -6107,6 +6448,47 @@
           return;
         }
       }
+
+      /*
+       * Связанные Близнецы: лазерная нить наносит
+       * урон игроку при пересечении.
+       */
+      const twinChecked = new Set();
+      for (const enemy of enemies) {
+        if (
+          enemy.type !== "twin" ||
+          !enemy.twinPartnerId ||
+          twinChecked.has(enemy.id)
+        ) {
+          continue;
+        }
+
+        const partner = enemies.find(
+          e => e.id === enemy.twinPartnerId
+        );
+
+        if (!partner || partner.hp <= 0) {
+          continue;
+        }
+
+        twinChecked.add(enemy.id);
+        twinChecked.add(partner.id);
+
+        if (
+          player.invulnerability <= 0 &&
+          player.hp > 0
+        ) {
+          const dist = distToSegment(
+            player.x, player.y,
+            enemy.x, enemy.y,
+            partner.x, partner.y
+          );
+
+          if (dist <= player.r + 2) {
+            damagePlayer(1);
+          }
+        }
+      }
     }
 
 
@@ -6257,6 +6639,14 @@
         0,
         repairHealCooldown - dt
       );
+
+      if (player.reactiveArmorCooldown > 0) {
+        player.reactiveArmorCooldown = Math.max(
+          0,
+          player.reactiveArmorCooldown - dt
+        );
+      }
+
       updatePlayer(dt);
       updateBullets(dt);
       updateEnemies(dt);
@@ -6562,6 +6952,44 @@
         }
       },
       {
+        title: "Эффект Бумеранга",
+        description: "Возвращающаяся пуля наносит +50% урона и +1 пробитие.",
+        available() {
+          return (stats.groundPullSpeed || 0) > 0;
+        },
+        apply() {
+          stats.boomerang = true;
+        }
+      },
+      {
+        title: "Осколочный Рикошет",
+        description: "При рикошете — 2 самонаводящихся осколка (25% урона, 1.5с).",
+        apply() {
+          stats.splinter = true;
+        }
+      },
+      {
+        title: "Кинетический Удар",
+        description: "Попадание оглушает врага на 0.5с × сила.",
+        applyWithPower(power) {
+          stats.stun = (stats.stun || 0) + 0.5 * power;
+        }
+      },
+      {
+        title: "Реактивная Броня",
+        description: "При получении урона — взрыв 120px, отбрасывающий врагов. КД 3с.",
+        apply() {
+          stats.reactiveArmor = true;
+        }
+      },
+      {
+        title: "Метка Цели",
+        description: "Первое попадание помечает врага на 4с. Помеченный получает +30% урона.",
+        apply() {
+          stats.targetMark = true;
+        }
+      },
+      {
         title: "Запасной патрон",
         description: "Добавляет второй независимый патрон.",
         fixedRarity: "rare",
@@ -6860,6 +7288,32 @@
           );
         }
       
+        case "Эффект Бумеранга": {
+          return `+50% урона и +1 пробитие при возврате`;
+        }
+
+        case "Осколочный Рикошет": {
+          const shardDmg = Math.max(
+            1,
+            Math.floor(stats.damage * 0.25)
+          );
+
+          return `2 осколка по ${shardDmg} урона при рикошете`;
+        }
+
+        case "Кинетический Удар": {
+          const stunDur = 0.5 * power;
+          return `Оглушение на ${stunDur}с при попадании`;
+        }
+
+        case "Реактивная Броня": {
+          return `Взрыв 120px при уроне, кулдаун 3с`;
+        }
+
+        case "Метка Цели": {
+          return `Метка на 4с, +30% урона от всех источников`;
+        }
+
         case "Запасной патрон": {
           return "+1 независимый патрон в обойме";
         }
@@ -7140,6 +7594,11 @@
       "Разрывной сердечник": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>`,
       "Цепной конденсатор": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
       "Умная пуля": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>`,
+      "Эффект Бумеранга": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c0-5 4-9 9-9 2 0 3.5.5 5 1.5L14 7s-1-.5-2-.5c-3.3 0-6 2.7-6 6"/><path d="M21 12c0 5-4 9-9 9-2 0-3.5-.5-5-1.5L10 17s1 .5 2 .5c3.3 0 6-2.7 6-6"/><polyline points="3 7 3 12 8 12"/></svg>`,
+      "Осколочный Рикошет": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4l7 7"/><path d="M11 11l5-2"/><path d="M11 11l2 5"/><circle cx="18" cy="8" r="2" fill="currentColor"/><circle cx="14" cy="18" r="2" fill="currentColor"/><circle cx="4" cy="4" r="1.5" fill="currentColor"/></svg>`,
+      "Кинетический Удар": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M8 2l1 3M16 2l-1 3"/></svg>`,
+      "Реактивная Броня": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/><path d="M4 10l-2-1M20 10l2-1M12 2V0"/></svg>`,
+      "Метка Цели": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>`,
       "Крупный калибр": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/><circle cx="12" cy="12" r="3"/></svg>`,
       "Возвратный магнит": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
       "Запасной патрон": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><rect x="13.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><line x1="4.5" y1="12.5" x2="10.5" y2="12.5"/><line x1="13.5" y1="12.5" x2="19.5" y2="12.5"/></svg>`
