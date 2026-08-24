@@ -5422,8 +5422,6 @@ io.on("connection", socket => {
         for (const tp of targetPlayers) {
           tp._godMode = typeof data.enabled === "boolean" ? data.enabled : !tp._godMode;
           if (tp._godMode) {
-            tp.maxHp = Math.max(tp.maxHp, 9999);
-            tp.hp = tp.maxHp;
             tp.alive = true;
             if (tp.reviveBeacon) tp.reviveBeacon = null;
           }

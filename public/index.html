@@ -4459,6 +4459,7 @@
 
     function damagePlayer(amount) {
       if (
+        (typeof debug !== "undefined" && debug._godMode) ||
         player.invulnerability > 0 ||
         (gameState !== "playing" && gameState !== "menu")
       ) {
@@ -16965,13 +16966,8 @@
             `color: ${this._godMode ? "#22c55e" : "#f97316"}; font-weight: bold;`
           );
         } else {
-          if (this._godMode && player) {
-            player.maxHp = Math.max(player.maxHp, 9999);
-            player.hp = player.maxHp;
-            updateHud();
-          }
           console.log(
-            `%c[DEBUG] 🛡️ Режим бессмертия (God Mode): ${this._godMode ? "ВКЛЮЧЕН" : "ВЫКЛЮЧЕН"}`,
+            `%c[DEBUG] 🛡️ Режим бессмертия (God Mode): ${this._godMode ? "ВКЛЮЧЕН (урон = 0, HP сохранено)" : "ВЫКЛЮЧЕН"}`,
             `color: ${this._godMode ? "#22c55e" : "#f97316"}; font-weight: bold;`
           );
         }
