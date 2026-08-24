@@ -8898,8 +8898,8 @@
         let nextNoteTime = this.ctx.currentTime + 0.1;
 
         const scheduler = () => {
-          if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) {
-            setTimeout(scheduler, 100);
+          if (!this.ctx || this.ctx.state === "suspended" || gameSettings.mute || gameSettings.volume <= 0) {
+            setTimeout(scheduler, 200);
             return;
           }
 
@@ -9308,6 +9308,21 @@
       }
     }
     const soundManager = new SoundManager();
+
+    const unlockAudioContext = () => {
+      soundManager.init();
+      if (soundManager.ctx && soundManager.ctx.state === "suspended") {
+        soundManager.ctx.resume().catch(() => {});
+      }
+      window.removeEventListener("pointerdown", unlockAudioContext);
+      window.removeEventListener("keydown", unlockAudioContext);
+      window.removeEventListener("touchstart", unlockAudioContext);
+      window.removeEventListener("click", unlockAudioContext);
+    };
+    window.addEventListener("pointerdown", unlockAudioContext, { passive: true });
+    window.addEventListener("keydown", unlockAudioContext, { passive: true });
+    window.addEventListener("touchstart", unlockAudioContext, { passive: true });
+    window.addEventListener("click", unlockAudioContext, { passive: true });
 
     /* =========================================================================
        СИСТЕМА НАСТРОЕК И СТАТИСТИКИ
@@ -10967,6 +10982,8 @@
       coopGameOverUiActive = true;
       hidePauseMenu();
       hideUpgradeTooltip();
+      overlay.classList.remove("hidden");
+      overlay.setAttribute("aria-hidden", "false");
 
       const players = Array.isArray(networkRoom?.players) ? networkRoom.players : [];
       const myId = window.net?.playerId;

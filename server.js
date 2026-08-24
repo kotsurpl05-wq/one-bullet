@@ -3072,13 +3072,16 @@ function damageServerPlayer(
 
     if (alivePlayers.length === 0) {
       world.gameOver = true;
+      for (const p of world.players.values()) {
+        if (p.reviveBeacon) p.reviveBeacon = null;
+      }
       const r = [...rooms.values()].find(rm => rm.world === world);
       if (r) {
         cancelRoomCountdown(r);
-        r.started = false;
         for (const p of r.players.values()) {
           p.ready = false;
         }
+        io.to(r.code).emit("net:snapshot", createServerCoopSnapshot(r));
         emitRoomState(r);
       }
     }

@@ -244,5 +244,24 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(player1.x, 235.4, "Server player x must match streamed client coordinate without drift");
       assert.equal(player1.y, 218.2, "Server player y must match streamed client coordinate without drift");
     });
+
+    await t3.test("3.10 Both players dying in co-op triggers world.gameOver and cleans up beacons", () => {
+      const { world, room, player1, player2 } = createTestWorld(ctx);
+      room.started = true;
+      // Player 1 is already dead and has active beacon
+      player1.alive = false;
+      player1.hp = 0;
+      player1.reviveBeacon = { x: 300, y: 300, progress: 1.5, active: true };
+
+      // Player 2 takes fatal damage
+      player2.hp = 1;
+      player2.invulnerability = 0;
+      ctx.damageServerPlayer(world, player2, 5);
+
+      assert.equal(player2.alive, false);
+      assert.equal(world.gameOver, true, "world.gameOver must be true when all players die");
+      assert.equal(player1.reviveBeacon, null, "Revive beacons must be cleared on game over");
+      assert.equal(room.started, true, "room.started remains true to allow game over snapshot delivery");
+    });
   });
 });
