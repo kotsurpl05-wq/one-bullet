@@ -175,5 +175,27 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes('data-skin="toxic"'), "Settings must have toxic skin");
       assert.ok(indexHtml.includes('data-skin="cosmic"'), "Settings must have cosmic skin");
     });
+
+    await t3.test("3.4 Server updateServerCoopPlayer triggers dash physics on input.dash", () => {
+      const { player1 } = createTestWorld(ctx);
+      player1.x = 400;
+      player1.y = 300;
+      player1.input = ctx.sanitizeInput ? ctx.sanitizeInput({ right: true, dash: true }) : { right: true, dash: true };
+      player1.dashCooldown = 0;
+
+      // Update server player simulation
+      ctx.updateServerCoopPlayer(player1, 0.1, Date.now());
+
+      assert.equal(player1.dashCooldown, 8.0, "dashCooldown must be set to 8s on trigger");
+      assert.ok(player1.dashTimer > 0, "dashTimer must be active");
+      assert.ok(player1.x > 450, `Player x must have dashed right rapidly (got ${player1.x})`);
+      assert.ok(player1.invulnerability >= 0.15, "Invulnerability must be active during dash");
+    });
+
+    await t3.test("3.5 Client drawCoopBullet and drawCoop support bullet skins and settings", () => {
+      assert.ok(indexHtml.includes("drawCoopBullet"), "drawCoopBullet must exist");
+      assert.ok(indexHtml.includes("skin === \"fire\""), "drawCoopBullet must check bullet skin");
+      assert.ok(indexHtml.includes("coop-pause"), "Settings must support coop-pause return");
+    });
   });
 });

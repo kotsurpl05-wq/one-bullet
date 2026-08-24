@@ -3690,6 +3690,18 @@
         healthFill.style.width = "0%";
       }
 
+      const dashEl = document.getElementById("dashStatus");
+      if (dashEl) {
+        const cd = localPlayer?.dashCooldown || 0;
+        if (cd <= 0) {
+          dashEl.textContent = "⚡ ГОТОВ";
+          dashEl.style.color = "#38bdf8";
+        } else {
+          dashEl.textContent = `⏳ ${cd.toFixed(1)}s`;
+          dashEl.style.color = "#94a3b8";
+        }
+      }
+
       const ownBullets = [
         ...coopSession.bullets.values()
       ].filter(
@@ -5029,10 +5041,13 @@
     }
 
     function triggerDash() {
-      if (!player) return false;
       if (isMenuState()) return false;
       if (gameState !== "playing" && gameState !== "coop-playing") return false;
-      if ((player.dashCooldown || 0) > 0) return false;
+
+      const isCoop = gameState === "coop-playing" || (coopSession && coopSession.active);
+      const activePlayer = isCoop ? coopSession.players.get(window.net?.playerId) : player;
+      if (!activePlayer) return false;
+      if ((activePlayer.dashCooldown || 0) > 0) return false;
 
       let dx = 0;
       let dy = 0;
@@ -5046,23 +5061,37 @@
         dx /= len;
         dy /= len;
       } else {
-        const curW = width || SOLO_WORLD_WIDTH;
-        const curH = height || SOLO_WORLD_HEIGHT;
-        const angle = Math.atan2(pointer.y - player.y, pointer.x - player.x);
+        const aimTargetX = isCoop ? coopPointer.x : pointer.x;
+        const aimTargetY = isCoop ? coopPointer.y : pointer.y;
+        const angle = Math.atan2(aimTargetY - activePlayer.y, aimTargetX - activePlayer.x);
         dx = Math.cos(angle);
         dy = Math.sin(angle);
       }
 
-      player.dashCooldown = 8.0;
-      player.dashTimer = 0.18;
-      player.dashVx = dx * 850;
-      player.dashVy = dy * 850;
-      player.invulnerability = Math.max(player.invulnerability || 0, 0.25);
+      activePlayer.dashCooldown = 8.0;
+      activePlayer.dashTimer = 0.18;
+      activePlayer.dashVx = dx * 850;
+      activePlayer.dashVy = dy * 850;
+      activePlayer.invulnerability = Math.max(activePlayer.invulnerability || 0, 0.25);
 
       soundManager.playDash();
-      createRing(player.x, player.y, 45, "#00f2fe");
-      createParticles(player.x, player.y, "#38bdf8", 14, 180);
-      screenShake = Math.max(screenShake, 5);
+
+      if (isCoop) {
+        coopSession.dashTriggered = true;
+        createCoopRing(activePlayer.x, activePlayer.y, 45, "#00f2fe");
+        createCoopParticles(activePlayer.x, activePlayer.y, "#38bdf8", 14, 180);
+        coopScreenShake = Math.max(coopScreenShake, 5);
+        if (window.net?.isMultiplayer) {
+          const input = getLocalCoopInput(activePlayer);
+          input.dash = true;
+          net.sendInput(input);
+        }
+      } else {
+        createRing(activePlayer.x, activePlayer.y, 45, "#00f2fe");
+        createParticles(activePlayer.x, activePlayer.y, "#38bdf8", 14, 180);
+        screenShake = Math.max(screenShake, 5);
+      }
+
       return true;
     }
 
@@ -9806,7 +9835,16 @@
 
       backBtn.onclick = () => {
         soundManager.playUiClick();
-        if (fromView === "pause") {
+        if (fromView === "lobby") {
+          renderNetworkLobby();
+        } else if (fromView === "coop-pause" || (fromView === "pause" && (coopSession.active || runMode === "coop" || gameState === "coop-playing"))) {
+          overlay.classList.add("hidden");
+          currentMenuSubView = "pause";
+          gameState = "coop-playing";
+          renderPauseMenu();
+          pauseMenu.classList.remove("hidden");
+          pauseMenu.setAttribute("aria-hidden", "false");
+        } else if (fromView === "pause") {
           overlay.classList.add("hidden");
           currentMenuSubView = "pause";
           showPauseMenu();
@@ -9824,7 +9862,16 @@
 
       saveBtn.onclick = () => {
         soundManager.playUiClick();
-        if (fromView === "pause") {
+        if (fromView === "lobby") {
+          renderNetworkLobby();
+        } else if (fromView === "coop-pause" || (fromView === "pause" && (coopSession.active || runMode === "coop" || gameState === "coop-playing"))) {
+          overlay.classList.add("hidden");
+          currentMenuSubView = "pause";
+          gameState = "coop-playing";
+          renderPauseMenu();
+          pauseMenu.classList.remove("hidden");
+          pauseMenu.setAttribute("aria-hidden", "false");
+        } else if (fromView === "pause") {
           overlay.classList.add("hidden");
           currentMenuSubView = "pause";
           showPauseMenu();
@@ -10571,6 +10618,14 @@
             data-lobby-action="leave"
           >
             В главное меню
+          </button>
+
+          <button
+            type="button"
+            class="secondary-button"
+            data-lobby-action="settings"
+          >
+            ⚙️ Настройки
           </button>
         
           ${
@@ -11433,6 +11488,8 @@
     }
 
     function getLocalCoopInput(localPlayer) {
+      const dash = Boolean(coopSession.dashTriggered);
+      coopSession.dashTriggered = false;
       return {
         up:
           keys.has("KeyW") ||
@@ -11450,6 +11507,7 @@
           keys.has("KeyD") ||
           keys.has("ArrowRight"),
       
+        dash,
         aimX: coopPointer.x,
         aimY: coopPointer.y,
         x: localPlayer ? Math.round(localPlayer.displayX * 10) / 10 : null,
@@ -11466,6 +11524,14 @@
         return;
       }
     
+      coopPlayer.dashCooldown = Math.max(0, (coopPlayer.dashCooldown || 0) - dt);
+      if (coopPlayer.dashTimer > 0) {
+        coopPlayer.dashTimer -= dt;
+        coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
+        coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
+        createCoopParticles(coopPlayer.x, coopPlayer.y, "#00f2fe", 2, 40);
+      }
+
       let movementX = 0;
       let movementY = 0;
     
@@ -12922,6 +12988,17 @@
       );
 
       for (const coopPlayer of coopSession.players.values()) {
+        coopPlayer.dashCooldown = Math.max(
+          0,
+          (coopPlayer.dashCooldown || 0) - presentationDt
+        );
+        if (coopPlayer.dashTimer > 0 && coopPlayer.id !== window.net?.playerId) {
+          coopPlayer.dashTimer -= presentationDt;
+          coopPlayer.displayX += (coopPlayer.dashVx || 0) * presentationDt;
+          coopPlayer.displayY += (coopPlayer.dashVy || 0) * presentationDt;
+          createCoopParticles(coopPlayer.displayX, coopPlayer.displayY, "#00f2fe", 2, 40);
+        }
+
         coopPlayer.hitFlash = Math.max(
           0,
           (coopPlayer.hitFlash || 0) - 5 * presentationDt
@@ -13662,43 +13739,136 @@
         coopBullet.displayY
       );
     
-      ctx.beginPath();
-    
-      ctx.arc(
-        0,
-        0,
-        coopBullet.r *
-          2.3 *
-          pulse,
-        0,
-        Math.PI * 2
-      );
-    
-      ctx.fillStyle =
-        colors.glow;
-    
-      ctx.fill();
-    
-      ctx.beginPath();
-    
-      ctx.arc(
-        0,
-        0,
-        coopBullet.r,
-        0,
-        Math.PI * 2
-      );
-    
-      ctx.fillStyle =
-        colors.light;
-    
-      ctx.shadowColor =
-        colors.body;
-    
-      ctx.shadowBlur =
-        isOwnBullet ? 21 : 14;
-    
-      ctx.fill();
+      const skin = isOwnBullet ? (gameSettings.bulletSkin || "neon") : "neon";
+      if (skin === "fire") {
+        const rot = performance.now() * 0.005;
+        ctx.rotate(rot);
+        ctx.beginPath();
+        ctx.arc(0, 0, coopBullet.r * 2.4 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 69, 0, 0.25)";
+        ctx.shadowColor = "#ff4500";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+        for (let f = 0; f < 4; f++) {
+          const fa = (f / 4) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(fa) * coopBullet.r * 1.1, Math.sin(fa) * coopBullet.r * 1.1, coopBullet.r * 0.55, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffa500";
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, coopBullet.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#fffbeb";
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+      } else if (skin === "quantum") {
+        const rot = performance.now() * 0.008;
+        ctx.rotate(rot);
+        const bladeLen = coopBullet.r * 2.2 * pulse;
+        const bladeW = coopBullet.r * 0.6;
+        ctx.fillStyle = "#38bdf8";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 16;
+        for (let b = 0; b < 4; b++) {
+          ctx.save();
+          ctx.rotate((b * Math.PI) / 2);
+          ctx.beginPath();
+          ctx.moveTo(0, -bladeLen);
+          ctx.lineTo(bladeW, 0);
+          ctx.lineTo(0, -coopBullet.r * 0.3);
+          ctx.lineTo(-bladeW, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, coopBullet.r * 0.65, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#818cf8";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      } else if (skin === "toxic") {
+        const wobble = Math.sin(performance.now() * 0.015) * 0.15;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, coopBullet.r * 2.2 * (1 + wobble), coopBullet.r * 1.8 * (1 - wobble), performance.now() * 0.002, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
+        ctx.shadowColor = "#39ff14";
+        ctx.shadowBlur = 20;
+        ctx.fill();
+
+        for (let d = 0; d < 3; d++) {
+          const da = (d / 3) * Math.PI * 2 + performance.now() * 0.004;
+          ctx.beginPath();
+          ctx.arc(Math.cos(da) * coopBullet.r * 1.2, Math.sin(da) * coopBullet.r * 1.2, coopBullet.r * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = "#4ade80";
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, coopBullet.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#dcfce7";
+        ctx.shadowColor = "#22c55e";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+      } else if (skin === "cosmic") {
+        const rot = performance.now() * 0.004;
+        ctx.rotate(rot);
+        const outerR = coopBullet.r * 2.4 * pulse;
+        const innerR = coopBullet.r * 0.8;
+        ctx.beginPath();
+        for (let s = 0; s < 16; s++) {
+          const r = s % 2 === 0 ? outerR : innerR;
+          const a = (s / 16) * Math.PI * 2;
+          if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
+        ctx.shadowColor = "#eab308";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, coopBullet.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#c084fc";
+        ctx.shadowBlur = 15;
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(
+          0,
+          0,
+          coopBullet.r *
+            2.3 *
+            pulse,
+          0,
+          Math.PI * 2
+        );
+        ctx.fillStyle =
+          colors.glow;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(
+          0,
+          0,
+          coopBullet.r,
+          0,
+          Math.PI * 2
+        );
+        ctx.fillStyle =
+          colors.light;
+        ctx.shadowColor =
+          colors.body;
+        ctx.shadowBlur =
+          isOwnBullet ? 21 : 14;
+        ctx.fill();
+      }
     
       ctx.restore();
     
@@ -14329,7 +14499,7 @@
     
       ctx.clip();
 
-      if (coopScreenShake > 0) {
+      if (coopScreenShake > 0 && gameSettings.screenShake !== false) {
         ctx.translate(
           random(-coopScreenShake, coopScreenShake),
           random(-coopScreenShake, coopScreenShake)
@@ -16861,7 +17031,7 @@
         if (action === "settings") {
           hidePauseMenu();
           overlay.classList.remove("hidden");
-          showSettingsMenu("pause");
+          showSettingsMenu((coopSession.active || runMode === "coop" || gameState === "coop-playing") ? "coop-pause" : "pause");
           return;
         }
       
@@ -17027,7 +17197,13 @@
           event.preventDefault();
           soundManager.playUiClick();
           overlay.classList.add("hidden");
-          if (gameState === "paused" || gameState === "playing") {
+          if (coopSession.active || runMode === "coop" || gameState === "coop-playing") {
+            currentMenuSubView = "pause";
+            gameState = "coop-playing";
+            renderPauseMenu();
+            pauseMenu.classList.remove("hidden");
+            pauseMenu.setAttribute("aria-hidden", "false");
+          } else if (gameState === "paused" || gameState === "playing") {
             currentMenuSubView = "pause";
             showPauseMenu();
           } else {

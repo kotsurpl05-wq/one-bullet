@@ -267,6 +267,7 @@ function sanitizeInput(input) {
     down: Boolean(input?.down),
     left: Boolean(input?.left),
     right: Boolean(input?.right),
+    dash: Boolean(input?.dash),
 
     aimX: Number.isFinite(input?.aimX) ? Number(input.aimX) : 0,
     aimY: Number.isFinite(input?.aimY) ? Number(input.aimY) : 0,
@@ -4136,6 +4137,37 @@ function updateServerCoopPlayer(
     COOP_INPUT_TIMEOUT
   ) {
     input = sanitizeInput({});
+  }
+
+  coopPlayer.dashCooldown = Math.max(0, (coopPlayer.dashCooldown || 0) - dt);
+
+  if (input.dash && (coopPlayer.dashCooldown || 0) <= 0) {
+    let ddx = 0;
+    let ddy = 0;
+    if (input.up) ddy -= 1;
+    if (input.down) ddy += 1;
+    if (input.left) ddx -= 1;
+    if (input.right) ddx += 1;
+    const dlen = Math.hypot(ddx, ddy);
+    if (dlen > 0) {
+      ddx /= dlen;
+      ddy /= dlen;
+    } else {
+      const angle = Math.atan2((input.aimY || coopPlayer.y) - coopPlayer.y, (input.aimX || coopPlayer.x) - coopPlayer.x);
+      ddx = Math.cos(angle);
+      ddy = Math.sin(angle);
+    }
+    coopPlayer.dashCooldown = 8.0;
+    coopPlayer.dashTimer = 0.18;
+    coopPlayer.dashVx = ddx * 850;
+    coopPlayer.dashVy = ddy * 850;
+    coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.25);
+  }
+
+  if (coopPlayer.dashTimer > 0) {
+    coopPlayer.dashTimer -= dt;
+    coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
+    coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
   }
 
   let movementX = 0;
