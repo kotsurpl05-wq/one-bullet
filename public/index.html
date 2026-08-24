@@ -5998,16 +5998,15 @@
 
 
     function updateParasiteSpores(dt) {
+      const curW = isMenuState() ? width : (SOLO_WORLD_WIDTH || 2560);
+      const curH = isMenuState() ? height : (SOLO_WORLD_HEIGHT || 1440);
+
       for (let i = parasiteSpores.length - 1; i >= 0; i--) {
         const spore = parasiteSpores[i];
-        spore.life -= dt;
-        if (spore.life <= 0) {
-          parasiteSpores.splice(i, 1);
-          continue;
-        }
 
+        // 1. Поиск ближайшего живого врага на арене
         let nearestEnemy = null;
-        let nearestDist = 700;
+        let nearestDist = 1200;
         for (let ei = 0; ei < enemies.length; ei++) {
           const enemy = enemies[ei];
           if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
@@ -6019,6 +6018,7 @@
           }
         }
 
+        // 2. Если есть живая цель — активно доворачиваем к ней
         if (nearestEnemy && nearestDist > 0) {
           const steer = 7.0 * dt;
           const targetVx = ((nearestEnemy.x - spore.x) / nearestDist) * 320;
@@ -6027,17 +6027,30 @@
           spore.vy += (targetVy - spore.vy) * steer;
         }
 
+        // 3. Движение споры
         spore.x += spore.vx * dt;
         spore.y += spore.vy * dt;
 
+        // 4. Паразиты исчезают ТОЛЬКО когда улетают за пределы арены
+        if (
+          spore.x < -80 ||
+          spore.x > curW + 80 ||
+          spore.y < -80 ||
+          spore.y > curH + 80
+        ) {
+          parasiteSpores.splice(i, 1);
+          continue;
+        }
+
+        // 5. Попадание во врага и нанесение урона
         for (let ei = 0; ei < enemies.length; ei++) {
           const enemy = enemies[ei];
           if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
           if (enemy.type === "phantom" && enemy.isPhased) continue;
-          if (distance(spore.x, spore.y, enemy.x, enemy.y) <= spore.r + enemy.r) {
+          if (distance(spore.x, spore.y, enemy.x, enemy.y) <= (spore.r || 7) + enemy.r) {
             damageEnemy(ei, spore.damage);
             soundManager.playSplinterHit();
-            createParticles(spore.x, spore.y, "#ffffff", 8, 140);
+            createParticles(spore.x, spore.y, "#ffffff", 12, 160);
             parasiteSpores.splice(i, 1);
             break;
           }

@@ -1484,14 +1484,8 @@ function updateServerParasites(world, dt) {
   if (!world.parasites || world.parasites.size === 0) return;
 
   for (const [parasiteId, spore] of world.parasites.entries()) {
-    spore.life -= dt;
-    if (spore.life <= 0) {
-      world.parasites.delete(parasiteId);
-      continue;
-    }
-
     let nearestEnemy = null;
-    let nearestDist = 700;
+    let nearestDist = 1200;
     for (const enemy of world.enemies.values()) {
       if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
       if (enemy.type === "phantom" && enemy.isPhased) continue;
@@ -1513,10 +1507,21 @@ function updateServerParasites(world, dt) {
     spore.x += spore.vx * dt;
     spore.y += spore.vy * dt;
 
+    // Паразиты исчезают ТОЛЬКО когда улетают за пределы арены
+    if (
+      spore.x < -80 ||
+      spore.x > COOP_WORLD_WIDTH + 80 ||
+      spore.y < -80 ||
+      spore.y > COOP_WORLD_HEIGHT + 80
+    ) {
+      world.parasites.delete(parasiteId);
+      continue;
+    }
+
     for (const enemy of world.enemies.values()) {
       if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
       if (enemy.type === "phantom" && enemy.isPhased) continue;
-      if (distance(spore.x, spore.y, enemy.x, enemy.y) <= spore.r + enemy.r) {
+      if (distance(spore.x, spore.y, enemy.x, enemy.y) <= (spore.r || 7) + enemy.r) {
         const owner = world.players.get(spore.ownerId) || null;
         damageServerEnemy(world, enemy.id, spore.damage, owner);
         world.parasites.delete(parasiteId);
