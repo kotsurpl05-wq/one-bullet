@@ -5014,8 +5014,9 @@
 
               if (eDist <= hitDist) {
                 bullet.hitEnemies.add(enemy.id);
+                const bonus = stats.boomerangBonus || 0.25;
                 const boomerangDmg = Math.floor(
-                  stats.damage * 1.5
+                  stats.damage * (1 + bonus)
                 );
 
                 damageEnemy(ei, boomerangDmg);
@@ -7077,13 +7078,13 @@
       },
       {
         title: "Эффект Бумеранга",
-        description: "Возвращающаяся пуля наносит +50% урона и +1 пробитие.",
-        fixedRarity: "rare",
+        description: "Возвращающаяся пуля наносит дополнительный урон (+25% за уровень, макс. +100%) и пробивает врагов.",
         available() {
-          return (stats.groundPullSpeed || 0) > 0 && !stats.boomerang;
+          return (stats.groundPullSpeed || 0) > 0 && (stats.boomerangBonus || 0) < 1.0;
         },
-        apply() {
+        applyWithPower(power) {
           stats.boomerang = true;
+          stats.boomerangBonus = Math.min(1.0, (stats.boomerangBonus || 0) + 0.25 * power);
         }
       },
       {

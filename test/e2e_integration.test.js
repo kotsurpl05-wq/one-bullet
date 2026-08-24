@@ -343,6 +343,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     player.stats.targetMark = true;
     player.stats.stunPower = 2; // 0.5s * 2 = 1.0s stun
     player.stats.boomerang = true;
+    player.stats.boomerangBonus = 0.50;
     player.stats.groundPullSpeed = 220; // Active ground pull
     player.stats.reactiveArmor = true;
     player.stats.reactiveArmorCooldown = 0;

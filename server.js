@@ -2353,13 +2353,14 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Возвращающаяся пуля наносит +50% урона и +1 пробитие.",
-    fixedRarity: "rare",
+    description: "Возвращающаяся пуля наносит дополнительный урон (+25% за уровень, макс. +100%) и пробивает врагов.",
     available(player) {
-      return (player.stats?.groundPullSpeed || 0) > 0 && !player.stats?.boomerang;
+      return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.boomerangBonus || 0) < 1.0;
     },
     bonus(player, power) {
-      return `+50% урона и +1 пробитие при возврате`;
+      const current = player.stats?.boomerangBonus || 0;
+      const result = Math.min(1.0, current + 0.25 * power);
+      return `+${Math.round((result - current) * 100)}% к урону при возврате (итог: +${Math.round(result * 100)}%)`;
     }
   },
 
@@ -4044,6 +4045,7 @@ function applyServerUpgrade(
 
     case "boomerang":
       player.stats.boomerang = true;
+      player.stats.boomerangBonus = Math.min(1.0, (player.stats.boomerangBonus || 0) + 0.25 * power);
       break;
 
     case "splinter":
