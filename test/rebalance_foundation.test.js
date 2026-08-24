@@ -191,12 +191,12 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     player1.stats.groundPullSpeed = 0;
 
     ctx.applyServerUpgrade(player1, magneticUpgrade.id, 1);
-    assert.equal(player1.stats.pickupRadius, 35, "pickupRadius should increase by 35");
+    assert.equal(player1.stats.pickupRadius || 0, 0);
     assert.equal(player1.stats.groundPullSpeed, 110, "groundPullSpeed should increase by 110");
 
     // Apply with power = 2
     ctx.applyServerUpgrade(player1, magneticUpgrade.id, 2);
-    assert.equal(player1.stats.pickupRadius, 35 + 70, "pickupRadius should be 105");
+    assert.equal(player1.stats.pickupRadius || 0, 0);
     assert.equal(player1.stats.groundPullSpeed, 110 + 220, "groundPullSpeed should be 330");
   });
 

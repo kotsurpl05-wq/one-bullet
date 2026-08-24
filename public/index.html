@@ -4961,9 +4961,12 @@
       
         const currentDistance = Math.hypot(dx, dy);
       
+        const MAGNET_MAX_DIST = 20 * 48; // 20 клеток (960px)
+
         if (
-          stats.groundPullSpeed > 0 &&
-          currentDistance > 0.001
+          (stats.groundPullSpeed || 0) > 0 &&
+          currentDistance > player.r + bullet.r &&
+          currentDistance <= MAGNET_MAX_DIST
         ) {
           dx /= currentDistance;
           dy /= currentDistance;
@@ -5007,8 +5010,7 @@
       
         const pickupDistance =
           player.r +
-          bullet.r +
-          stats.pickupRadius;
+          bullet.r;
       
         if (
           distance(
@@ -6957,9 +6959,9 @@
       },
       {
         title: "Магнитное поле",
-        description: "Увеличивает радиус подбора и притягивает лежащие патроны к игроку.",
+        description: "Притягивает лежащие патроны к игроку со скоростью +110 при приближении ближе 20 клеток.",
         applyWithPower(power) {
-          stats.pickupRadius = (stats.pickupRadius || 0) + 35 * power;
+          stats.pickupRadius = 0;
           stats.groundPullSpeed = (stats.groundPullSpeed || 0) + 110 * power;
         }
       },

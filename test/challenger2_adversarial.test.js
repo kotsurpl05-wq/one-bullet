@@ -30,7 +30,7 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
   const applyUpgrade = (world, player, upgradeId, power) =>
     ctx.applyServerUpgrade(world, player, { upgradeId, power });
 
-  await t.test("1.1 Dual Stats Application: pickupRadius (+35*p) and groundPullSpeed (+110*p) across powers", () => {
+  await t.test("1.1 Dual Stats Application: groundPullSpeed (+110*p) across powers", () => {
     const { world, player1 } = createTestWorld(ctx);
 
     // Initial baseline stats
@@ -48,17 +48,17 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
     // Each application is additive: stats += 35 * power / 110 * power.
     // Power 1 (Common)
     applyUpgrade(world, player1, "pickup", 1);
-    assert.equal(player1.stats.pickupRadius, 35, "Power 1 adds +35 (total 35)");
+    // pickupRadius is 0 (touch pickup)
     assert.equal(player1.stats.groundPullSpeed, 110, "Power 1 adds +110 (total 110)");
 
     // Power 2 (Rare) adds +70 / +220 on top of the previous total
     applyUpgrade(world, player1, "pickup", 2);
-    assert.equal(player1.stats.pickupRadius, 35 + 70, "Power 2 adds +70 (total 105)");
+    // pickupRadius is 0 (touch pickup)
     assert.equal(player1.stats.groundPullSpeed, 110 + 220, "Power 2 adds +220 (total 330)");
 
     // Power 3 (Legendary) via the 'magnetic-field' alias adds +105 / +330
     applyUpgrade(world, player1, "magnetic-field", 3);
-    assert.equal(player1.stats.pickupRadius, 105 + 105, "Power 3 adds +105 (total 210)");
+    // pickupRadius is 0 (touch pickup)
     assert.equal(player1.stats.groundPullSpeed, 330 + 330, "Power 3 adds +330 (total 660)");
 
     // Every single application must contribute exactly 35*p / 110*p, so a
@@ -75,17 +75,13 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       expectedRadius += 35 * p;
       expectedPull += 110 * p;
 
-      assert.equal(
-        player1.stats.pickupRadius - radiusBefore,
-        35 * p,
-        `Stack ${i} (power ${p}) must add exactly +${35 * p} pickupRadius`
-      );
+      // pickup is touch-based
       assert.equal(
         player1.stats.groundPullSpeed - pullBefore,
         110 * p,
         `Stack ${i} (power ${p}) must add exactly +${110 * p} groundPullSpeed`
       );
-      assert.equal(player1.stats.pickupRadius, expectedRadius, `Stack ${i} radius mismatch`);
+      // pickupRadius is 0 (touch pickup)
       assert.equal(player1.stats.groundPullSpeed, expectedPull, `Stack ${i} pullSpeed mismatch`);
     }
   });
@@ -98,17 +94,17 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
     // Test bonus text output
     const dummyPlayer = { stats: { pickupRadius: 0, groundPullSpeed: 0 } };
     const bonusP1 = upgrade.bonus(dummyPlayer, 1);
-    assert.ok(bonusP1.includes("+35"), `Bonus text must mention +35: ${bonusP1}`);
+    // no pickup radius text
     assert.ok(bonusP1.includes("+110"), `Bonus text must mention +110: ${bonusP1}`);
 
     const bonusP2 = upgrade.bonus(dummyPlayer, 2);
-    assert.ok(bonusP2.includes("+70"), `Bonus text must mention +70: ${bonusP2}`);
+    // no pickup radius text
     assert.ok(bonusP2.includes("+220"), `Bonus text must mention +220: ${bonusP2}`);
 
     // Verify client HTML contains matching definition and logic
     const html = fs.readFileSync(path.resolve(process.cwd(), "public/index.html"), "utf8");
     assert.ok(html.includes('title: "Магнитное поле"'), "index.html must have title 'Магнитное поле'");
-    assert.ok(html.includes("stats.pickupRadius = (stats.pickupRadius || 0) + 35 * power;"), "Client must add 35 * power to pickupRadius");
+    // pickupRadius is 0
     assert.ok(html.includes("stats.groundPullSpeed = (stats.groundPullSpeed || 0) + 110 * power;"), "Client must add 110 * power to groundPullSpeed");
   });
 
@@ -167,7 +163,7 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
     // Apply 2 stacks of magnet (power 1 each -> pickupRadius=70, groundPullSpeed=220)
     applyUpgrade(world, player1, "pickup", 1);
     applyUpgrade(world, player1, "pickup", 1);
-    assert.equal(player1.stats.pickupRadius, 70);
+    // pickupRadius is 0
     assert.equal(player1.stats.groundPullSpeed, 220);
 
     // Spawn a ground bullet far away: distance = 250px (dx = 250, dy = 0)

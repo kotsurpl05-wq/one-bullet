@@ -126,11 +126,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     // Apply consolidated upgrade with power = 1
     ctx.applyServerUpgrade(player1, magneticUpgrade.id, 1);
 
-    assert.equal(
-      player1.stats.pickupRadius,
-      initialRadius + 35,
-      "Magnetic field must increase pickupRadius by +35 per power"
-    );
+    assert.equal(player1.stats.pickupRadius || 0, 0, "Pickup radius stays 0 (touch pickup)");
     assert.equal(
       player1.stats.groundPullSpeed,
       initialPull + 110,
@@ -319,7 +315,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
 
     assert.ok(player1.stats.critChance >= 0.10);
     assert.equal(player1.stats.magazineSize, 2);
-    assert.equal(player1.stats.pickupRadius, 35);
+    assert.equal(player1.stats.pickupRadius || 0, 0);
     assert.equal(player1.stats.groundPullSpeed, 110);
   });
 

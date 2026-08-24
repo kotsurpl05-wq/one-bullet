@@ -2200,14 +2200,12 @@ const SERVER_UPGRADES = [
     id: "pickup",
     title: "Магнитное поле",
     description:
-      "Увеличивает радиус подбора и притягивает лежащие патроны к игроку.",
+      "Притягивает лежащие патроны к игроку со скоростью +110 при приближении ближе 20 клеток.",
     bonus(player, power) {
-      const pixels = 35 * power;
       const speed = 110 * power;
 
       return (
-        `+${pixels} к радиусу подбора, ` +
-        `+${speed} px/с к скорости притяжения`
+        `+${speed} px/с к скорости притяжения (в радиусе 20 клеток)`
       );
     }
   },
@@ -3933,9 +3931,7 @@ function applyServerUpgrade(
 
     case "pickup":
     case "magnetic-field":
-      player.stats.pickupRadius =
-        (player.stats.pickupRadius || 0) +
-        35 * power;
+      player.stats.pickupRadius = 0;
       player.stats.groundPullSpeed =
         (player.stats.groundPullSpeed || 0) +
         110 * power;
