@@ -75,7 +75,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
   });
 
   await t.test("Tier 1 - Magnetizer Enemy Unit & Trajectory Bending Verification", async (t1) => {
-    await t1.test("2.1 Magnetizer creation sets r=16, color #c084fc, speed 40+1.2w, HP 3+floor(w/4)", () => {
+    await t1.test("2.1 Magnetizer creation sets r=16, color #c084fc, speed 40+1.2w, HP 5+floor(w/3)", () => {
       const { world } = createTestWorld(ctx);
       world.wave = 8;
       const magnetizer = ctx.createServerEnemy(world, "magnetizer", 400, 400, true);
@@ -85,12 +85,12 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       assert.equal(magnetizer.r, 16, "Magnetizer radius must be 16");
       assert.equal(magnetizer.color.toLowerCase(), "#c084fc", "Magnetizer color must be #c084fc");
 
-      // Wave 8: speed = 40 + 1.2*8 = 49.6, HP = 3 + floor(8/4) = 5
+      // Wave 8: speed = 40 + 1.2*8 = 49.6, HP = 5 + floor(8/3) = 7
       assert.ok(magnetizer.speed >= 48 && magnetizer.speed <= 52, `Magnetizer speed should be ~49.6, got ${magnetizer.speed}`);
       assert.ok(magnetizer.hp >= 4, `Magnetizer HP should be >= 4, got ${magnetizer.hp}`);
     });
 
-    await t1.test("2.2 Magnetizer gravitational field bends flying bullet trajectory within 200px", () => {
+    await t1.test("2.2 Magnetizer gravitational field bends flying bullet trajectory within 400px", () => {
       const { world, player1: player } = createTestWorld(ctx);
       world.wave = 8;
       const magnetizer = ctx.createServerEnemy(world, "magnetizer", 400, 300, true);
@@ -99,7 +99,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
       bullet.state = "flying";
       bullet.x = 400;
-      bullet.y = 450; // Distance to magnetizer = 150px (< 200px)
+      bullet.y = 550; // Distance to magnetizer = 250px (< 400px)
       bullet.vx = 300; // Flying horizontally
       bullet.vy = 0;
 
@@ -113,7 +113,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       );
     });
 
-    await t1.test("2.3 Bullet outside 200px is NOT affected by Magnetizer gravitational field", () => {
+    await t1.test("2.3 Bullet outside 400px is NOT affected by Magnetizer gravitational field", () => {
       const { world, player1: player } = createTestWorld(ctx);
       world.wave = 8;
       const magnetizer = ctx.createServerEnemy(world, "magnetizer", 400, 100, true);
@@ -122,13 +122,13 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
       bullet.state = "flying";
       bullet.x = 400;
-      bullet.y = 400; // Distance = 300px (> 200px)
+      bullet.y = 600; // Distance = 500px (> 400px)
       bullet.vx = 300;
       bullet.vy = 0;
 
       ctx.updateServerBullet({ world }, bullet, 0.05);
 
-      assert.equal(bullet.vy, 0, "Bullet outside 200px range should maintain vy = 0");
+      assert.equal(bullet.vy, 0, "Bullet outside 400px range should maintain vy = 0");
     });
   });
 

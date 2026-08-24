@@ -3446,7 +3446,7 @@
       }
 
       if (type === "magnetizer") {
-        const hp = 3 + Math.floor(wave / 4);
+        const hp = 5 + Math.floor(wave / 3);
 
         return {
           id: ++enemyId,
@@ -5461,7 +5461,7 @@
         }
 
         /*
-         * Магнетизатор: искривляет траекторию пуль в 200px.
+         * Магнетизатор: искривляет траекторию пуль в 400px с усиленным притяжением.
          */
         for (const mag of enemies) {
           if (mag.type !== "magnetizer") continue;
@@ -5470,8 +5470,8 @@
             mag.y - bullet.y
           );
 
-          if (magDist < 200 && magDist > 0.1) {
-            const pullStrength = 120 * dt;
+          if (magDist < 400 && magDist > 0.1) {
+            const pullStrength = 340 * dt;
             bullet.vx += ((mag.x - bullet.x) / magDist) * pullStrength;
             bullet.vy += ((mag.y - bullet.y) / magDist) * pullStrength;
           }

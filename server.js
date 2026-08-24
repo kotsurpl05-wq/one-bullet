@@ -997,8 +997,8 @@ function updateServerBullet(
       enemy.x, enemy.y
     );
 
-    if (distToBullet < 200 && distToBullet > 1) {
-      const pullStrength = 120 * dt;
+    if (distToBullet < 400 && distToBullet > 1) {
+      const pullStrength = 340 * dt;
       const dx = enemy.x - bullet.x;
       const dy = enemy.y - bullet.y;
 
@@ -1800,7 +1800,7 @@ function createServerEnemy(
   if (type === "magnetizer") {
     radius = 16;
     speed = 40 + world.wave * 1.2;
-    baseHp = 3 + Math.floor(world.wave / 4);
+    baseHp = 5 + Math.floor(world.wave / 3);
     color = "#c084fc";
   }
 
