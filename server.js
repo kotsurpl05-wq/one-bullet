@@ -4175,45 +4175,58 @@ function updateServerCoopPlayer(
     coopPlayer.dashVx = ddx * 850;
     coopPlayer.dashVy = ddy * 850;
     coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.25);
+    input.dash = false;
   }
 
-  if (coopPlayer.dashTimer > 0) {
-    coopPlayer.dashTimer -= dt;
-    coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
-    coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
-  }
+  if (Number.isFinite(input.x) && Number.isFinite(input.y)) {
+    const drift = Math.hypot(input.x - coopPlayer.x, input.y - coopPlayer.y);
+    if (drift < 300) {
+      coopPlayer.x = input.x;
+      coopPlayer.y = input.y;
+    } else {
+      const lerp = Math.min(1, dt * 12);
+      coopPlayer.x += (input.x - coopPlayer.x) * lerp;
+      coopPlayer.y += (input.y - coopPlayer.y) * lerp;
+    }
+  } else {
+    if (coopPlayer.dashTimer > 0) {
+      coopPlayer.dashTimer -= dt;
+      coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
+      coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
+    }
 
-  let movementX = 0;
-  let movementY = 0;
+    let movementX = 0;
+    let movementY = 0;
 
-  if (input.up) movementY -= 1;
-  if (input.down) movementY += 1;
-  if (input.left) movementX -= 1;
-  if (input.right) movementX += 1;
+    if (input.up) movementY -= 1;
+    if (input.down) movementY += 1;
+    if (input.left) movementX -= 1;
+    if (input.right) movementX += 1;
 
-  const movementLength =
-    Math.hypot(
-      movementX,
-      movementY
-    );
+    const movementLength =
+      Math.hypot(
+        movementX,
+        movementY
+      );
 
-  if (movementLength > 0) {
-    movementX /= movementLength;
-    movementY /= movementLength;
+    if (movementLength > 0) {
+      movementX /= movementLength;
+      movementY /= movementLength;
 
-    const movementSpeed =
-      coopPlayer.stats?.playerSpeed ??
-      COOP_PLAYER_SPEED;
+      const movementSpeed =
+        coopPlayer.stats?.playerSpeed ??
+        COOP_PLAYER_SPEED;
 
-    coopPlayer.x +=
-      movementX *
-      movementSpeed *
-      dt;
+      coopPlayer.x +=
+        movementX *
+        movementSpeed *
+        dt;
 
-    coopPlayer.y +=
-      movementY *
-      movementSpeed *
-      dt;
+      coopPlayer.y +=
+        movementY *
+        movementSpeed *
+        dt;
+    }
   }
 
   coopPlayer.x = clamp(
@@ -5029,6 +5042,17 @@ function createServerCoopSnapshot(room) {
       x: Math.round(medkit.x),
       y: Math.round(medkit.y),
       r: medkit.r || 12
+    })) : [],
+
+    parasites: world.parasites ? [
+      ...world.parasites.values()
+    ].map(spore => ({
+      id: spore.id,
+      x: Math.round(spore.x),
+      y: Math.round(spore.y),
+      vx: Math.round(spore.vx),
+      vy: Math.round(spore.vy),
+      r: spore.r || 7
     })) : []
   };
 }

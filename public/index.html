@@ -277,7 +277,7 @@
     #overlay {
       position: fixed;
       inset: 0;
-      z-index: 20;
+      z-index: 40;
 
       display: grid;
       place-items: center;
@@ -3118,6 +3118,7 @@
       bullets: new Map(),
       enemies: new Map(),
       enemyProjectiles: new Map(),
+      parasites: new Map(),
       inputs: new Map(),
     
       wave: 1,
@@ -11363,6 +11364,7 @@
       coopSession.inputs.clear();
       coopSession.bullets.clear();
       coopSession.enemies.clear();
+      if (coopSession.parasites) coopSession.parasites.clear();
       coopParticles.length = 0;
 
       coopSession.snapshotTimer = 0;
@@ -11975,14 +11977,44 @@
         Boolean(snapshot.manualPaused);
 
       if (coopSession.manualPaused) {
-        if (pauseMenu.classList.contains("hidden")) {
+        if (currentMenuSubView !== "settings" && !coopUnpauseUiActive && pauseMenu.classList.contains("hidden")) {
           renderPauseMenu();
           pauseMenu.classList.remove("hidden");
           pauseMenu.setAttribute("aria-hidden", "false");
         }
       } else if (previousManualPaused && !coopSession.manualPaused) {
-        if (!pauseMenu.classList.contains("hidden") && gameState === "coop-playing") {
+        if (!pauseMenu.classList.contains("hidden") && (gameState === "coop-playing" || gameState === "paused")) {
           hidePauseMenu();
+        }
+      }
+
+      if (Array.isArray(snapshot.parasites)) {
+        if (!coopSession.parasites) coopSession.parasites = new Map();
+        const receivedIds = new Set();
+        for (const snapSpore of snapshot.parasites) {
+          receivedIds.add(snapSpore.id);
+          let spore = coopSession.parasites.get(snapSpore.id);
+          if (!spore) {
+            spore = {
+              id: snapSpore.id,
+              displayX: snapSpore.x,
+              displayY: snapSpore.y,
+              vx: snapSpore.vx || 0,
+              vy: snapSpore.vy || 0,
+              r: snapSpore.r || 7
+            };
+            coopSession.parasites.set(spore.id, spore);
+          }
+          spore.targetX = snapSpore.x;
+          spore.targetY = snapSpore.y;
+          spore.vx = snapSpore.vx || spore.vx;
+          spore.vy = snapSpore.vy || spore.vy;
+          spore.r = snapSpore.r || spore.r;
+        }
+        for (const sporeId of [...coopSession.parasites.keys()]) {
+          if (!receivedIds.has(sporeId)) {
+            coopSession.parasites.delete(sporeId);
+          }
         }
       }
 
@@ -13065,12 +13097,6 @@
           0,
           (coopPlayer.dashCooldown || 0) - presentationDt
         );
-        if (coopPlayer.dashTimer > 0 && coopPlayer.id !== window.net?.playerId) {
-          coopPlayer.dashTimer -= presentationDt;
-          coopPlayer.displayX += (coopPlayer.dashVx || 0) * presentationDt;
-          coopPlayer.displayY += (coopPlayer.dashVy || 0) * presentationDt;
-          createCoopParticles(coopPlayer.displayX, coopPlayer.displayY, "#00f2fe", 2, 40);
-        }
 
         coopPlayer.hitFlash = Math.max(
           0,
@@ -13090,6 +13116,15 @@
 
       updateCoopParticles(presentationDt);
       updateDamageNumbersIn(coopDamageNumbers, presentationDt);
+
+      if (coopSession.parasites) {
+        for (const spore of coopSession.parasites.values()) {
+          spore.displayX += (spore.vx || 0) * presentationDt;
+          spore.displayY += (spore.vy || 0) * presentationDt;
+          spore.displayX += (spore.targetX - spore.displayX) * Math.min(1, presentationDt * 18);
+          spore.displayY += (spore.targetY - spore.displayY) * Math.min(1, presentationDt * 18);
+        }
+      }
 
       if (coopSession.enemyProjectiles) {
         for (const proj of coopSession.enemyProjectiles.values()) {
@@ -13555,6 +13590,47 @@
           particle.vx *= 0.96;
           particle.vy *= 0.96;
         }
+      }
+    }
+
+    function drawCoopParasiteSpores() {
+      if (!coopSession.parasites || coopSession.parasites.size === 0) return;
+      const now = performance.now();
+      for (const spore of coopSession.parasites.values()) {
+        ctx.save();
+        const speed = Math.hypot(spore.vx, spore.vy) || 1;
+        const nx = spore.vx / speed;
+        const ny = spore.vy / speed;
+        const pulse = 1 + Math.sin(now * 0.02 + spore.displayX) * 0.18;
+
+        for (let t = 3; t >= 1; t--) {
+          const tDist = t * 7;
+          const wave = Math.sin(now * 0.025 - t * 0.8) * 4;
+          const tx = spore.displayX - nx * tDist - ny * wave;
+          const ty = spore.displayY - ny * tDist + nx * wave;
+          const tRadius = Math.max(2, (spore.r || 7) * (1 - t * 0.26));
+
+          ctx.shadowColor = "#ffffff";
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.7 - t * 0.18})`;
+          ctx.beginPath();
+          ctx.arc(tx, ty, tRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 24;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.beginPath();
+        ctx.arc(spore.displayX, spore.displayY, (spore.r || 7) * 1.55 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(spore.displayX, spore.displayY, (spore.r || 7) * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
       }
     }
 
@@ -14765,6 +14841,7 @@
       }
 
       drawCoopEnemyProjectiles();
+      drawCoopParasiteSpores();
       /*
        * Сетевые патроны.
        */

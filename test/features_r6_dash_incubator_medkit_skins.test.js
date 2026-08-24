@@ -221,5 +221,28 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes("drawCoopCrosshair"), "Coop drawCoopCrosshair must exist");
       assert.ok(indexHtml.includes("startAngle = -Math.PI / 2"), "Crosshair must render circular charge arc");
     });
+
+    await t3.test("3.8 Server createServerCoopSnapshot serializes parasites and client defines drawCoopParasiteSpores", () => {
+      const { world, room } = createTestWorld(ctx);
+      world.parasites = new Map();
+      world.parasites.set(101, { id: 101, x: 250, y: 350, vx: 50, vy: -50, r: 7 });
+
+      const snapshot = ctx.createServerCoopSnapshot(room);
+      assert.ok(Array.isArray(snapshot.parasites), "Snapshot must contain parasites array");
+      assert.equal(snapshot.parasites.length, 1);
+      assert.equal(snapshot.parasites[0].id, 101);
+      assert.ok(indexHtml.includes("drawCoopParasiteSpores"), "Client must define drawCoopParasiteSpores");
+    });
+
+    await t3.test("3.9 Server player updates smoothly with client-streamed input coordinates", () => {
+      const { player1 } = createTestWorld(ctx);
+      player1.x = 200;
+      player1.y = 200;
+      player1.input = ctx.sanitizeInput ? ctx.sanitizeInput({ x: 235.4, y: 218.2 }) : { x: 235.4, y: 218.2 };
+
+      ctx.updateServerCoopPlayer(player1, 0.016, Date.now());
+      assert.equal(player1.x, 235.4, "Server player x must match streamed client coordinate without drift");
+      assert.equal(player1.y, 218.2, "Server player y must match streamed client coordinate without drift");
+    });
   });
 });
