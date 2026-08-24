@@ -1450,10 +1450,27 @@ function updateServerCoopWorld(
 
   /*
    * Мир полностью останавливается, пока оба
-   * игрока не выберут личные улучшения.
+   * игрока не выберут личные улучшения, либо идёт пауза/обратный отсчёт реконнекта.
    */
   if (world.upgradePaused || world.manualPaused) {
     return;
+  }
+
+  if (world.reconnectState) {
+    if (world.reconnectState.paused) {
+      return;
+    }
+    if (world.reconnectState.unfreezing) {
+      world.reconnectState.countdown -= dt;
+      world.reconnectState.countdownSec = Math.max(1, Math.ceil(world.reconnectState.countdown));
+      if (world.reconnectState.countdown <= 0) {
+        world.reconnectState = null;
+        for (const p of world.players.values()) {
+          p.invulnerability = Math.max(p.invulnerability || 0, 1.5);
+        }
+      }
+      return;
+    }
   }
 
   for (
@@ -5301,7 +5318,14 @@ io.on("connection", socket => {
       socket.data.role = matchedPlayer.role;
       socket.join(code);
 
-      room.world.reconnectState = null;
+      // Start smooth 3-second unfreeze countdown before resuming combat
+      room.world.reconnectState = {
+        unfreezing: true,
+        countdown: 3.0,
+        countdownSec: 3,
+        playerName: matchedPlayer.name,
+        role: matchedPlayer.role
+      };
 
       const snapshot = createServerCoopSnapshot(room);
 

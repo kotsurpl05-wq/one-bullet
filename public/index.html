@@ -10163,13 +10163,48 @@
     let coopReconnectUiActive = false;
 
     function renderCoopReconnectUI(reconnectState) {
+      if (reconnectState && reconnectState.unfreezing) {
+        const count = reconnectState.countdownSec || 3;
+        coopReconnectUiActive = true;
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const unfreezeTimerEl = panel.querySelector("#coopUnfreezeTimer");
+        if (unfreezeTimerEl) {
+          unfreezeTimerEl.textContent = count;
+        } else {
+          panel.innerHTML = `
+            <div class="coop-reconnect-screen">
+              <div class="coop-reconnect-badge" style="color: #22c55e; border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.15);">
+                <span class="coop-reconnect-pulse-dot" style="background: #22c55e; box-shadow: 0 0 10px #22c55e;"></span>
+                <span>НАПАРНИК ПОДКЛЮЧИЛСЯ // ВОЗОБНОВЛЕНИЕ БОЯ</span>
+              </div>
+
+              <div class="coop-reconnect-timer-box" style="border-color: rgba(34, 197, 94, 0.5); background: rgba(34, 197, 94, 0.12); padding: 20px 40px;">
+                <div class="coop-reconnect-timer-val" id="coopUnfreezeTimer" style="font-size: 54px; color: #22c55e; letter-spacing: 2px;">${count}</div>
+                <div class="coop-reconnect-timer-label" style="color: #86efac;">БОЙ НАЧНЁТСЯ ЧЕРЕЗ...</div>
+              </div>
+
+              <h2 class="coop-reconnect-title">Приготовьтесь к бою!</h2>
+              <p class="coop-reconnect-subtitle">
+                Оба игрока в строю. Симуляция возобновится через несколько секунд.
+              </p>
+            </div>
+          `;
+        }
+        return;
+      }
+
       if (reconnectState && reconnectState.paused) {
         const secondsLeft = Math.max(0, Math.ceil((reconnectState.expiresAt - Date.now()) / 1000));
         const mins = Math.floor(secondsLeft / 60);
         const secs = secondsLeft % 60;
         const timeFormatted = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
 
-        if (!coopReconnectUiActive) {
+        const timerEl = panel.querySelector("#coopReconnectTimer");
+        if (coopReconnectUiActive && timerEl) {
+          timerEl.textContent = timeFormatted;
+        } else {
           coopReconnectUiActive = true;
           overlay.classList.remove("hidden");
           overlay.setAttribute("aria-hidden", "false");
@@ -10204,15 +10239,10 @@
           if (cancelBtn) {
             cancelBtn.onclick = async () => {
               cancelBtn.disabled = true;
-              await window.net?.cancelReconnectWait();
+              await window.net?.cancelReconnectWait?.();
               stopCoopMovementSession();
               showMainMenu();
             };
-          }
-        } else {
-          const timerEl = panel.querySelector("#coopReconnectTimer");
-          if (timerEl) {
-            timerEl.textContent = timeFormatted;
           }
         }
       } else if (coopReconnectUiActive) {
@@ -11462,7 +11492,7 @@
      * считать мир независимо, поэтому эффекты не рассинхронят кооп.
      */
     function updateCoopClient(dt, visualDt = dt) {
-      if (coopSession.manualPaused || coopSession.upgradePaused || coopSession.reconnectState?.paused) {
+      if (coopSession.manualPaused || coopSession.upgradePaused || coopSession.reconnectState?.paused || coopSession.reconnectState?.unfreezing) {
         return;
       }
 

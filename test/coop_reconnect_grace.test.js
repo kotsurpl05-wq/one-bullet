@@ -103,8 +103,8 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     assert.equal(reconnectAck.role, "guest");
     assert.equal(reconnectAck.playerId, newGuestSocket.id);
 
-    // World must be unpaused
-    assert.equal(room.world.reconnectState, null, "reconnectState must be cleared");
+    // World must enter unfreezing countdown or be unpaused
+    assert.ok(room.world.reconnectState?.unfreezing || room.world.reconnectState === null, "reconnectState must enter unfreezing countdown");
     assert.equal(room.reconnectTimeout, null, "reconnectTimeout must be cleared");
 
     // Player ID in world must be updated to new socket ID
