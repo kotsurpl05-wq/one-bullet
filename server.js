@@ -4343,6 +4343,9 @@ function createServerCoopSnapshot(room) {
     manualPaused:
       world.manualPaused,
 
+    reconnectState:
+      world.reconnectState || null,
+
     upgradeWaitingPlayers:
       world.upgradeRound
         ? [

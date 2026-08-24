@@ -14,9 +14,42 @@ class OneBulletNetwork extends EventTarget {
     this.room = null;
     this.role = null;
     this.playerId = null;
+    this.reconnectToken = null;
     this.lastSnapshot = null;
 
     this.bindSocketEvents();
+  }
+
+  saveReconnectData(roomCode, token, playerName) {
+    try {
+      const expiresAt = Date.now() + 120000;
+      const data = JSON.stringify({ roomCode, token, playerName, expiresAt, timestamp: Date.now() });
+      sessionStorage.setItem("one_bullet_reconnect_v1", data);
+      localStorage.setItem("one_bullet_reconnect_v1", data);
+    } catch {}
+  }
+
+  getReconnectData() {
+    try {
+      const raw = sessionStorage.getItem("one_bullet_reconnect_v1") || localStorage.getItem("one_bullet_reconnect_v1");
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || !data.roomCode || !data.token) return null;
+      if (data.expiresAt && data.expiresAt < Date.now()) {
+        this.clearReconnectData();
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  clearReconnectData() {
+    try {
+      sessionStorage.removeItem("one_bullet_reconnect_v1");
+      localStorage.removeItem("one_bullet_reconnect_v1");
+    } catch {}
   }
 
   bindSocketEvents() {
@@ -52,6 +85,7 @@ class OneBulletNetwork extends EventTarget {
     this.socket.on("room:closed", payload => {
       this.room = null;
       this.role = null;
+      this.clearReconnectData();
 
       this.emit("room-closed", payload);
     });
@@ -71,7 +105,7 @@ class OneBulletNetwork extends EventTarget {
       this.emit("returned-to-lobby", payload);
     });
 
-    this.socket.on("net:input", payload => {
+    this.socket.on("net:remote-input", payload => {
       this.emit("remote-input", payload);
     });
 
@@ -81,7 +115,7 @@ class OneBulletNetwork extends EventTarget {
     });
 
     this.socket.on(
-      "net:upgrade-offers",
+      "coop:upgrade-offers",
       payload => {
         this.emit(
           "upgrade-offers",
@@ -91,16 +125,16 @@ class OneBulletNetwork extends EventTarget {
     );
 
     this.socket.on(
-      "net:upgrade-choice",
+      "coop:upgrade-applied",
       payload => {
         this.emit(
-          "upgrade-choice",
+          "upgrade-applied",
           payload
         );
       }
     );
 
-    this.socket.on("net:game-event", payload => {
+    this.socket.on("coop:game-event", payload => {
       this.emit("game-event", payload);
     });
   }
@@ -117,12 +151,24 @@ class OneBulletNetwork extends EventTarget {
     );
   }
 
+  get isHost() {
+    return this.role === "host";
+  }
+
+  get isMultiplayer() {
+    return Boolean(
+      this.room &&
+      this.role
+    );
+  }
+
   request(eventName, payload = {}, timeoutMs = 6000) {
-    return new Promise(resolve => {
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (!settled) {
-          settled = true;
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
           resolve({
             success: false,
             message: "Превышено время ожидания ответа сервера"
@@ -133,17 +179,16 @@ class OneBulletNetwork extends EventTarget {
       this.socket.emit(
         eventName,
         payload,
-        result => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            resolve(
-              result || {
-                success: false,
-                message: "Сервер не ответил"
-              }
-            );
-          }
+        response => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutId);
+          resolve(
+            response || {
+              success: false,
+              message: "Сервер не ответил"
+            }
+          );
         }
       );
     });
@@ -159,6 +204,10 @@ class OneBulletNetwork extends EventTarget {
       this.role = "host";
       this.room = result.room;
       this.playerId = result.playerId;
+      this.reconnectToken = result.reconnectToken;
+      if (result.reconnectToken && result.room?.code) {
+        this.saveReconnectData(result.room.code, result.reconnectToken, name);
+      }
     }
 
     return result;
@@ -177,9 +226,41 @@ class OneBulletNetwork extends EventTarget {
       this.role = "guest";
       this.room = result.room;
       this.playerId = result.playerId;
+      this.reconnectToken = result.reconnectToken;
+      if (result.reconnectToken && code) {
+        this.saveReconnectData(code, result.reconnectToken, name);
+      }
     }
 
     return result;
+  }
+
+  async reconnectRoom(code, token, name) {
+    const result = await this.request(
+      "room:reconnect",
+      {
+        code,
+        token,
+        name
+      }
+    );
+
+    if (result.success) {
+      this.role = result.role;
+      this.room = result.room;
+      this.playerId = result.playerId;
+      this.reconnectToken = result.reconnectToken || token;
+      if (result.snapshot) {
+        this.lastSnapshot = result.snapshot;
+      }
+      this.saveReconnectData(code, this.reconnectToken, name);
+    }
+
+    return result;
+  }
+
+  async cancelReconnectWait() {
+    return this.request("room:cancel-reconnect-wait");
   }
 
   async leaveRoom() {
@@ -190,6 +271,7 @@ class OneBulletNetwork extends EventTarget {
     if (result.success) {
       this.room = null;
       this.role = null;
+      this.clearReconnectData();
     }
 
     return result;
@@ -248,85 +330,61 @@ class OneBulletNetwork extends EventTarget {
     this.socket.emit("net:toggle-pause");
   }
 
-  sendDebugCommand(action, data = {}) {
-    if (!this.connected || !this.socket) {
+  sendNetDebugCommand(action, data = {}) {
+    if (!this.isMultiplayer) {
       return;
     }
     this.socket.emit("net:debug-command", { action, data });
   }
 
-  sendShoot(aimX, aimY, x, y) {
+  sendShoot(x, y, vx, vy) {
     if (!this.isMultiplayer) {
       return;
     }
-  
+
     this.socket.emit("net:shoot", {
-      aimX,
-      aimY,
       x,
-      y
+      y,
+      vx,
+      vy
     });
   }
 
-  sendUpgradeChoice(offerId, index) {
-    this.socket.emit(
-      "net:upgrade-choice",
-      {
-        offerId,
-        index
-      }
-    );
-  }
-
-  sendReroll(offerId) {
-    return this.request("net:reroll-offers", { offerId });
-  }
-
-  sendUpgradeOffers(
-    targetId,
-    offerId,
-    playerLevel,
-    pendingLevelUps,
-    offers
-  ) {
-    if (this.role !== "host") {
+  sendCatchBullet(bulletId, x, y) {
+    if (!this.isMultiplayer) {
       return;
     }
 
     this.socket.emit(
-      "net:upgrade-offers",
+      "net:catch-bullet",
       {
-        targetId,
-        offerId,
-        playerLevel,
-        pendingLevelUps,
-        offers
+        bulletId,
+        x,
+        y
       }
     );
   }
 
-  sendGameEvent(payload) {
-    if (this.role !== "host") {
+  selectUpgrade(offerId) {
+    if (!this.isMultiplayer) {
       return;
     }
 
     this.socket.emit(
-      "net:game-event",
-      payload
+      "coop:select-upgrade",
+      {
+        offerId
+      }
     );
   }
 
-  get isHost() {
-    return this.role === "host";
-  }
+  rerollUpgrades() {
+    if (!this.isMultiplayer) {
+      return;
+    }
 
-  get isGuest() {
-    return this.role === "guest";
-  }
-
-  get isMultiplayer() {
-    return Boolean(
-      this.room && this.role
+    this.socket.emit(
+      "coop:reroll-upgrades"
     );
   }
 }
