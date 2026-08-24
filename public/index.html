@@ -9486,7 +9486,7 @@
           <div class="hero-brand-container">
             <div class="hero-version-pill">
               <span class="status-dot"></span>
-              <span>v1.4 CO-OP EDITION // ROGUELIKE</span>
+              <span>v2.0 MAJOR UPDATE // ROGUELIKE CO-OP</span>
             </div>
             
             <h1 class="hero-cyber-logo">ONE BULLET</h1>
@@ -9521,7 +9521,7 @@
               <div class="mode-card-body">
                 <div class="mode-card-badge">CONFIGURATION</div>
                 <h3>Настройки</h3>
-                <p>Регулировка громкости звука, чувствительности мыши и визуальных эффектов.</p>
+                <p>Регулировка звука, чувствительности, спецэффектов и выбор скинов пули.</p>
               </div>
               <div class="mode-card-arrow">→</div>
             </button>
@@ -9534,6 +9534,13 @@
                 <p>Справочник механик: рикошеты, подбор пули, возвратный магнит и боссы.</p>
               </div>
               <div class="mode-card-arrow">→</div>
+            </button>
+          </div>
+
+          <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
+            <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
+              <span style="font-size: 15px;">📜</span>
+              <span>История обновлений (v2.0)</span>
             </button>
           </div>
         </div>
@@ -9559,6 +9566,10 @@
         }
         if (action === "guide") {
           showGuideMenu();
+          return;
+        }
+        if (action === "changelog") {
+          showChangelogMenu();
           return;
         }
       };
@@ -9891,6 +9902,102 @@
       const closeBtn = panel.querySelector("#guideCloseBtn");
       if (closeBtn) {
         closeBtn.onclick = () => {
+          soundManager.playUiClick();
+          showMainMenu();
+        };
+      }
+    }
+
+    function showChangelogMenu() {
+      currentMenuSubView = "changelog";
+      panel.innerHTML = `
+        <div class="cyber-modal-container" style="max-width: 920px; max-height: 90vh; display: flex; flex-direction: column;">
+          <div class="cyber-modal-header" style="flex-shrink: 0;">
+            <div class="cyber-modal-icon">📜</div>
+            <div>
+              <h2 class="cyber-modal-title">История обновлений // Патч-ноуты</h2>
+              <div class="cyber-modal-subtitle">Хронология версий, добавленных механик, врагов, скинов и улучшений баланса</div>
+            </div>
+          </div>
+
+          <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
+            
+            <!-- v2.0 -->
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(0, 242, 254, 0.5); border-radius: 14px; padding: 18px; box-shadow: 0 6px 20px rgba(0, 242, 254, 0.08);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: linear-gradient(135deg, #00f2fe, #4facfe); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.0</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Глобальное обновление: Рывок, Инкубатор, Аптечки и Скины</span>
+                </div>
+                <span style="font-size: 11px; color: #38bdf8; font-weight: 600; text-transform: uppercase;">Текущая версия</span>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>⚡ <strong>Энергетический рывок [Пробел]:</strong> Мгновенный спринт (850 px/s) с неуязвимостью (~0.25с), кулдауном 8 сек и подбором пули на лету.</li>
+                <li>🥚 <strong>Новый архетип врагов «Инкубатор» и «Личинки»:</strong> Бронированный био-кокон (с волны 6+), каждые 4.5с порождающий рой юрких миньонов.</li>
+                <li>💊 <strong>Выпадение аптечек (+1 HP):</strong> 5% шанс выпадения лечебной кибер-капсулы при уничтожении основных врагов арены.</li>
+                <li>🎨 <strong>Кастомизация пули (5 скинов):</strong> Выбор стиля в Настройках — <em>Плазмоид</em>, <em>Адский метеор</em>, <em>Квантовый сюрикен</em>, <em>Био-сгусток</em> и <em>Комета</em>.</li>
+                <li>🧲 <strong>Усиление Магнетизатора:</strong> Добавлено визуальное силовое кольцо и мощное притяжение летящих и наземных пуль.</li>
+                <li>🛡️ <strong>Админ-панель 2.0 [F2 / ~]:</strong> Настоящее бессмертие (God Mode), быстрый выбор кратности (+1/+5/+10/+20) и спавн новых врагов.</li>
+              </ul>
+            </div>
+
+            <!-- v1.4 -->
+            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(168, 85, 247, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #a855f7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v1.4</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Смертоносная органика & Тактический арсенал</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #94a3b8; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>🧪 <strong>Ядовитая пуля:</strong> Наложение периодического урона (DoT) с кислотным неоновым мерцанием врагов.</li>
+                <li>🪱 <strong>Пуля-паразит:</strong> Заражение белыми венами; при гибели жертвы споры летят к новым целям.</li>
+                <li>🪃 <strong>Бумеранг, Рикошетные осколки, Кинетический стан и Метка цели:</strong> Глубокая синергия билдов.</li>
+              </ul>
+            </div>
+
+            <!-- v1.2 -->
+            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(239, 68, 68, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #ef4444; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v1.2</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Элитные угрозы & Босс 2.0</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #94a3b8; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>👻 <strong>Фантом:</strong> Периодический фазовый переход в неуязвимость (2с) и материализацию (3с).</li>
+                <li>🔗 <strong>Связанные Близнецы:</strong> Лазерная связка и впадение в ярость (+50% скорости) при потере пары.</li>
+                <li>👑 <strong>Босс 2.0:</strong> 3 динамические фазы, защитные орбитальные дроны, снайперский луч и шторм пуль.</li>
+              </ul>
+            </div>
+
+            <!-- v1.0 -->
+            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #475569; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v1.0</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Релиз Онлайн-Кооператива на 2 игрока</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #94a3b8; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>👥 Синхронный сетевой мультиплеер, лобби комнат по 4-значному коду.</li>
+                <li>💎 Общие кристаллы опыта, индивидуальный драфт улучшений и маяк воскрешения союзника.</li>
+              </ul>
+            </div>
+
+          </div>
+
+          <div class="network-actions" style="margin-top: 12px; flex-shrink: 0;">
+            <button type="button" class="action-button" id="changelogBackBtn" style="min-width: 200px; margin: 0 auto;">
+              ← Назад в меню
+            </button>
+          </div>
+        </div>
+      `;
+
+      const backBtn = panel.querySelector("#changelogBackBtn");
+      if (backBtn) {
+        backBtn.onclick = () => {
           soundManager.playUiClick();
           showMainMenu();
         };
