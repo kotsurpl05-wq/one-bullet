@@ -5292,11 +5292,13 @@ io.on("connection", socket => {
           room.world.players.set(socket.id, coopPlayer);
         }
 
-        for (const bullet of room.world.bullets) {
+        for (const bullet of room.world.bullets.values()) {
           if (bullet.ownerId === oldPlayerId) {
             bullet.ownerId = socket.id;
           }
         }
+
+        ensureServerMagazine(room.world, coopPlayer);
 
         if (room.world.upgradeRound) {
           if (room.world.upgradeRound.waitingPlayers.has(oldPlayerId)) {
