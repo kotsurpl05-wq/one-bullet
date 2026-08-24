@@ -105,6 +105,10 @@ class OneBulletNetwork extends EventTarget {
     });
   }
 
+  on(type, listener) {
+    this.addEventListener(type, (event) => listener(event.detail));
+  }
+
   emit(type, detail) {
     this.dispatchEvent(
       new CustomEvent(type, {

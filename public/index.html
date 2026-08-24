@@ -9669,6 +9669,22 @@
     }
 
     if (window.net) {
+      net.addEventListener("connected", () => {
+        updateNetworkStatus("Подключено к серверу");
+
+        const recData = window.net?.getReconnectData();
+        if (recData && recData.roomCode && recData.token && !coopSession.active) {
+          checkAndRenderFloatingReconnectWidget();
+          window.net.reconnectRoom(recData.roomCode, recData.token, recData.playerName).then(res => {
+            if (res && res.success) {
+              const widget = document.getElementById("floatingReconnectWidget");
+              if (widget) widget.classList.add("hidden");
+              startCoopMovementSession(recData.roomCode, res.role);
+            }
+          }).catch(() => {});
+        }
+      });
+
       net.addEventListener(
         "upgrade-offers",
         event => {
@@ -9767,21 +9783,24 @@
             return;
           }
         
-          stopCoopMovementSession();
+          if (coopSession.active) {
+            stopCoopMovementSession();
+          }
         
           networkRoom = null;
           networkStartPending = false;
         
           if (
             gameState === "network-menu" ||
-            gameState === "network-lobby" ||
-            gameState === "coop-playing"
+            gameState === "network-lobby"
           ) {
             setNetworkMessage(
               "Соединение с сервером потеряно"
             );
-          
             showNetworkMenu();
+          } else if (gameState === "coop-playing") {
+            showMainMenu();
+            checkAndRenderFloatingReconnectWidget();
           }
         }
       );
