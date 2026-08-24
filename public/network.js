@@ -291,80 +291,94 @@ class OneBulletNetwork extends EventTarget {
   }
 
   sendInput(input) {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
   
-    this.socket.volatile.emit(
-      "net:input",
-      input
-    );
+    try {
+      this.socket.volatile.emit(
+        "net:input",
+        input
+      );
+    } catch {}
   }
 
   requestSnapshot() {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
   
-    this.socket.emit(
-      "net:request-snapshot"
-    );
+    try {
+      this.socket.emit(
+        "net:request-snapshot"
+      );
+    } catch {}
   }
 
   sendTogglePause() {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
-    this.socket.emit("net:toggle-pause");
+    try {
+      this.socket.emit("net:toggle-pause");
+    } catch {}
   }
 
   sendNetDebugCommand(action, data = {}) {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
-    this.socket.emit("net:debug-command", { action, data });
+    try {
+      this.socket.emit("net:debug-command", { action, data });
+    } catch {}
   }
 
   sendShoot(x, y, vx, vy) {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
 
-    this.socket.emit("net:shoot", {
-      x,
-      y,
-      vx,
-      vy
-    });
+    try {
+      this.socket.emit("net:shoot", {
+        x,
+        y,
+        vx,
+        vy
+      });
+    } catch {}
   }
 
   sendCatchBullet(bulletId, x, y) {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
 
-    this.socket.emit(
-      "net:catch-bullet",
-      {
-        bulletId,
-        x,
-        y
-      }
-    );
+    try {
+      this.socket.emit(
+        "net:catch-bullet",
+        {
+          bulletId,
+          x,
+          y
+        }
+      );
+    } catch {}
   }
 
   sendUpgradeChoice(offerId, index) {
-    if (!this.isMultiplayer) {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
 
-    this.socket.emit(
-      "net:upgrade-choice",
-      {
-        offerId,
-        index
-      }
-    );
+    try {
+      this.socket.emit(
+        "net:upgrade-choice",
+        {
+          offerId,
+          index
+        }
+      );
+    } catch {}
   }
 
   sendReroll(offerId) {
