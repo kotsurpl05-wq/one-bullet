@@ -4219,6 +4219,11 @@
       }
 
       enemy.hp -= damage;
+      if (critical) {
+        soundManager.playCritHit();
+      } else {
+        soundManager.playHit();
+      }
       createParticles(enemy.x, enemy.y, enemy.color, 6, 130);
 
       addDamageNumber(
@@ -5893,6 +5898,7 @@
           if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
           if (enemy.type === "phantom" && enemy.isPhased) continue;
           if (distance(shard.x, shard.y, enemy.x, enemy.y) <= shard.r + enemy.r) {
+            soundManager.playSplinterHit();
             damageEnemy(ei, shard.damage);
             createParticles(shard.x, shard.y, "#00f2fe", 6, 120);
             splinterShards.splice(i, 1);
@@ -8213,6 +8219,23 @@
         gain2.connect(this.masterGain);
         osc2.start(now);
         osc2.stop(now + 0.18);
+      }
+
+      playSplinterHit() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(580, now);
+        osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.08);
       }
 
       playPlayerHurt() {
