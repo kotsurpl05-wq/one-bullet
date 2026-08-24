@@ -8757,6 +8757,7 @@
 
       gameState = "network-menu";
       runMode = "coop";
+      checkAndRenderFloatingReconnectWidget();
     
       panel.innerHTML = `
         <div class="cyber-modal-container" style="max-width: 920px;">
@@ -10150,51 +10151,56 @@
 
     function renderCoopReconnectUI(reconnectState) {
       if (reconnectState && reconnectState.paused) {
-        if (!coopReconnectUiActive) {
-          coopReconnectUiActive = true;
-          overlay.classList.remove("hidden");
-          overlay.setAttribute("aria-hidden", "false");
-        }
-
         const secondsLeft = Math.max(0, Math.ceil((reconnectState.expiresAt - Date.now()) / 1000));
         const mins = Math.floor(secondsLeft / 60);
         const secs = secondsLeft % 60;
         const timeFormatted = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
 
-        panel.innerHTML = `
-          <div class="coop-reconnect-screen">
-            <div class="coop-reconnect-badge">
-              <span class="coop-reconnect-pulse-dot"></span>
-              <span>СВЯЗЬ ПРЕРВАНА // ОЖИДАНИЕ ПЕРЕПОДКЛЮЧЕНИЯ</span>
+        if (!coopReconnectUiActive) {
+          coopReconnectUiActive = true;
+          overlay.classList.remove("hidden");
+          overlay.setAttribute("aria-hidden", "false");
+
+          panel.innerHTML = `
+            <div class="coop-reconnect-screen">
+              <div class="coop-reconnect-badge">
+                <span class="coop-reconnect-pulse-dot"></span>
+                <span>СВЯЗЬ ПРЕРВАНА // ОЖИДАНИЕ ПЕРЕПОДКЛЮЧЕНИЯ</span>
+              </div>
+
+              <div class="coop-reconnect-timer-box">
+                <div class="coop-reconnect-timer-val" id="coopReconnectTimer">${timeFormatted}</div>
+                <div class="coop-reconnect-timer-label">ТАЙМАУТ ОЖИДАНИЯ НАПАРНИКА (2 МИН)</div>
+              </div>
+
+              <h2 class="coop-reconnect-title">Забег временно заморожен</h2>
+              <p class="coop-reconnect-subtitle">
+                Игрок <strong style="color: #ffaa55;">${escapeHtml(reconnectState.playerName || 'Напарник')}</strong> отключился или свернул вкладку.<br>
+                Симуляция боя и таймеры полностью остановлены.
+              </p>
+
+              <div class="coop-reconnect-actions">
+                <button type="button" class="secondary-button" id="coopCancelWaitBtn" style="min-width: 220px;">
+                  Завершить и выйти в лобби
+                </button>
+              </div>
             </div>
+          `;
 
-            <div class="coop-reconnect-timer-box">
-              <div class="coop-reconnect-timer-val" id="coopReconnectTimer">${timeFormatted}</div>
-              <div class="coop-reconnect-timer-label">ТАЙМАУТ ОЖИДАНИЯ НАПАРНИКА (2 МИН)</div>
-            </div>
-
-            <h2 class="coop-reconnect-title">Забег временно заморожен</h2>
-            <p class="coop-reconnect-subtitle">
-              Игрок <strong style="color: #ffaa55;">${escapeHtml(reconnectState.playerName || 'Напарник')}</strong> отключился или свернул вкладку.<br>
-              Симуляция боя и таймеры полностью остановлены.
-            </p>
-
-            <div class="coop-reconnect-actions">
-              <button type="button" class="secondary-button" id="coopCancelWaitBtn" style="min-width: 220px;">
-                Завершить и выйти в лобби
-              </button>
-            </div>
-          </div>
-        `;
-
-        const cancelBtn = panel.querySelector("#coopCancelWaitBtn");
-        if (cancelBtn) {
-          cancelBtn.onclick = async () => {
-            cancelBtn.disabled = true;
-            await window.net?.cancelReconnectWait();
-            stopCoopMovementSession();
-            showMainMenu();
-          };
+          const cancelBtn = panel.querySelector("#coopCancelWaitBtn");
+          if (cancelBtn) {
+            cancelBtn.onclick = async () => {
+              cancelBtn.disabled = true;
+              await window.net?.cancelReconnectWait();
+              stopCoopMovementSession();
+              showMainMenu();
+            };
+          }
+        } else {
+          const timerEl = panel.querySelector("#coopReconnectTimer");
+          if (timerEl) {
+            timerEl.textContent = timeFormatted;
+          }
         }
       } else if (coopReconnectUiActive) {
         coopReconnectUiActive = false;
@@ -10202,6 +10208,125 @@
           overlay.classList.add("hidden");
           overlay.setAttribute("aria-hidden", "true");
         }
+      }
+    }
+
+    let floatingReconnectTimerInterval = null;
+
+    function checkAndRenderFloatingReconnectWidget() {
+      const widget = document.getElementById("floatingReconnectWidget");
+      if (!widget) return;
+
+      if (gameState === "coop-playing" || coopSession.active) {
+        widget.classList.add("hidden");
+        if (floatingReconnectTimerInterval) {
+          clearInterval(floatingReconnectTimerInterval);
+          floatingReconnectTimerInterval = null;
+        }
+        return;
+      }
+
+      const reconnectData = window.net?.getReconnectData();
+      if (!reconnectData || !reconnectData.roomCode || !reconnectData.token) {
+        widget.classList.add("hidden");
+        if (floatingReconnectTimerInterval) {
+          clearInterval(floatingReconnectTimerInterval);
+          floatingReconnectTimerInterval = null;
+        }
+        return;
+      }
+
+      const expiresAt = reconnectData.expiresAt || ((reconnectData.timestamp || Date.now()) + 120000);
+      const remainingMs = expiresAt - Date.now();
+
+      if (remainingMs <= 0) {
+        window.net?.clearReconnectData();
+        widget.classList.add("hidden");
+        if (floatingReconnectTimerInterval) {
+          clearInterval(floatingReconnectTimerInterval);
+          floatingReconnectTimerInterval = null;
+        }
+        return;
+      }
+
+      const codeEl = document.getElementById("floatingReconnectCode");
+      const timerEl = document.getElementById("floatingReconnectTimer");
+      const reconnectBtn = document.getElementById("floatingReconnectBtn");
+      const dismissBtn = document.getElementById("floatingDismissBtn");
+
+      if (codeEl) codeEl.textContent = 'АКТИВНЫЙ ЗАБЕГ // КОМНАТА [' + reconnectData.roomCode + ']';
+
+      const updateTimer = () => {
+        const secsLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        if (secsLeft <= 0) {
+          window.net?.clearReconnectData();
+          widget.classList.add("hidden");
+          if (floatingReconnectTimerInterval) {
+            clearInterval(floatingReconnectTimerInterval);
+            floatingReconnectTimerInterval = null;
+          }
+          return;
+        }
+        const m = Math.floor(secsLeft / 60);
+        const s = secsLeft % 60;
+        if (timerEl) timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      };
+
+      updateTimer();
+      widget.classList.remove("hidden");
+
+      if (!floatingReconnectTimerInterval) {
+        floatingReconnectTimerInterval = setInterval(updateTimer, 1000);
+      }
+
+      if (reconnectBtn) {
+        reconnectBtn.onclick = async () => {
+          reconnectBtn.disabled = true;
+          reconnectBtn.textContent = "⏳ Подключение...";
+
+          if (!window.net?.connected) {
+            if (window.net?.socket && !window.net.socket.connected) {
+              window.net.socket.connect();
+            }
+            await new Promise(r => setTimeout(r, 500));
+          }
+
+          const response = await window.net.reconnectRoom(
+            reconnectData.roomCode,
+            reconnectData.token,
+            reconnectData.playerName
+          );
+
+          if (response.success) {
+            widget.classList.add("hidden");
+            if (floatingReconnectTimerInterval) {
+              clearInterval(floatingReconnectTimerInterval);
+              floatingReconnectTimerInterval = null;
+            }
+            startCoopMovementSession(reconnectData.roomCode, response.role);
+          } else {
+            reconnectBtn.disabled = false;
+            reconnectBtn.textContent = "⚡ Вернуться в бой";
+            alert(response.message || "Не удалось переподключиться к комнате");
+            window.net?.clearReconnectData();
+            widget.classList.add("hidden");
+            if (floatingReconnectTimerInterval) {
+              clearInterval(floatingReconnectTimerInterval);
+              floatingReconnectTimerInterval = null;
+            }
+          }
+        };
+      }
+
+      if (dismissBtn) {
+        dismissBtn.onclick = () => {
+          window.net?.clearReconnectData();
+          widget.classList.add("hidden");
+          if (floatingReconnectTimerInterval) {
+            clearInterval(floatingReconnectTimerInterval);
+            floatingReconnectTimerInterval = null;
+          }
+        };
       }
     }
 
@@ -11318,7 +11443,7 @@
      * считать мир независимо, поэтому эффекты не рассинхронят кооп.
      */
     function updateCoopClient(dt, visualDt = dt) {
-      if (coopSession.manualPaused || coopSession.upgradePaused) {
+      if (coopSession.manualPaused || coopSession.upgradePaused || coopSession.reconnectState?.paused) {
         return;
       }
 
