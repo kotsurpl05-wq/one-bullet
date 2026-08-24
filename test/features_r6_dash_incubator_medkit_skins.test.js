@@ -322,5 +322,10 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       ctx.applyServerUpgrade(world, player1, { upgradeId: "magnet-range", rarity: { power: 1 } });
       assert.equal(player1.stats.magnetRangeBonusCells, 5);
     });
+
+    await t3.test("3.14 SoundManager implements playUiTick and playWaveStart without throwing", () => {
+      assert.ok(indexHtml.includes("playUiTick()"), "SoundManager must implement playUiTick");
+      assert.ok(indexHtml.includes("playWaveStart()"), "SoundManager must implement playWaveStart");
+    });
   });
 });

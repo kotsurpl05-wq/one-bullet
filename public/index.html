@@ -9248,7 +9248,7 @@
 
       playUiClick() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
+        if (!this.ctx || this.ctx.state === "suspended" || gameSettings.mute || gameSettings.volume <= 0) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -9261,6 +9261,41 @@
         gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.04);
+      }
+
+      playUiTick() {
+        this.init();
+        if (!this.ctx || this.ctx.state === "suspended" || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.05);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain);
+        gain.connect(this.sfxGain || this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      }
+
+      playWaveStart() {
+        this.init();
+        if (!this.ctx || this.ctx.state === "suspended" || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        [587.33, 880, 1174.66].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          gain.gain.setValueAtTime(0.3, now + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.22);
+          osc.connect(gain);
+          gain.connect(this.sfxGain || this.masterGain);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.22);
+        });
       }
 
       playDash() {
