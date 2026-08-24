@@ -11437,6 +11437,7 @@
       coopSession.enemies.clear();
       if (coopSession.parasites) coopSession.parasites.clear();
       if (coopSession.splinters) coopSession.splinters.clear();
+      coopSession.medkits = [];
       coopParticles.length = 0;
 
       coopSession.snapshotTimer = 0;
@@ -12315,6 +12316,12 @@
           if (snapshotPlayer.id === window.net?.playerId) {
             soundManager.playPlayerHurt();
           }
+        } else if (newPlayerHp > coopPlayer.hp && coopPlayer.hp > 0) {
+          createCoopParticles(snapshotPlayer.x, snapshotPlayer.y, "#22c55e", 16, 180);
+          createCoopRing(snapshotPlayer.x, snapshotPlayer.y, 32, "#22c55e");
+          if (snapshotPlayer.id === window.net?.playerId) {
+            soundManager.playHeal();
+          }
         }
 
         coopPlayer.hp = newPlayerHp;
@@ -12652,6 +12659,7 @@
        * Синхронизация врагов.
        */
       coopSession.splinters = Array.isArray(snapshot.splinters) ? snapshot.splinters : [];
+      coopSession.medkits = Array.isArray(snapshot.medkits) ? snapshot.medkits : [];
       const receivedEnemyIds =
         new Set();
     
@@ -14968,6 +14976,7 @@
       drawCoopEnemyProjectiles();
       drawCoopParasiteSpores();
       drawCoopSplinters();
+      drawMedkits();
       /*
        * Сетевые патроны.
        */

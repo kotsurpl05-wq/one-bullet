@@ -327,5 +327,24 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes("playUiTick()"), "SoundManager must implement playUiTick");
       assert.ok(indexHtml.includes("playWaveStart()"), "SoundManager must implement playWaveStart");
     });
+
+    await t3.test("3.15 Co-op medkits are collected by wounded player, serialized, and rendered in drawCoopScene", () => {
+      const { world, room, player1 } = createTestWorld(ctx);
+      room.started = true;
+      player1.x = 200;
+      player1.y = 200;
+      player1.hp = 3;
+      player1.maxHp = 5;
+
+      world.medkits.set(501, { id: 501, x: 205, y: 205, r: 12, heal: 1, life: 30 });
+      ctx.updateServerCoopWorld(room, 0.05, Date.now());
+
+      assert.equal(player1.hp, 4, "Wounded player must gain +1 HP from medkit");
+      assert.equal(world.medkits.size, 0, "Consumed medkit must be deleted");
+
+      const snapshot = ctx.createServerCoopSnapshot(room);
+      assert.ok(Array.isArray(snapshot.medkits), "Snapshot must contain medkits array");
+      assert.ok(indexHtml.includes("drawMedkits()"), "drawCoopScene must call drawMedkits");
+    });
   });
 });
