@@ -2557,15 +2557,20 @@
     <div id="healthBar">
       <div id="healthFill"></div>
     </div>
+
+    <div class="hud-row" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1);">
+      <span class="hud-label">⚡ Рывок (Пробел)</span>
+      <span id="dashStatus" style="font-weight: bold; color: #38bdf8;">ГОТОВ</span>
+    </div>
   </div>
 
   <aside id="playerStatsPanel" class="hidden"></aside>
 
   <div id="help" class="hidden">
     WASD / стрелки — движение<br>
-    ЛКМ или пробел — выстрел<br>
+    ЛКМ — выстрел, ПРОБЕЛ — рывок (кд 8с)<br>
     Подбери или поймай пулю<br>
-    P — пауза, R — перезапуск
+    P / Esc — пауза, R — перезапуск
   </div>
   
   <div id="pauseMenu" class="hidden" aria-hidden="true">
@@ -2766,6 +2771,8 @@
     const enemyProjectiles = [];
     const splinterShards = [];
     const parasiteSpores = [];
+    const medkits = [];
+    let nextMedkitId = 1;
     const selectedUpgradeHistory = [];
     const experienceCrystals = [];
     const coopParticles = [];
@@ -3225,6 +3232,7 @@
       enemies.length = 0;
       enemyProjectiles.length = 0;
       experienceCrystals.length = 0;
+      medkits.length = 0;
       particles.length = 0;
       damageNumbers.length = 0;
       selectedUpgradeHistory.length = 0;
@@ -3509,6 +3517,36 @@
           color: "#ff6b9d",
           twinPartnerId: null,
           isEnraged: false
+        };
+      }
+
+      if (type === "incubator") {
+        const hp = 6 + Math.floor(wave / 2);
+        return {
+          id: ++enemyId,
+          type,
+          x,
+          y,
+          r: 22,
+          speed: 32 + level * 1.0,
+          hp,
+          maxHp: hp,
+          color: "#059669",
+          spawnTimer: 4.5
+        };
+      }
+
+      if (type === "minion") {
+        return {
+          id: ++enemyId,
+          type,
+          x,
+          y,
+          r: 7,
+          speed: 135 + level * 3.0,
+          hp: 1,
+          maxHp: 1,
+          color: "#34d399"
         };
       }
 
@@ -4386,6 +4424,17 @@
         createParticles(enemy.x, enemy.y, "#bd00ff", 12, 160);
       }
 
+      // 5% шанс выпадения аптечки (+1 HP)
+      if (Math.random() < 0.05) {
+        medkits.push({
+          id: nextMedkitId++,
+          x: deathX,
+          y: deathY,
+          r: 12,
+          life: 35.0
+        });
+      }
+
       enemies.splice(index, 1);
 
       /*
@@ -4978,7 +5027,53 @@
       }
     }
 
+    function triggerDash() {
+      if (!player) return false;
+      if (isMenuState()) return false;
+      if (gameState !== "playing" && gameState !== "coop-playing") return false;
+      if ((player.dashCooldown || 0) > 0) return false;
+
+      let dx = 0;
+      let dy = 0;
+      if (keys.has("KeyW") || keys.has("ArrowUp")) dy -= 1;
+      if (keys.has("KeyS") || keys.has("ArrowDown")) dy += 1;
+      if (keys.has("KeyA") || keys.has("ArrowLeft")) dx -= 1;
+      if (keys.has("KeyD") || keys.has("ArrowRight")) dx += 1;
+
+      const len = Math.hypot(dx, dy);
+      if (len > 0) {
+        dx /= len;
+        dy /= len;
+      } else {
+        const curW = width || SOLO_WORLD_WIDTH;
+        const curH = height || SOLO_WORLD_HEIGHT;
+        const angle = Math.atan2(pointer.y - player.y, pointer.x - player.x);
+        dx = Math.cos(angle);
+        dy = Math.sin(angle);
+      }
+
+      player.dashCooldown = 8.0;
+      player.dashTimer = 0.18;
+      player.dashVx = dx * 850;
+      player.dashVy = dy * 850;
+      player.invulnerability = Math.max(player.invulnerability || 0, 0.25);
+
+      soundManager.playDash();
+      createRing(player.x, player.y, 45, "#00f2fe");
+      createParticles(player.x, player.y, "#38bdf8", 14, 180);
+      screenShake = Math.max(screenShake, 5);
+      return true;
+    }
+
     function updatePlayer(dt) {
+      player.dashCooldown = Math.max(0, (player.dashCooldown || 0) - dt);
+      if (player.dashTimer > 0) {
+        player.dashTimer -= dt;
+        player.x += (player.dashVx || 0) * dt;
+        player.y += (player.dashVy || 0) * dt;
+        createParticles(player.x, player.y, "#00f2fe", 2, 40);
+      }
+
       let x = 0;
       let y = 0;
     
@@ -7149,6 +7244,7 @@
       updatePlayer(dt);
       updateBullets(dt);
       updateEnemies(dt);
+      updateMedkits(dt);
       updateEnemyProjectiles(dt);
       updateSplinterShards(dt);
       updateParasiteSpores(dt);
@@ -9134,6 +9230,51 @@
         osc.start(now);
         osc.stop(now + 0.04);
       }
+
+      playDash() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+        
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.18);
+
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1600, now);
+        filter.frequency.exponentialRampToValueAtTime(280, now + 0.18);
+        filter.Q.setValueAtTime(3, now);
+
+        gain.gain.setValueAtTime(0.38, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxGain || this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+
+      playHeal() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + i * 0.05);
+          gain.gain.setValueAtTime(0.25, now + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.22);
+          osc.connect(gain);
+          gain.connect(this.sfxGain || this.masterGain);
+          osc.start(now + i * 0.05);
+          osc.stop(now + i * 0.05 + 0.22);
+        });
+      }
     }
     const soundManager = new SoundManager();
 
@@ -9151,11 +9292,12 @@
             sfxVolume: typeof parsed.sfxVolume === "number" ? Math.max(0, Math.min(1, parsed.sfxVolume)) : 0.85,
             mute: Boolean(parsed.mute),
             sensitivity: typeof parsed.sensitivity === "number" ? Math.max(0.4, Math.min(2.5, parsed.sensitivity)) : 1.0,
-            screenShake: parsed.screenShake !== false
+            screenShake: parsed.screenShake !== false,
+            bulletSkin: typeof parsed.bulletSkin === "string" ? parsed.bulletSkin : "neon"
           };
         }
       } catch {}
-      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true };
+      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon" };
     }
 
     function saveGameSettings() {
@@ -9498,6 +9640,44 @@
           </div>
 
           <div class="settings-group">
+            <div class="settings-group-title">🎨 КАСТОМИЗАЦИЯ И СКИНЫ ПУЛИ</div>
+            
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 10px;">
+              <div class="setting-info">
+                <span class="setting-name">Скин снаряда</span>
+                <span class="setting-desc">Выберите визуальный стиль, анимацию ядра и свечение пули</span>
+              </div>
+              <div class="skin-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                <button type="button" class="cyber-skin-btn ${(gameSettings.bulletSkin || 'neon') === 'neon' ? 'active' : ''}" data-skin="neon" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(0,242,254,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                  <div style="font-size: 20px; margin-bottom: 4px;">⚡</div>
+                  <strong>Плазмоид</strong>
+                  <div style="font-size: 9px; color: #38bdf8;">Неон Cyan</div>
+                </button>
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'fire' ? 'active' : ''}" data-skin="fire" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(255,69,0,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                  <div style="font-size: 20px; margin-bottom: 4px;">🔥</div>
+                  <strong>Метеор</strong>
+                  <div style="font-size: 9px; color: #fb923c;">Огонь & Лава</div>
+                </button>
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'quantum' ? 'active' : ''}" data-skin="quantum" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(56,189,248,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                  <div style="font-size: 20px; margin-bottom: 4px;">💠</div>
+                  <strong>Сюрикен</strong>
+                  <div style="font-size: 9px; color: #818cf8;">Квантовый 4-Blade</div>
+                </button>
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'toxic' ? 'active' : ''}" data-skin="toxic" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(34,197,94,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                  <div style="font-size: 20px; margin-bottom: 4px;">☣️</div>
+                  <strong>Био-Сгусток</strong>
+                  <div style="font-size: 9px; color: #4ade80;">Кислотный Яд</div>
+                </button>
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'cosmic' ? 'active' : ''}" data-skin="cosmic" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(234,179,8,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                  <div style="font-size: 20px; margin-bottom: 4px;">✨</div>
+                  <strong>Комета</strong>
+                  <div style="font-size: 9px; color: #facc15;">Звёздная Аура</div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
             <div class="settings-group-title">📺 ВИЗУАЛЬНЫЕ ЭФФЕКТЫ</div>
             
             <div class="setting-row">
@@ -9596,6 +9776,22 @@
         soundManager.playUiClick();
       };
 
+      panel.querySelectorAll(".cyber-skin-btn").forEach(btn => {
+        btn.onclick = () => {
+          panel.querySelectorAll(".cyber-skin-btn").forEach(b => {
+            b.classList.remove("active");
+            b.style.borderColor = "rgba(255,255,255,0.15)";
+            b.style.background = "rgba(255,255,255,0.04)";
+          });
+          btn.classList.add("active");
+          btn.style.borderColor = "#38bdf8";
+          btn.style.background = "rgba(56,189,248,0.2)";
+          gameSettings.bulletSkin = btn.dataset.skin || "neon";
+          saveGameSettings();
+          soundManager.playUiClick();
+        };
+      });
+
       backBtn.onclick = () => {
         soundManager.playUiClick();
         if (fromView === "pause") {
@@ -9608,7 +9804,7 @@
       };
 
       resetBtn.onclick = () => {
-        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true };
+        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon" };
         saveGameSettings();
         soundManager.playUiClick();
         showSettingsMenu(fromView);
@@ -14513,6 +14709,18 @@
         bulletStatus.style.color = "#ff7992";
       }
 
+      const dashEl = document.getElementById("dashStatus");
+      if (dashEl) {
+        const cd = player.dashCooldown || 0;
+        if (cd <= 0) {
+          dashEl.textContent = "⚡ ГОТОВ";
+          dashEl.style.color = "#38bdf8";
+        } else {
+          dashEl.textContent = `⏳ ${cd.toFixed(1)}s`;
+          dashEl.style.color = "#94a3b8";
+        }
+      }
+
       levelValue.textContent =
         playerLevel;
 
@@ -14725,30 +14933,131 @@
         ctx.save();
         ctx.translate(bullet.x, bullet.y);
       
-        ctx.beginPath();
-        ctx.arc(
-          0,
-          0,
-          bullet.r * 2.2 * pulse,
-          0,
-          Math.PI * 2
-        );
-        ctx.fillStyle =
-          "rgba(126, 231, 255, 0.12)";
-        ctx.fill();
-      
-        ctx.beginPath();
-        ctx.arc(
-          0,
-          0,
-          bullet.r,
-          0,
-          Math.PI * 2
-        );
-        ctx.fillStyle = "#e9fcff";
-        ctx.shadowColor = "#55d8ff";
-        ctx.shadowBlur = 18;
-        ctx.fill();
+        const skin = gameSettings.bulletSkin || "neon";
+        if (skin === "fire") {
+          const rot = performance.now() * 0.005;
+          ctx.rotate(rot);
+          ctx.beginPath();
+          ctx.arc(0, 0, bullet.r * 2.4 * pulse, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 69, 0, 0.25)";
+          ctx.shadowColor = "#ff4500";
+          ctx.shadowBlur = 18;
+          ctx.fill();
+
+          for (let f = 0; f < 4; f++) {
+            const fa = (f / 4) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(Math.cos(fa) * bullet.r * 1.1, Math.sin(fa) * bullet.r * 1.1, bullet.r * 0.55, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffa500";
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(0, 0, bullet.r, 0, Math.PI * 2);
+          ctx.fillStyle = "#fffbeb";
+          ctx.shadowColor = "#f59e0b";
+          ctx.shadowBlur = 14;
+          ctx.fill();
+        } else if (skin === "quantum") {
+          const rot = performance.now() * 0.008;
+          ctx.rotate(rot);
+          const bladeLen = bullet.r * 2.2 * pulse;
+          const bladeW = bullet.r * 0.6;
+          ctx.fillStyle = "#38bdf8";
+          ctx.shadowColor = "#00f2fe";
+          ctx.shadowBlur = 16;
+          for (let b = 0; b < 4; b++) {
+            ctx.save();
+            ctx.rotate((b * Math.PI) / 2);
+            ctx.beginPath();
+            ctx.moveTo(0, -bladeLen);
+            ctx.lineTo(bladeW, 0);
+            ctx.lineTo(0, -bullet.r * 0.3);
+            ctx.lineTo(-bladeW, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          }
+
+          ctx.beginPath();
+          ctx.arc(0, 0, bullet.r * 0.65, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = "#818cf8";
+          ctx.shadowBlur = 10;
+          ctx.fill();
+        } else if (skin === "toxic") {
+          const wobble = Math.sin(performance.now() * 0.015) * 0.15;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, bullet.r * 2.2 * (1 + wobble), bullet.r * 1.8 * (1 - wobble), performance.now() * 0.002, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
+          ctx.shadowColor = "#39ff14";
+          ctx.shadowBlur = 20;
+          ctx.fill();
+
+          for (let d = 0; d < 3; d++) {
+            const da = (d / 3) * Math.PI * 2 + performance.now() * 0.004;
+            ctx.beginPath();
+            ctx.arc(Math.cos(da) * bullet.r * 1.2, Math.sin(da) * bullet.r * 1.2, bullet.r * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = "#4ade80";
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(0, 0, bullet.r, 0, Math.PI * 2);
+          ctx.fillStyle = "#dcfce7";
+          ctx.shadowColor = "#22c55e";
+          ctx.shadowBlur = 12;
+          ctx.fill();
+        } else if (skin === "cosmic") {
+          const rot = performance.now() * 0.004;
+          ctx.rotate(rot);
+          const outerR = bullet.r * 2.4 * pulse;
+          const innerR = bullet.r * 0.8;
+          ctx.beginPath();
+          for (let s = 0; s < 16; s++) {
+            const r = s % 2 === 0 ? outerR : innerR;
+            const a = (s / 16) * Math.PI * 2;
+            if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+            else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+          }
+          ctx.closePath();
+          ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
+          ctx.shadowColor = "#eab308";
+          ctx.shadowBlur = 18;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, bullet.r, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = "#c084fc";
+          ctx.shadowBlur = 15;
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(
+            0,
+            0,
+            bullet.r * 2.2 * pulse,
+            0,
+            Math.PI * 2
+          );
+          ctx.fillStyle =
+            "rgba(126, 231, 255, 0.12)";
+          ctx.fill();
+        
+          ctx.beginPath();
+          ctx.arc(
+            0,
+            0,
+            bullet.r,
+            0,
+            Math.PI * 2
+          );
+          ctx.fillStyle = "#e9fcff";
+          ctx.shadowColor = "#55d8ff";
+          ctx.shadowBlur = 18;
+          ctx.fill();
+        }
       
         ctx.restore();
       
@@ -15074,6 +15383,44 @@
           ctx.shadowColor = "#c084fc";
           ctx.shadowBlur = 10;
           ctx.fill();
+        } else if (enemy.type === "incubator") {
+          const now = performance.now();
+          const pulse = 1 + Math.sin(now * 0.006 + (enemy.id || 0)) * 0.12;
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.75 * pulse, 0, Math.PI * 2);
+          ctx.fillStyle = "#064e3b";
+          ctx.fill();
+
+          for (let ni = 0; ni < 4; ni++) {
+            const na = (ni / 4) * Math.PI * 2 + now * 0.001;
+            const nx = Math.cos(na) * (enemy.r * 0.45);
+            const ny = Math.sin(na) * (enemy.r * 0.45);
+            ctx.beginPath();
+            ctx.arc(nx, ny, enemy.r * 0.28, 0, Math.PI * 2);
+            ctx.fillStyle = "#10b981";
+            ctx.shadowColor = "#34d399";
+            ctx.shadowBlur = 8;
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.22, 0, Math.PI * 2);
+          ctx.fillStyle = "#6ee7b7";
+          ctx.shadowColor = "#a7f3d0";
+          ctx.shadowBlur = 10;
+          ctx.fill();
+        } else if (enemy.type === "minion") {
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#064e3b";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.3, 0, Math.PI * 2);
+          ctx.fillStyle = "#34d399";
+          ctx.shadowColor = "#6ee7b7";
+          ctx.shadowBlur = 6;
+          ctx.fill();
         } else if (enemy.type === "tank") {
 
           ctx.beginPath();
@@ -15168,6 +15515,76 @@
         ctx.shadowBlur = 17;
         ctx.fill();
       
+        ctx.restore();
+      }
+    }
+
+    function updateMedkits(dt) {
+      for (let i = medkits.length - 1; i >= 0; i--) {
+        const medkit = medkits[i];
+        medkit.life = (medkit.life || 35) - dt;
+        if (medkit.life <= 0) {
+          medkits.splice(i, 1);
+          continue;
+        }
+
+        const dist = Math.hypot(player.x - medkit.x, player.y - medkit.y);
+        if (dist <= player.r + medkit.r) {
+          player.hp = Math.min(player.maxHp, player.hp + 1);
+          soundManager.playHeal();
+          createParticles(medkit.x, medkit.y, "#22c55e", 14, 160);
+          createRing(player.x, player.y, 40, "#22c55e");
+          damageNumbers.push({
+            x: player.x,
+            y: player.y - 20,
+            text: "+1 HP",
+            color: "#22c55e",
+            size: 16,
+            life: 0.9,
+            vy: -45
+          });
+          updateHud();
+          medkits.splice(i, 1);
+        }
+      }
+    }
+
+    function drawMedkits() {
+      const now = performance.now();
+      const list = (coopSession.active || runMode === "coop") ? (coopSession.medkits || []) : medkits;
+      for (const medkit of list) {
+        const bob = Math.sin(now * 0.005 + (medkit.id || 0)) * 4;
+        const pulse = 1 + Math.sin(now * 0.008 + (medkit.id || 0)) * 0.14;
+
+        ctx.save();
+        ctx.translate(medkit.x, medkit.y + bob);
+
+        // 1. Зелёная аура исцеления
+        ctx.shadowColor = "#22c55e";
+        ctx.shadowBlur = 18 * pulse;
+        ctx.fillStyle = "rgba(34, 197, 94, 0.25)";
+        ctx.beginPath();
+        ctx.arc(0, 0, (medkit.r || 12) * 1.6 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. Кибер-капсула аптечки
+        ctx.fillStyle = "#092415";
+        ctx.strokeStyle = "#4ade80";
+        ctx.lineWidth = 2;
+        const boxW = 18;
+        const boxH = 14;
+        ctx.beginPath();
+        ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. Медицинский крест
+        ctx.fillStyle = "#ffffff";
+        const crossT = 3;
+        const crossL = 9;
+        ctx.fillRect(-crossL / 2, -crossT / 2, crossL, crossT);
+        ctx.fillRect(-crossT / 2, -crossL / 2, crossT, crossL);
+
         ctx.restore();
       }
     }
@@ -15753,6 +16170,7 @@
         );
       }
     
+      drawMedkits();
       drawExperienceCrystals();
       drawAimLine();
       drawEnemies();
@@ -16441,32 +16859,20 @@
         return;
       }
     
+      if (event.code === "Space") {
+        event.preventDefault();
+        if (!event.repeat && (gameState === "playing" || gameState === "coop-playing")) {
+          triggerDash();
+        }
+        return;
+      }
+
       const controlledKeys = [
         "ArrowUp",
         "ArrowDown",
         "ArrowLeft",
-        "ArrowRight",
-        "Space"
+        "ArrowRight"
       ];
-
-      if (
-        coopSession.active &&
-        event.code === "Space"
-      ) {
-        event.preventDefault();
-      
-        if (!event.repeat) {
-          const myPlayer = coopSession.players.get(window.net?.playerId);
-          net.sendShoot(
-            coopPointer.x,
-            coopPointer.y,
-            myPlayer?.displayX,
-            myPlayer?.displayY
-          );
-        }
-      
-        return;
-      }
 
 
 
@@ -17566,6 +17972,8 @@
               <div style="display: grid; grid-template-columns: 1fr 80px; gap: 4px;">
                 <select id="dbgEnemySelect" style="background: #0f172a; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; font-size: 11px;">
                   <option value="boss">👑 Босс</option>
+                  <option value="incubator">🥚 Инкубатор</option>
+                  <option value="minion">🐛 Личинка-миньон</option>
                   <option value="phantom">👻 Фантом</option>
                   <option value="twin">🔗 Близнецы</option>
                   <option value="magnetizer">🧲 Магнетизатор</option>

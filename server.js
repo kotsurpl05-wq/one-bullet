@@ -1741,6 +1741,11 @@ function updateServerCoopWorld(
     );
   }
 
+  updateServerMedkits(
+    room,
+    dt
+  );
+
   updateServerExperienceCrystals(
     room,
     dt
@@ -1827,6 +1832,20 @@ function createServerEnemy(
     speed = 90 + world.wave * 2;
     baseHp = 2 + Math.floor(world.wave / 5);
     color = "#ff6b9d";
+  }
+
+  if (type === "incubator") {
+    radius = 22;
+    speed = 32 + level * 1.0;
+    baseHp = 6 + Math.floor(world.wave / 2);
+    color = "#059669";
+  }
+
+  if (type === "minion") {
+    radius = 7;
+    speed = 135 + level * 3.0;
+    baseHp = 1;
+    color = "#34d399";
   }
 
   let bossTier = undefined;
@@ -1931,7 +1950,8 @@ function createServerEnemy(
     twinPartnerId: type === "twin" ? null : undefined,
     isEnraged: type === "twin" ? false : undefined,
     targetMarked: false,
-    targetMarkTimer: 0
+    targetMarkTimer: 0,
+    spawnTimer: type === "incubator" ? 4.5 : undefined
   };
 }
 
@@ -2124,8 +2144,13 @@ function spawnServerWave(world) {
     ) {
       type = "magnetizer";
     } else if (
+      world.wave >= 6 &&
+      roll < 0.20
+    ) {
+      type = "incubator";
+    } else if (
       world.wave >= 7 &&
-      roll < 0.22
+      roll < 0.28
     ) {
       type = "splitter";
     } else if (
@@ -2794,6 +2819,8 @@ function createCoopWorld(room) {
     splinters: new Map(),
     parasites: new Map(),
     experienceCrystals: new Map(),
+    medkits: new Map(),
+    nextMedkitId: 1,
     nextProjectileId: 1,
 
     nextBulletId: 1,
@@ -3204,6 +3231,19 @@ function killServerEnemy(
   world.enemies.delete(enemy.id);
 
   world.kills += 1;
+
+  // 5% шанс выпадения аптечки (+1 HP)
+  if (Math.random() < 0.05 && world.medkits) {
+    const medkitId = world.nextMedkitId++;
+    world.medkits.set(medkitId, {
+      id: medkitId,
+      x: Math.round(enemy.x),
+      y: Math.round(enemy.y),
+      r: 12,
+      heal: 1,
+      life: 35.0
+    });
+  }
 
   if (killerPlayer) {
     registerServerRepairKill(killerPlayer);
@@ -3734,6 +3774,27 @@ function updateServerEnemies(
         damageServerEnemy(world, enemy.id, enemy.poisonDamage || 0.5, pOwner);
         if (!world.enemies.has(enemy.id) || enemy.hp <= 0) {
           continue;
+        }
+      }
+    }
+
+    /*
+     * Инкубатор: каждые 4.5 секунды порождает рой из 2-3 быстрых личинок (minion).
+     */
+    if (enemy.type === "incubator" && enemy.hasEnteredArena && enemy.hp > 0 && (enemy.stunTimer || 0) <= 0) {
+      enemy.spawnTimer = (enemy.spawnTimer || 4.5) - dt;
+      if (enemy.spawnTimer <= 0) {
+        enemy.spawnTimer = 4.5;
+        const spawnCount = 2 + Math.floor(Math.random() * 2); // 2-3 личинки
+        for (let m = 0; m < spawnCount; m++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 28 + Math.random() * 16;
+          const mx = clamp(enemy.x + Math.cos(angle) * dist, 20, COOP_WORLD_WIDTH - 20);
+          const my = clamp(enemy.y + Math.sin(angle) * dist, 20, COOP_WORLD_HEIGHT - 20);
+          const minion = createServerEnemy(world, "minion", mx, my, true);
+          minion.hasEnteredArena = true;
+          minion.spawnDelay = 0;
+          world.enemies.set(minion.id, minion);
         }
       }
     }
@@ -4587,6 +4648,29 @@ function getNearestCrystalPlayer(
   };
 }
 
+function updateServerMedkits(room, dt) {
+  const world = room.world;
+  if (!world || !world.medkits || world.medkits.size === 0) return;
+
+  for (const [mId, medkit] of world.medkits.entries()) {
+    medkit.life = (medkit.life || 35) - dt;
+    if (medkit.life <= 0) {
+      world.medkits.delete(mId);
+      continue;
+    }
+
+    for (const player of world.players.values()) {
+      if (!player.alive) continue;
+      const dist = distance(player.x, player.y, medkit.x, medkit.y);
+      if (dist <= player.r + (medkit.r || 12)) {
+        player.hp = Math.min(player.maxHp, player.hp + (medkit.heal || 1));
+        world.medkits.delete(mId);
+        break;
+      }
+    }
+  }
+}
+
 function updateServerExperienceCrystals(
   room,
   dt
@@ -4885,7 +4969,16 @@ function createServerCoopSnapshot(room) {
       vy: Math.round(crystal.vy),
       value: crystal.value,
       r: crystal.r
-    }))
+    })),
+
+    medkits: world.medkits ? [
+      ...world.medkits.values()
+    ].map(medkit => ({
+      id: medkit.id,
+      x: Math.round(medkit.x),
+      y: Math.round(medkit.y),
+      r: medkit.r || 12
+    })) : []
   };
 }
 

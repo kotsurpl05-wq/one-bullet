@@ -1,0 +1,154 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { loadServerInstance } = require("./helpers/server_loader.js");
+const { createTestWorld } = require("./helpers/test_utils.js");
+
+test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet Skins", async (t) => {
+  const inst = loadServerInstance();
+  const { ctx, cleanup } = inst;
+
+  t.after(() => {
+    cleanup();
+  });
+
+  await t.test("Tier 1: Incubator Enemy & Minion Swarm Mechanics", async (t1) => {
+    await t1.test("1.1 Incubator creation sets proper attributes (r=22, color #059669, spawnTimer=4.5s)", () => {
+      const { world } = createTestWorld(ctx);
+      world.wave = 6;
+      const incubator = ctx.createServerEnemy(world, "incubator", 400, 300, true);
+
+      assert.ok(incubator, "Incubator instance must be created");
+      assert.equal(incubator.type, "incubator");
+      assert.equal(incubator.r, 22);
+      assert.equal(incubator.color, "#059669");
+      assert.equal(incubator.spawnTimer, 4.5, "Incubator spawn timer must start at 4.5s");
+      assert.ok(incubator.hp >= 6, `Incubator base HP must be >= 6, got ${incubator.hp}`);
+    });
+
+    await t1.test("1.2 Minion creation sets proper agile attributes (r=7, speed > 130, hp=1)", () => {
+      const { world } = createTestWorld(ctx);
+      world.wave = 6;
+      const minion = ctx.createServerEnemy(world, "minion", 400, 300, true);
+
+      assert.ok(minion, "Minion instance must be created");
+      assert.equal(minion.type, "minion");
+      assert.equal(minion.r, 7);
+      assert.equal(minion.hp, 1);
+      assert.equal(minion.maxHp, 1);
+      assert.ok(minion.speed >= 130, `Minion speed should be >= 130, got ${minion.speed}`);
+    });
+
+    await t1.test("1.3 Incubator periodically spawns 2-3 minions after 4.5s countdown", () => {
+      const { world } = createTestWorld(ctx);
+      world.wave = 6;
+      const incubator = ctx.createServerEnemy(world, "incubator", 400, 300, true);
+      incubator.hasEnteredArena = true;
+      incubator.spawnTimer = 0.1; // Almost ready to spawn
+      world.enemies.set(incubator.id, incubator);
+
+      assert.equal(world.enemies.size, 1);
+
+      // Advance by 0.2s -> triggers minion spawn
+      ctx.updateServerEnemies(world, 0.2);
+
+      assert.ok(
+        world.enemies.size >= 3,
+        `World enemies count must be >= 3 (1 incubator + 2-3 minions), got ${world.enemies.size}`
+      );
+
+      const minions = [...world.enemies.values()].filter(e => e.type === "minion");
+      assert.ok(minions.length >= 2, `Must have spawned at least 2 minions, got ${minions.length}`);
+      assert.equal(incubator.spawnTimer, 4.5, "spawnTimer should reset back to 4.5s");
+    });
+  });
+
+  await t.test("Tier 2: Medkit Drops & Health Recovery System", async (t2) => {
+    await t2.test("2.1 Medkits collection is initialized in world", () => {
+      const { world } = createTestWorld(ctx);
+      assert.equal(world.medkits?.constructor?.name, "Map", "world.medkits must be a Map");
+      assert.equal(world.medkits.size, 0);
+    });
+
+    await t2.test("2.2 Picking up a medkit heals +1 HP clamped to player maxHp", () => {
+      const { room, world, player1 } = createTestWorld(ctx);
+      player1.maxHp = 5;
+      player1.hp = 2; // Damaged player
+
+      const medkitId = 101;
+      world.medkits.set(medkitId, {
+        id: medkitId,
+        x: player1.x + 5, // Touching player
+        y: player1.y + 5,
+        r: 12,
+        heal: 1,
+        life: 35.0
+      });
+
+      assert.equal(world.medkits.size, 1);
+
+      // Advance server world simulation to process pickups
+      ctx.updateServerCoopWorld(room, 0.05, Date.now());
+
+      assert.equal(world.medkits.size, 0, "Medkit must be collected and removed from world");
+      assert.equal(player1.hp, 3, "Player HP must increase by +1 (from 2 to 3)");
+    });
+
+    await t2.test("2.3 Medkit heal does not exceed player maxHp", () => {
+      const { room, world, player1 } = createTestWorld(ctx);
+      player1.maxHp = 5;
+      player1.hp = 5; // Full health
+
+      const medkitId = 102;
+      world.medkits.set(medkitId, {
+        id: medkitId,
+        x: player1.x,
+        y: player1.y,
+        r: 12,
+        heal: 1,
+        life: 35.0
+      });
+
+      ctx.updateServerCoopWorld(room, 0.05, Date.now());
+
+      assert.equal(world.medkits.size, 0, "Medkit should be collected");
+      assert.equal(player1.hp, 5, "Player HP must not exceed maxHp (5)");
+    });
+
+    await t2.test("2.4 Medkits are serialized in createServerCoopSnapshot", () => {
+      const { room, world } = createTestWorld(ctx);
+      world.medkits.set(201, { id: 201, x: 250, y: 350, r: 12, life: 30 });
+
+      const snapshot = ctx.createServerCoopSnapshot(room);
+      assert.ok(Array.isArray(snapshot.medkits), "Snapshot must contain medkits array");
+      assert.equal(snapshot.medkits.length, 1);
+      assert.equal(snapshot.medkits[0].id, 201);
+      assert.equal(snapshot.medkits[0].x, 250);
+      assert.equal(snapshot.medkits[0].y, 350);
+    });
+  });
+
+  await t.test("Tier 3: Client Contracts & Settings Verification", async (t3) => {
+    const indexPath = path.join(__dirname, "..", "public", "index.html");
+    const indexHtml = fs.readFileSync(indexPath, "utf8");
+
+    await t3.test("3.1 Index HTML contains playDash and playHeal sound triggers", () => {
+      assert.ok(indexHtml.includes("playDash()"), "SoundManager must contain playDash()");
+      assert.ok(indexHtml.includes("playHeal()"), "SoundManager must contain playHeal()");
+    });
+
+    await t3.test("3.2 Index HTML contains triggerDash and 8.0s cooldown check", () => {
+      assert.ok(indexHtml.includes("function triggerDash"), "Index HTML must define triggerDash()");
+      assert.ok(indexHtml.includes("dashCooldown = 8.0"), "Dash cooldown must be set to 8.0s");
+    });
+
+    await t3.test("3.3 Index HTML contains 5 Bullet Skins in settings and renderer", () => {
+      assert.ok(indexHtml.includes('data-skin="neon"'), "Settings must have neon skin");
+      assert.ok(indexHtml.includes('data-skin="fire"'), "Settings must have fire skin");
+      assert.ok(indexHtml.includes('data-skin="quantum"'), "Settings must have quantum skin");
+      assert.ok(indexHtml.includes('data-skin="toxic"'), "Settings must have toxic skin");
+      assert.ok(indexHtml.includes('data-skin="cosmic"'), "Settings must have cosmic skin");
+    });
+  });
+});
