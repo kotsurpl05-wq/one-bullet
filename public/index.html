@@ -2574,6 +2574,14 @@
           <button
             type="button"
             class="secondary-button"
+            data-pause-action="settings"
+          >
+            ⚙ Настройки (Esc)
+          </button>
+
+          <button
+            type="button"
+            class="secondary-button"
             data-pause-action="restart"
           >
             Начать заново
@@ -2668,6 +2676,7 @@
 
     let lastTime = performance.now();
     let gameState = "menu";
+    let currentMenuSubView = "main";
     function isMenuState() {
       return gameState === "menu" || gameState === "network-menu" || gameState === "network-lobby";
     }
@@ -9039,6 +9048,7 @@
     }
 
     function showMainMenu() {
+      currentMenuSubView = "main";
       hidePauseMenu();
       hideUpgradeTooltip();
       if (typeof hideLiveStats === "function") hideLiveStats();
@@ -9174,7 +9184,8 @@
       };
     }
 
-    function showSettingsMenu() {
+    function showSettingsMenu(fromView = "menu") {
+      currentMenuSubView = "settings";
       panel.innerHTML = `
         <div class="cyber-modal-container" style="max-width: 920px;">
           <div class="cyber-modal-header">
@@ -9350,23 +9361,34 @@
 
       backBtn.onclick = () => {
         soundManager.playUiClick();
-        showMainMenu();
+        if (fromView === "pause") {
+          overlay.classList.add("hidden");
+          showPauseMenu();
+        } else {
+          showMainMenu();
+        }
       };
 
       resetBtn.onclick = () => {
         gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true };
         saveGameSettings();
         soundManager.playUiClick();
-        showSettingsMenu();
+        showSettingsMenu(fromView);
       };
 
       saveBtn.onclick = () => {
         soundManager.playUiClick();
-        showMainMenu();
+        if (fromView === "pause") {
+          overlay.classList.add("hidden");
+          showPauseMenu();
+        } else {
+          showMainMenu();
+        }
       };
     }
 
     function showGuideMenu() {
+      currentMenuSubView = "guide";
       panel.innerHTML = `
         <div class="cyber-modal-container" style="max-width: 920px;">
           <div class="cyber-modal-header">
@@ -9440,6 +9462,7 @@
     }
 
     function showSoloMenu() {
+      currentMenuSubView = "solo";
       gameState = "menu";
       runMode = "solo";
     
@@ -9534,6 +9557,7 @@
     }
 
     function showNetworkMenu() {
+      currentMenuSubView = "network";
       hidePauseMenu();
       hideUpgradeTooltip();
       overlay.classList.remove("hidden");
@@ -16025,6 +16049,13 @@
           resumeGame();
           return;
         }
+
+        if (action === "settings") {
+          hidePauseMenu();
+          overlay.classList.remove("hidden");
+          showSettingsMenu("pause");
+          return;
+        }
       
         if (action === "restart") {
           /*
@@ -16203,9 +16234,20 @@
         ) {
           event.preventDefault();
           togglePause();
+          return;
         }
-      
-        return;
+
+        if (isMenuState()) {
+          event.preventDefault();
+          if (currentMenuSubView === "settings" || currentMenuSubView === "guide" || currentMenuSubView === "solo" || currentMenuSubView === "network") {
+            soundManager.playUiClick();
+            showMainMenu();
+          } else {
+            soundManager.playUiClick();
+            showSettingsMenu("menu");
+          }
+          return;
+        }
       }
 
       if (!event.repeat && (gameState === "choosing" || coopUpgradeUiActive)) {
