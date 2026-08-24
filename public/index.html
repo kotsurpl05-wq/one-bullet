@@ -3227,7 +3227,7 @@
 
       wavePending = false;
       waveClearTimer = 0;
-      waveToast = 2.2;
+      waveToast = 2.6;
       screenShake = 0;
       playerHitFlash = 0;
     
@@ -3941,7 +3941,7 @@
         }
       }
     
-      waveToast = 2.2;
+      waveToast = 2.6;
       updateHud();
     }
 
@@ -11172,7 +11172,7 @@
 
       if (snapshot.wave && snapshot.wave !== coopSession.lastSeenWave) {
         coopSession.lastSeenWave = snapshot.wave;
-        coopSession.waveToast = 2.2;
+        coopSession.waveToast = 2.6;
       }
     
       coopSession.kills =
@@ -14993,7 +14993,7 @@
     }
 
 
-    function drawAnimatedWaveBanner(worldWidth, worldHeight, currentWave, enemyCount, timer, maxDuration = 2.2) {
+    function drawAnimatedWaveBanner(worldWidth, worldHeight, currentWave, enemyCount, timer, maxDuration = 2.6) {
       if (timer <= 0) return;
 
       const progress = 1 - (timer / maxDuration);
@@ -15002,77 +15002,226 @@
       let scale = 1;
       let offsetY = 0;
       let shakeX = 0;
+      let shakeY = 0;
+      let glitchOffset = 0;
 
       if (progress < 0.15) {
-        // Punch-in with overshoot elastic ease
+        // Dramatic explosive punch-in with heavy slam
         const t = progress / 0.15;
-        const overshoot = Math.sin(t * Math.PI * 2.5) * (1 - t) * 0.12;
-        scale = 0.3 + t * 0.7 + overshoot;
-        alpha = Math.min(1, t * 2.2);
+        const overshoot = Math.sin(t * Math.PI * 2.5) * (1 - t) * 0.22;
+        scale = 0.2 + t * 0.8 + overshoot;
+        alpha = Math.min(1, t * 3.0);
         if (isBossWave) {
-          shakeX = Math.sin(t * Math.PI * 8) * (1 - t) * 6;
+          shakeX = (Math.random() - 0.5) * 14 * (1 - t);
+          shakeY = (Math.random() - 0.5) * 10 * (1 - t);
+          glitchOffset = (Math.random() - 0.5) * 12 * (1 - t);
         }
-      } else if (progress < 0.25) {
-        // Settle from overshoot
-        const t = (progress - 0.15) / 0.1;
-        scale = 1 + (1 - t) * 0.04;
+      } else if (progress < 0.35) {
+        // Steady impact vibration
+        const t = (progress - 0.15) / 0.2;
+        scale = 1 + (1 - t) * 0.06;
         alpha = 1;
         if (isBossWave) {
-          shakeX = Math.sin(t * Math.PI * 4) * (1 - t) * 3;
+          shakeX = Math.sin(t * Math.PI * 8) * (1 - t) * 5;
+          shakeY = Math.cos(t * Math.PI * 6) * (1 - t) * 3;
+          if (Math.random() < 0.3) glitchOffset = (Math.random() - 0.5) * 6;
         }
       } else if (progress > 0.75) {
         const t = (progress - 0.75) / 0.25;
         alpha = 1 - t;
-        scale = 1 + t * 0.06;
-        offsetY = -t * 20;
+        scale = 1 + t * 0.12;
+        offsetY = -t * 30;
       } else {
-        scale = 1;
+        scale = 1 + Math.sin(progress * Math.PI * 3) * 0.015;
         alpha = 1;
       }
 
-      const primaryColor = isBossWave ? "#ff4f91" : "#55d8ff";
-      const secondaryColor = isBossWave ? "#ff9b45" : "#7ee7ff";
-      const titleText = isBossWave ? `БОСС: ВОЛНА ${currentWave}` : `ВОЛНА ${currentWave}`;
-      const subtitleText = isBossWave ? "ВНИМАНИЕ: ОСОБО ОПАСНЫЙ ПРОТИВНИК" : `ПРОТИВНИКОВ: ${enemyCount}`;
-
       ctx.save();
-      ctx.translate(worldWidth / 2 + shakeX, worldHeight * 0.22 + offsetY);
+      ctx.translate(worldWidth / 2 + shakeX, worldHeight * 0.24 + offsetY + shakeY);
       ctx.scale(scale, scale);
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      const ribbonWidth = Math.min(560, worldWidth - 60);
-      const bgGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, ribbonWidth / 2);
-      bgGrad.addColorStop(0, isBossWave ? "rgba(255, 63, 143, 0.32)" : "rgba(85, 216, 255, 0.26)");
-      bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(-ribbonWidth / 2, -50, ribbonWidth, 100);
+      const timeNow = Date.now() * 0.005;
 
-      ctx.font = "900 63px Inter, system-ui, sans-serif";
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = primaryColor;
-      ctx.shadowBlur = isBossWave ? 36 : 28;
-      ctx.fillText(titleText, 0, -6);
+      if (isBossWave) {
+        // =====================================================================
+        // 🔥 ЭКШОНОВЫЙ КИНЕМАТОГРАФИЧЕСКИЙ БОСС-БАННЕР
+        // =====================================================================
+        const bannerWidth = Math.min(820, worldWidth - 40);
+        const bannerHeight = 150;
 
-      ctx.strokeStyle = secondaryColor;
-      ctx.lineWidth = 2.5;
-      ctx.shadowBlur = 12;
-      ctx.beginPath();
-      const textWidth = ctx.measureText(titleText).width;
-      const wingStart = textWidth / 2 + 22;
-      const wingLen = 48;
-      ctx.moveTo(-wingStart, -6);
-      ctx.lineTo(-wingStart - wingLen, -6);
-      ctx.moveTo(wingStart, -6);
-      ctx.lineTo(wingStart + wingLen, -6);
-      ctx.stroke();
+        // 1. Анимированные расширяющиеся ударные кольца на заднем плане
+        if (progress < 0.6) {
+          const ringScale = (progress / 0.6) * 1.6;
+          const ringAlpha = (1 - progress / 0.6) * 0.75;
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 0, 85, " + ringAlpha + ")";
+          ctx.lineWidth = 4;
+          ctx.shadowColor = "#ff0055";
+          ctx.shadowBlur = 24;
+          ctx.strokeRect(-bannerWidth * 0.5 * ringScale, -bannerHeight * 0.45 * ringScale, bannerWidth * ringScale, bannerHeight * 0.9 * ringScale);
+          ctx.restore();
+        }
 
-      ctx.font = "700 20px Inter, system-ui, sans-serif";
-      ctx.fillStyle = secondaryColor;
-      ctx.shadowColor = secondaryColor;
-      ctx.shadowBlur = 10;
-      ctx.fillText(subtitleText, 0, 42);
+        // 2. Многослойная фоновая подложка с пульсирующим градиентом опасности
+        const bgGrad = ctx.createRadialGradient(0, 0, 20, 0, 0, bannerWidth / 2);
+        bgGrad.addColorStop(0, "rgba(255, 0, 85, 0.45)");
+        bgGrad.addColorStop(0.5, "rgba(255, 80, 0, 0.22)");
+        bgGrad.addColorStop(0.85, "rgba(20, 0, 10, 0.8)");
+        bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(-bannerWidth / 2, -bannerHeight / 2, bannerWidth, bannerHeight);
+
+        // 3. Диагональные неоновые шевроны опасности (Hazard Warning Stripes)
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 0, 85, 0.35)";
+        ctx.lineWidth = 3;
+        for (let x = -bannerWidth / 2 + 40; x < bannerWidth / 2; x += 36) {
+          ctx.beginPath();
+          ctx.moveTo(x + (timeNow * 15 % 36), -bannerHeight / 2 + 10);
+          ctx.lineTo(x + 18 + (timeNow * 15 % 36), bannerHeight / 2 - 10);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 4. Кибернетическая рамка с угловыми фиксаторами
+        ctx.strokeStyle = "#ff0055";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#ff0055";
+        ctx.shadowBlur = 18;
+        const boxW = bannerWidth * 0.85;
+        const boxH = bannerHeight * 0.78;
+        const cornerSize = 24;
+
+        // 4 угла рамки
+        ctx.beginPath();
+        // Top-Left
+        ctx.moveTo(-boxW / 2, -boxH / 2 + cornerSize);
+        ctx.lineTo(-boxW / 2, -boxH / 2);
+        ctx.lineTo(-boxW / 2 + cornerSize, -boxH / 2);
+        // Top-Right
+        ctx.moveTo(boxW / 2 - cornerSize, -boxH / 2);
+        ctx.lineTo(boxW / 2, -boxH / 2);
+        ctx.lineTo(boxW / 2, -boxH / 2 + cornerSize);
+        // Bottom-Right
+        ctx.moveTo(boxW / 2, boxH / 2 - cornerSize);
+        ctx.lineTo(boxW / 2, boxH / 2);
+        ctx.lineTo(boxW / 2 - cornerSize, boxH / 2);
+        // Bottom-Left
+        ctx.moveTo(-boxW / 2 + cornerSize, boxH / 2);
+        ctx.lineTo(-boxW / 2, boxH / 2);
+        ctx.lineTo(-boxW / 2, boxH / 2 - cornerSize);
+        ctx.stroke();
+
+        // 5. Верхняя предупреждающая лента
+        ctx.font = "900 17px 'Orbitron', 'Inter', system-ui, sans-serif";
+        ctx.fillStyle = "#ffaa00";
+        ctx.shadowColor = "#ffaa00";
+        ctx.shadowBlur = 12;
+        ctx.fillText("⚠ ТРЕВОГА: КРИТИЧЕСКАЯ УГРОЗА ⚠", 0, -boxH / 2 + 16);
+
+        // 6. Огромный экшоновый заголовок босса с хроматическим глитчем
+        const bossTitle = `БОСС: ВОЛНА ${currentWave}`;
+        ctx.font = "900 78px 'Orbitron', 'Inter', system-ui, sans-serif";
+
+        if (glitchOffset !== 0) {
+          // Chromatic aberration (Red & Cyan Split)
+          ctx.fillStyle = "rgba(0, 255, 255, 0.75)";
+          ctx.fillText(bossTitle, glitchOffset, 5);
+          ctx.fillStyle = "rgba(255, 0, 100, 0.75)";
+          ctx.fillText(bossTitle, -glitchOffset, 5);
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#ff0055";
+        ctx.shadowBlur = 40;
+        ctx.fillText(bossTitle, 0, 6);
+
+        // Внутренний горящий градиент для букв
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffe600";
+        ctx.shadowColor = "#ffe600";
+        ctx.shadowBlur = 15;
+        ctx.strokeText(bossTitle, 0, 6);
+
+        // 7. Нижний агрессивный подзаголовок
+        ctx.font = "800 22px 'Orbitron', 'Inter', system-ui, sans-serif";
+        ctx.fillStyle = "#ff4f91";
+        ctx.shadowColor = "#ff4f91";
+        ctx.shadowBlur = 14;
+        ctx.fillText("⚡ СВЕРХТЯЖЁЛЫЙ ФЛАГМАН ⚡", 0, boxH / 2 - 16);
+
+      } else {
+        // =====================================================================
+        // 🌊 МАСШТАБНЫЙ КИНЕМАТОГРАФИЧЕСКИЙ БАННЕР НОВОЙ ВОЛНЫ
+        // =====================================================================
+        const bannerWidth = Math.min(760, worldWidth - 40);
+        const bannerHeight = 120;
+
+        // 1. Аноморфный горизонтальный лазерный луч (Laser Flare)
+        const beamGrad = ctx.createLinearGradient(-worldWidth / 2, 0, worldWidth / 2, 0);
+        beamGrad.addColorStop(0, "rgba(0, 242, 254, 0)");
+        beamGrad.addColorStop(0.3, "rgba(0, 242, 254, 0.35)");
+        beamGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.85)");
+        beamGrad.addColorStop(0.7, "rgba(0, 242, 254, 0.35)");
+        beamGrad.addColorStop(1, "rgba(0, 242, 254, 0)");
+        ctx.fillStyle = beamGrad;
+        ctx.fillRect(-worldWidth / 2, -2, worldWidth, 4);
+
+        // 2. Радиальный мягкий свет
+        const bgGrad = ctx.createRadialGradient(0, 0, 15, 0, 0, bannerWidth / 2);
+        bgGrad.addColorStop(0, "rgba(0, 242, 254, 0.30)");
+        bgGrad.addColorStop(0.6, "rgba(79, 172, 254, 0.12)");
+        bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(-bannerWidth / 2, -bannerHeight / 2, bannerWidth, bannerHeight);
+
+        // 3. Шевроны по бокам
+        ctx.strokeStyle = "#00f2fe";
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 20;
+
+        const waveText = `ВОЛНА ${currentWave}`;
+        ctx.font = "900 82px 'Orbitron', 'Inter', system-ui, sans-serif";
+        const tWidth = ctx.measureText(waveText).width;
+
+        const wingStart = tWidth / 2 + 28;
+        const wingLength = 65;
+
+        // Левое крыло
+        ctx.beginPath();
+        ctx.moveTo(-wingStart, 0);
+        ctx.lineTo(-wingStart - wingLength, 0);
+        ctx.lineTo(-wingStart - wingLength - 16, -16);
+        ctx.stroke();
+
+        // Правое крыло
+        ctx.beginPath();
+        ctx.moveTo(wingStart, 0);
+        ctx.lineTo(wingStart + wingLength, 0);
+        ctx.lineTo(wingStart + wingLength + 16, 16);
+        ctx.stroke();
+
+        // 4. Огромный текст волны
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 32;
+        ctx.fillText(waveText, 0, -4);
+
+        ctx.strokeStyle = "rgba(0, 242, 254, 0.85)";
+        ctx.lineWidth = 2;
+        ctx.strokeText(waveText, 0, -4);
+
+        // 5. Подзаголовок с числом врагов
+        ctx.font = "700 23px 'Orbitron', 'Inter', system-ui, sans-serif";
+        ctx.fillStyle = "#7ee7ff";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 12;
+        ctx.fillText(`ВРАЖЕСКИЙ ОТРЯД: ${enemyCount}`, 0, 52);
+      }
 
       ctx.restore();
     }
