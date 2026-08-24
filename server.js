@@ -1239,6 +1239,34 @@ function updateServerBullet(
     }
 
     /*
+     * Ядовитая пуля: отравляет врага (тики раз в 1с).
+     */
+    if (owner.stats?.poison && world.enemies.has(enemy.id) && enemy.hp > 0) {
+      enemy.poisonTimer = Math.max(enemy.poisonTimer || 0, owner.stats.poisonDuration || 2.0);
+      enemy.poisonTickTimer = 1.0;
+      enemy.poisonDamage = owner.stats.poisonDamage || 0.5;
+      enemy.poisonOwnerId = owner.id;
+    }
+
+    /*
+     * Пуля с паразитом: шанс поселить паразита при попадании.
+     */
+    const pChance = owner.stats?.parasite ? (owner.stats.parasiteChance || 0.25) : 0;
+    if (
+      pChance > 0 &&
+      !enemy.parasiteInfested &&
+      world.enemies.has(enemy.id) &&
+      enemy.hp > 0
+    ) {
+      if (Math.random() <= pChance) {
+        enemy.parasiteInfested = true;
+        enemy.parasiteCount = owner.stats.parasiteCount || 1;
+        enemy.parasiteDamage = owner.stats.parasiteDamage || 1.0;
+        enemy.parasiteOwnerId = owner.id;
+      }
+    }
+
+    /*
      * Кинетический Удар: оглушение 5% за уровень на 0.3с при попадании.
      */
     const stunChance = (owner.stats?.stunChance !== undefined)
@@ -1450,6 +1478,53 @@ function updateServerWave(world, dt) {
   }
 }
 
+
+
+function updateServerParasites(world, dt) {
+  if (!world.parasites || world.parasites.size === 0) return;
+
+  for (const [parasiteId, spore] of world.parasites.entries()) {
+    spore.life -= dt;
+    if (spore.life <= 0) {
+      world.parasites.delete(parasiteId);
+      continue;
+    }
+
+    let nearestEnemy = null;
+    let nearestDist = 700;
+    for (const enemy of world.enemies.values()) {
+      if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+      if (enemy.type === "phantom" && enemy.isPhased) continue;
+      const d = distance(spore.x, spore.y, enemy.x, enemy.y);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestEnemy = enemy;
+      }
+    }
+
+    if (nearestEnemy && nearestDist > 0) {
+      const steer = 7.0 * dt;
+      const targetVx = ((nearestEnemy.x - spore.x) / nearestDist) * 320;
+      const targetVy = ((nearestEnemy.y - spore.y) / nearestDist) * 320;
+      spore.vx += (targetVx - spore.vx) * steer;
+      spore.vy += (targetVy - spore.vy) * steer;
+    }
+
+    spore.x += spore.vx * dt;
+    spore.y += spore.vy * dt;
+
+    for (const enemy of world.enemies.values()) {
+      if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+      if (enemy.type === "phantom" && enemy.isPhased) continue;
+      if (distance(spore.x, spore.y, enemy.x, enemy.y) <= spore.r + enemy.r) {
+        const owner = world.players.get(spore.ownerId) || null;
+        damageServerEnemy(world, enemy.id, spore.damage, owner);
+        world.parasites.delete(parasiteId);
+        break;
+      }
+    }
+  }
+}
 
 function updateServerSplinters(world, dt) {
   if (!world.splinters || world.splinters.size === 0) return;
@@ -2092,7 +2167,16 @@ function createServerPlayerStats() {
     groundPullSpeed: 0,
     magnetRangeBonusCells: 0,
     pickupRadius: 0,
-    magazineSize: 1
+    magazineSize: 1,
+
+    poison: false,
+    poisonDamage: 0.5,
+    poisonDuration: 2.0,
+
+    parasite: false,
+    parasiteChance: 0.25,
+    parasiteCount: 1,
+    parasiteDamage: 1.0
   };
 }
 
@@ -2455,6 +2539,102 @@ const SERVER_UPGRADES = [
   },
 
   {
+    id: "poison",
+    title: "Ядовитая пуля",
+    description: "Пуля отравляет врагов (0.5 урона каждую 1.0с в течение 2с).",
+    fixedRarity: "rare",
+    available(player) {
+      return !player.stats?.poison;
+    },
+    bonus() {
+      return "Отравление: 0.5 урона/с на 2.0с";
+    }
+  },
+
+  {
+    id: "poison-damage",
+    title: "Урон яда",
+    description: "Увеличивает периодический урон яда на +0.5/с (макс. 5.0/с).",
+    available(player) {
+      return Boolean(player.stats?.poison) && (player.stats?.poisonDamage || 0.5) < 5.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.poisonDamage || 0.5;
+      const result = Number(Math.min(5.0, current + 0.5 * power).toFixed(1));
+      return `+${Number((result - current).toFixed(1))} к урону яда (итог: ${result}/с)`;
+    }
+  },
+
+  {
+    id: "poison-duration",
+    title: "Длительность яда",
+    description: "Увеличивает длительность действия яда на +1.0с (макс. 5.0с).",
+    available(player) {
+      return Boolean(player.stats?.poison) && (player.stats?.poisonDuration || 2.0) < 5.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.poisonDuration || 2.0;
+      const result = Number(Math.min(5.0, current + 1.0 * power).toFixed(1));
+      return `+${Number((result - current).toFixed(1))}с к длительности яда (итог: ${result}с)`;
+    }
+  },
+
+  {
+    id: "parasite",
+    title: "Пуля с паразитом",
+    description: "Выстрел с шансом 25% заражает врага. При смерти вылетает паразит (1 урон).",
+    fixedRarity: "rare",
+    available(player) {
+      return !player.stats?.parasite;
+    },
+    bonus() {
+      return "25% шанс паразита, 1 паразит по 1.0 урона";
+    }
+  },
+
+  {
+    id: "parasite-chance",
+    title: "Шанс паразита",
+    description: "Увеличивает шанс заражения паразитом на +5% (макс. 50%).",
+    available(player) {
+      return Boolean(player.stats?.parasite) && (player.stats?.parasiteChance || 0.25) < 0.50;
+    },
+    bonus(player, power) {
+      const current = player.stats?.parasiteChance || 0.25;
+      const result = Math.min(0.50, current + 0.05 * power);
+      return `+${Math.round((result - current) * 100)}% к шансу паразита (итог: ${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "parasite-count",
+    title: "Количество паразитов",
+    description: "Увеличивает количество вылетающих паразитов при смерти врага на +1 (макс. 5).",
+    available(player) {
+      return Boolean(player.stats?.parasite) && (player.stats?.parasiteCount || 1) < 5;
+    },
+    bonus(player, power) {
+      const current = player.stats?.parasiteCount || 1;
+      const result = Math.min(5, current + 1 * power);
+      return `+${result - current} паразита при гибели (итог: ${result})`;
+    }
+  },
+
+  {
+    id: "parasite-damage",
+    title: "Урон паразита",
+    description: "Увеличивает урон каждого паразита на +0.5 (макс. 4.0).",
+    available(player) {
+      return Boolean(player.stats?.parasite) && (player.stats?.parasiteDamage || 1.0) < 4.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.parasiteDamage || 1.0;
+      const result = Number(Math.min(4.0, current + 0.5 * power).toFixed(1));
+      return `+${Number((result - current).toFixed(1))} к урону паразита (итог: ${result})`;
+    }
+  },
+
+  {
     id: "target-mark",
     title: "Метка Цели",
     description: "Первое попадание помечает врага на 4с (+5% урона за уровень, макс. +40%).",
@@ -2594,6 +2774,7 @@ function createCoopWorld(room) {
     enemies: new Map(),
     enemyProjectiles: new Map(),
     splinters: new Map(),
+    parasites: new Map(),
     experienceCrystals: new Map(),
     nextProjectileId: 1,
 
@@ -2650,29 +2831,7 @@ function createCoopWorld(room) {
         invulnerability: 0,
         repairHealCooldown: 0,
       
-        stats: {
-          playerSpeed:
-            COOP_PLAYER_SPEED,
-        
-          bulletSpeed:
-            COOP_BULLET_SPEED,
-        
-          bulletRadius:
-            COOP_BULLET_RADIUS,
-        
-          damage: 1,
-          maxBounces:
-            COOP_BULLET_BOUNCES,
-        
-          pierce: 0,
-          groundPullSpeed: 0,
-          pickupRadius: 0,
-          critChance: 0,
-          magazineSize: 1,
-          catchBlast: 0,
-          healEvery: 0,
-          repairKillProgress: 0
-        },
+        stats: createServerPlayerStats(),
       
         selectedUpgrades: [],
       
@@ -3002,6 +3161,27 @@ function killServerEnemy(
     world,
     enemy
   );
+
+  if (enemy.parasiteInfested && world.parasites) {
+    const pCount = enemy.parasiteCount || 1;
+    const pDamage = enemy.parasiteDamage || 1.0;
+    for (let pi = 0; pi < pCount; pi++) {
+      const angle = Math.random() * Math.PI * 2;
+      const sporeSpeed = 320;
+      const parasiteId = world.nextEnemyId++;
+      world.parasites.set(parasiteId, {
+        id: parasiteId,
+        ownerId: enemy.parasiteOwnerId || killerPlayer?.id || null,
+        x: enemy.x,
+        y: enemy.y,
+        vx: Math.cos(angle) * sporeSpeed,
+        vy: Math.sin(angle) * sporeSpeed,
+        damage: pDamage,
+        life: 2.0,
+        r: 5
+      });
+    }
+  }
 
   world.enemies.delete(enemy.id);
 
@@ -3522,6 +3702,22 @@ function updateServerEnemies(
       }
 
       enemy.isPhased = enemy.phaseTimer < 2.0;
+    }
+
+    /*
+     * Яд: периодический урон раз в 1.0с.
+     */
+    if (enemy.poisonTimer > 0) {
+      enemy.poisonTimer = Math.max(0, enemy.poisonTimer - dt);
+      enemy.poisonTickTimer = (enemy.poisonTickTimer || 1.0) - dt;
+      if (enemy.poisonTickTimer <= 0) {
+        enemy.poisonTickTimer = 1.0;
+        const pOwner = world.players.get(enemy.poisonOwnerId) || null;
+        damageServerEnemy(world, enemy.id, enemy.poisonDamage || 0.5, pOwner);
+        if (!world.enemies.has(enemy.id) || enemy.hp <= 0) {
+          continue;
+        }
+      }
     }
 
     /*
@@ -4093,6 +4289,39 @@ function applyServerUpgrade(
 
     case "reactive-armor":
       player.stats.reactiveArmor = true;
+      break;
+
+    case "poison":
+      player.stats.poison = true;
+      player.stats.poisonDamage = Math.max(0.5, player.stats.poisonDamage || 0.5);
+      player.stats.poisonDuration = Math.max(2.0, player.stats.poisonDuration || 2.0);
+      break;
+
+    case "poison-damage":
+      player.stats.poisonDamage = Number(Math.min(5.0, (player.stats.poisonDamage || 0.5) + 0.5 * power).toFixed(1));
+      break;
+
+    case "poison-duration":
+      player.stats.poisonDuration = Number(Math.min(5.0, (player.stats.poisonDuration || 2.0) + 1.0 * power).toFixed(1));
+      break;
+
+    case "parasite":
+      player.stats.parasite = true;
+      player.stats.parasiteChance = Math.max(0.25, player.stats.parasiteChance || 0.25);
+      player.stats.parasiteCount = Math.max(1, player.stats.parasiteCount || 1);
+      player.stats.parasiteDamage = Math.max(1.0, player.stats.parasiteDamage || 1.0);
+      break;
+
+    case "parasite-chance":
+      player.stats.parasiteChance = Math.min(0.50, (player.stats.parasiteChance || 0.25) + 0.05 * power);
+      break;
+
+    case "parasite-count":
+      player.stats.parasiteCount = Math.min(5, (player.stats.parasiteCount || 1) + 1 * power);
+      break;
+
+    case "parasite-damage":
+      player.stats.parasiteDamage = Number(Math.min(4.0, (player.stats.parasiteDamage || 1.0) + 0.5 * power).toFixed(1));
       break;
 
     case "target-mark":

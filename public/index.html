@@ -2732,6 +2732,7 @@
     const particles = [];
     const enemyProjectiles = [];
     const splinterShards = [];
+    const parasiteSpores = [];
     const selectedUpgradeHistory = [];
     const experienceCrystals = [];
     const coopParticles = [];
@@ -4329,6 +4330,27 @@
       );
     
       dropExperienceCrystals(enemy);
+      if (enemy.parasiteInfested) {
+        const pCount = enemy.parasiteCount || stats.parasiteCount || 1;
+        const pDamage = enemy.parasiteDamage || stats.parasiteDamage || 1.0;
+        for (let pi = 0; pi < pCount; pi++) {
+          const angle = Math.random() * Math.PI * 2;
+          const sporeSpeed = 320;
+          parasiteSpores.push({
+            id: ++enemyId,
+            x: enemy.x,
+            y: enemy.y,
+            vx: Math.cos(angle) * sporeSpeed,
+            vy: Math.sin(angle) * sporeSpeed,
+            r: 5,
+            damage: pDamage,
+            life: 2.0,
+            color: "#bd00ff"
+          });
+        }
+        createParticles(enemy.x, enemy.y, "#bd00ff", 12, 160);
+      }
+
       enemies.splice(index, 1);
 
       /*
@@ -5205,6 +5227,32 @@
       }
 
       /*
+       * Ядовитая пуля: отравляет врага (тики раз в 1с).
+       */
+      if (stats.poison && enemy.hp > 0 && enemy.hasEnteredArena !== false) {
+        enemy.poisonTimer = Math.max(enemy.poisonTimer || 0, stats.poisonDuration || 2.0);
+        enemy.poisonTickTimer = 1.0;
+        enemy.poisonDamage = stats.poisonDamage || 0.5;
+      }
+
+      /*
+       * Пуля с паразитом: шанс поселить паразита при попадании.
+       */
+      const pChance = stats.parasite ? (stats.parasiteChance || 0.25) : 0;
+      if (
+        pChance > 0 &&
+        !enemy.parasiteInfested &&
+        enemy.hp > 0 &&
+        enemy.hasEnteredArena !== false
+      ) {
+        if (Math.random() <= pChance) {
+          enemy.parasiteInfested = true;
+          enemy.parasiteCount = stats.parasiteCount || 1;
+          enemy.parasiteDamage = stats.parasiteDamage || 1.0;
+        }
+      }
+
+      /*
        * Кинетический Удар: оглушение 5% за уровень на 0.3с.
        */
       const stunChance = (stats.stunChance !== undefined)
@@ -5913,6 +5961,72 @@
       }
     }
 
+
+    function updateParasiteSpores(dt) {
+      for (let i = parasiteSpores.length - 1; i >= 0; i--) {
+        const spore = parasiteSpores[i];
+        spore.life -= dt;
+        if (spore.life <= 0) {
+          parasiteSpores.splice(i, 1);
+          continue;
+        }
+
+        let nearestEnemy = null;
+        let nearestDist = 700;
+        for (let ei = 0; ei < enemies.length; ei++) {
+          const enemy = enemies[ei];
+          if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+          if (enemy.type === "phantom" && enemy.isPhased) continue;
+          const d = distance(spore.x, spore.y, enemy.x, enemy.y);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestEnemy = enemy;
+          }
+        }
+
+        if (nearestEnemy && nearestDist > 0) {
+          const steer = 7.0 * dt;
+          const targetVx = ((nearestEnemy.x - spore.x) / nearestDist) * 320;
+          const targetVy = ((nearestEnemy.y - spore.y) / nearestDist) * 320;
+          spore.vx += (targetVx - spore.vx) * steer;
+          spore.vy += (targetVy - spore.vy) * steer;
+        }
+
+        spore.x += spore.vx * dt;
+        spore.y += spore.vy * dt;
+
+        for (let ei = 0; ei < enemies.length; ei++) {
+          const enemy = enemies[ei];
+          if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+          if (enemy.type === "phantom" && enemy.isPhased) continue;
+          if (distance(spore.x, spore.y, enemy.x, enemy.y) <= spore.r + enemy.r) {
+            damageEnemy(ei, spore.damage);
+            soundManager.playSplinterHit();
+            createParticles(spore.x, spore.y, "#bd00ff", 8, 140);
+            parasiteSpores.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    function drawParasiteSpores() {
+      for (const spore of parasiteSpores) {
+        ctx.save();
+        ctx.shadowColor = "#bd00ff";
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = "#bd00ff";
+        ctx.beginPath();
+        ctx.arc(spore.x, spore.y, spore.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(spore.x, spore.y, spore.r * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
     function drawSplinterShards() {
       for (const shard of splinterShards) {
         ctx.save();
@@ -6234,6 +6348,19 @@
         /*
          * Оглушение: пока stunTimer > 0, враг не двигается.
          */
+        if (enemy.poisonTimer > 0) {
+          enemy.poisonTimer = Math.max(0, enemy.poisonTimer - dt);
+          enemy.poisonTickTimer = (enemy.poisonTickTimer || 1.0) - dt;
+          if (enemy.poisonTickTimer <= 0) {
+            enemy.poisonTickTimer = 1.0;
+            damageEnemy(i, enemy.poisonDamage || 0.5);
+            createParticles(enemy.x, enemy.y, "#39ff14", 4, 90);
+            if (!enemies[i] || enemies[i] !== enemy || enemy.hp <= 0) {
+              continue;
+            }
+          }
+        }
+
         if (enemy.stunTimer > 0) {
           enemy.stunTimer = Math.max(0, enemy.stunTimer - dt);
           continue;
@@ -6776,6 +6903,7 @@
       updateEnemies(dt);
       updateEnemyProjectiles(dt);
       updateSplinterShards(dt);
+      updateParasiteSpores(dt);
       updateExperienceCrystals(dt);
       updateParticles(dt);
       updateDamageNumbersIn(damageNumbers, dt);
@@ -7187,6 +7315,83 @@
         }
       },
       {
+        title: "Ядовитая пуля",
+        description: "Пуля отравляет врагов (0.5 урона каждую 1.0с в течение 2с).",
+        fixedRarity: "rare",
+        available() {
+          return !stats.poison;
+        },
+        apply() {
+          stats.poison = true;
+          stats.poisonDamage = 0.5;
+          stats.poisonDuration = 2.0;
+        }
+      },
+      {
+        title: "Урон яда",
+        description: "Увеличивает периодический урон яда на +0.5/с (макс. 5.0/с).",
+        available() {
+          return Boolean(stats.poison) && (stats.poisonDamage || 0.5) < 5.0;
+        },
+        applyWithPower(power) {
+          stats.poisonDamage = Number(Math.min(5.0, (stats.poisonDamage || 0.5) + 0.5 * power).toFixed(1));
+        }
+      },
+      {
+        title: "Длительность яда",
+        description: "Увеличивает длительность действия яда на +1.0с (макс. 5.0с).",
+        available() {
+          return Boolean(stats.poison) && (stats.poisonDuration || 2.0) < 5.0;
+        },
+        applyWithPower(power) {
+          stats.poisonDuration = Number(Math.min(5.0, (stats.poisonDuration || 2.0) + 1.0 * power).toFixed(1));
+        }
+      },
+      {
+        title: "Пуля с паразитом",
+        description: "Выстрел с шансом 25% заражает врага. При смерти вылетает паразит (1 урон).",
+        fixedRarity: "rare",
+        available() {
+          return !stats.parasite;
+        },
+        apply() {
+          stats.parasite = true;
+          stats.parasiteChance = 0.25;
+          stats.parasiteCount = 1;
+          stats.parasiteDamage = 1.0;
+        }
+      },
+      {
+        title: "Шанс паразита",
+        description: "Увеличивает шанс заражения паразитом на +5% (макс. 50%).",
+        available() {
+          return Boolean(stats.parasite) && (stats.parasiteChance || 0.25) < 0.50;
+        },
+        applyWithPower(power) {
+          stats.parasiteChance = Math.min(0.50, (stats.parasiteChance || 0.25) + 0.05 * power);
+        }
+      },
+      {
+        title: "Количество паразитов",
+        description: "Увеличивает количество вылетающих паразитов при смерти врага на +1 (макс. 5).",
+        available() {
+          return Boolean(stats.parasite) && (stats.parasiteCount || 1) < 5;
+        },
+        applyWithPower(power) {
+          stats.parasiteCount = Math.min(5, (stats.parasiteCount || 1) + 1 * power);
+        }
+      },
+      {
+        title: "Урон паразита",
+        description: "Увеличивает урон каждого паразита на +0.5 (макс. 4.0).",
+        available() {
+          return Boolean(stats.parasite) && (stats.parasiteDamage || 1.0) < 4.0;
+        },
+        applyWithPower(power) {
+          stats.parasiteDamage = Number(Math.min(4.0, (stats.parasiteDamage || 1.0) + 0.5 * power).toFixed(1));
+        }
+      },
+      {
         title: "Запасной патрон",
         description: "Добавляет второй независимый патрон.",
         fixedRarity: "rare",
@@ -7526,6 +7731,44 @@
           return `+${Math.round((result - current) * 100)}% к урону по метке (итог: +${Math.round(result * 100)}%)`;
         }
 
+        case "Ядовитая пуля": {
+          return "Отравление: 0.5 урона/с на 2.0с";
+        }
+
+        case "Урон яда": {
+          const current = stats.poisonDamage || 0.5;
+          const result = Number(Math.min(5.0, current + 0.5 * power).toFixed(1));
+          return `+${Number((result - current).toFixed(1))} к урону яда (итог: ${result}/с)`;
+        }
+
+        case "Длительность яда": {
+          const current = stats.poisonDuration || 2.0;
+          const result = Number(Math.min(5.0, current + 1.0 * power).toFixed(1));
+          return `+${Number((result - current).toFixed(1))}с к длительности яда (итог: ${result}с)`;
+        }
+
+        case "Пуля с паразитом": {
+          return "25% шанс паразита, 1 паразит по 1.0 урона";
+        }
+
+        case "Шанс паразита": {
+          const current = stats.parasiteChance || 0.25;
+          const result = Math.min(0.50, current + 0.05 * power);
+          return `+${Math.round((result - current) * 100)}% к шансу паразита (итог: ${Math.round(result * 100)}%)`;
+        }
+
+        case "Количество паразитов": {
+          const current = stats.parasiteCount || 1;
+          const result = Math.min(5, current + 1 * power);
+          return `+${result - current} паразита при гибели (итог: ${result})`;
+        }
+
+        case "Урон паразита": {
+          const current = stats.parasiteDamage || 1.0;
+          const result = Number(Math.min(4.0, current + 0.5 * power).toFixed(1));
+          return `+${Number((result - current).toFixed(1))} к урону паразита (итог: ${result})`;
+        }
+
         case "Запасной патрон": {
           return "+1 независимый патрон в обойме";
         }
@@ -7816,6 +8059,13 @@
       "Метка Цели": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>`,
       "Крупный калибр": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/><circle cx="12" cy="12" r="3"/></svg>`,
       "Возвратный магнит": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
+      "Ядовитая пуля": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v6M8 8h8l2 12H6L8 8z" fill="#39ff14" fill-opacity="0.25"/><circle cx="12" cy="14" r="2" fill="#39ff14"/></svg>`,
+      "Урон яда": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M8 17h8" stroke="#39ff14"/></svg>`,
+      "Длительность яда": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke="#39ff14"/><path d="M12 7v5l3 3" stroke="#39ff14"/></svg>`,
+      "Пуля с паразитом": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3c-4 0-7 3-7 7 0 5 7 11 7 11s7-6 7-11c0-4-3-7-7-7z" fill="#bd00ff" fill-opacity="0.3"/><circle cx="12" cy="10" r="2.5" fill="#bd00ff"/></svg>`,
+      "Шанс паразита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8" stroke="#bd00ff"/><path d="M9 12l2 2 4-4" stroke="#bd00ff"/></svg>`,
+      "Количество паразитов": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3" fill="#bd00ff"/><circle cx="17" cy="8" r="2.5" fill="#bd00ff"/><circle cx="16" cy="17" r="2.5" fill="#bd00ff"/></svg>`,
+      "Урон паразита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#bd00ff"/></svg>`,
       "Запасной патрон": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><rect x="13.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><line x1="4.5" y1="12.5" x2="10.5" y2="12.5"/><line x1="13.5" y1="12.5" x2="19.5" y2="12.5"/></svg>`
     };
 
@@ -14776,6 +15026,7 @@
       drawEnemies();
       drawEnemyProjectiles();
       drawSplinterShards();
+      drawParasiteSpores();
       drawPlayer();
       drawBullets();
       drawParticles();
