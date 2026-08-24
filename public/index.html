@@ -16926,6 +16926,7 @@
           armor: "armor", "усиленная броня": "armor", "броня": "armor",
           repair: "repair", heal: "repair", "ремонтный комплект": "repair", "ремонт": "repair",
           pickup: "pickup", magnet: "pickup", "magnetic-field": "pickup", "магнитное поле": "pickup", "магнит": "pickup",
+          "magnet-range": "magnet-range", "радиус магнита": "magnet-range", "радиус": "magnet-range",
           crit: "critical", critical: "critical", "критический механизм": "critical", "крит": "critical",
           caliber: "caliber", "крупный калибр": "caliber", "калибр": "caliber",
           "second-bullet": "second-bullet", second: "second-bullet", "запасной патрон": "second-bullet", "патрон": "second-bullet",
@@ -16938,7 +16939,14 @@
           splinter: "splinter", "осколочный рикошет": "splinter", "осколки": "splinter",
           stun: "stun", "кинетический удар": "stun", "стан": "stun", "оглушение": "stun",
           reactive: "reactive-armor", "reactive-armor": "reactive-armor", "реактивная броня": "reactive-armor",
-          mark: "target-mark", target: "target-mark", "target-mark": "target-mark", "метка цели": "target-mark", "метка": "target-mark"
+          mark: "target-mark", target: "target-mark", "target-mark": "target-mark", "метка цели": "target-mark", "метка": "target-mark",
+          poison: "poison", "ядовитая пуля": "poison", "яд": "poison",
+          "poison-damage": "poison-damage", "урон яда": "poison-damage",
+          "poison-duration": "poison-duration", "длительность яда": "poison-duration", "время яда": "poison-duration",
+          parasite: "parasite", "пуля с паразитом": "parasite", "паразит": "parasite",
+          "parasite-chance": "parasite-chance", "шанс паразита": "parasite-chance",
+          "parasite-count": "parasite-count", "количество паразитов": "parasite-count", "число паразитов": "parasite-count",
+          "parasite-damage": "parasite-damage", "урон паразита": "parasite-damage"
         };
         const clean = q.replace(/[^a-zа-я0-9]/gi, "");
         if (map[clean]) return map[clean];
@@ -16946,13 +16954,14 @@
         return "damage";
       },
 
-      giveUpgrade(query, power = 1, target = this._target) {
+      giveUpgrade(query, power = 1, target = this._target, count = 1) {
         const p = Math.max(1, Math.min(3, parseInt(power, 10) || 1));
+        const cnt = Math.max(1, parseInt(count, 10) || 1);
         const uId = this.resolveUpgradeId(typeof query === "number" ? (upgrades[query]?.title || "damage") : query);
 
         if (this.isOnline) {
-          sendNetDebugCommand("give-upgrade", { upgradeId: uId, power: p, target });
-          console.log(`%c[DEBUG ONLINE] ⚡ Запрос на выдачу «${uId}» (x${p}) для «${target}» отправлен!`, "color: #38bdf8; font-weight: bold;");
+          sendNetDebugCommand("give-upgrade", { upgradeId: uId, power: p, target, count: cnt });
+          console.log(`%c[DEBUG ONLINE] ⚡ Запрос на выдачу «${uId}» (x${p}) [уровней: +${cnt}] для «${target}» отправлен!`, "color: #38bdf8; font-weight: bold;");
           return uId;
         }
 
@@ -16965,11 +16974,12 @@
         if (!targetUp) targetUp = upgrades.find(u => this.resolveUpgradeId(u.title) === uId) || upgrades[0];
 
         if (!window._soloUpgradeHistory) window._soloUpgradeHistory = [];
-        window._soloUpgradeHistory.push({ upgrade: targetUp, power: p });
-
-        applyUpgradeByRarity(targetUp, p);
+        for (let i = 0; i < cnt; i++) {
+          window._soloUpgradeHistory.push({ upgrade: targetUp, power: p });
+          applyUpgradeByRarity(targetUp, p);
+        }
         updateHud();
-        console.log(`%c[DEBUG] ⚡ Применено улучшение: «${targetUp.title}» (Сила: ${p})`, "color: #38bdf8; font-weight: bold;");
+        console.log(`%c[DEBUG] ⚡ Применено улучшение: «${targetUp.title}» (Сила: ${p}, Уровней: +${cnt})`, "color: #38bdf8; font-weight: bold;");
         this.refreshUi();
         return targetUp.title;
       },
@@ -17360,34 +17370,68 @@
 
             <!-- Улучшения (Выбор, Выдача, Удаление, Сброс) -->
             <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-              <div style="margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">Улучшения цели</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
+                <span>Улучшения цели</span>
+                <span id="dbgUpCountBadge" style="color: #a5b4fc; font-weight: bold;">[x1 ур.]</span>
+              </div>
               <div style="margin-bottom: 4px;">
                 <select id="dbgUpgradeSelect" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid #6366f1; border-radius: 6px; padding: 5px 6px; font-size: 11px;">
-                  <option value="damage">💥 Тяжёлая пуля (урон)</option>
-                  <option value="bounce">🔁 Доп. рикошет (от стен)</option>
-                  <option value="pierce">🏹 Пробитие (насквозь)</option>
-                  <option value="bullet-speed">🚀 Разогнанный ствол (скорость)</option>
-                  <option value="move-speed">👟 Лёгкие ботинки (бег)</option>
-                  <option value="armor">🛡️ Усиленная броня</option>
-                  <option value="repair">🩹 Ремонтный комплект</option>
-                  <option value="pickup">🧲 Магнитное поле</option>
-                  <option value="critical">🎯 Крит. механизм (x2.0)</option>
-                  <option value="caliber">💣 Крупный калибр (размер)</option>
-                  <option value="second-bullet">🔫 Запасной патрон (+1)</option>
-                  <option value="catch-blast">💥 Импульсный захват (волна)</option>
-                  <option value="emergency-repair">❤️ Аварийный ремонт</option>
-                  <option value="explosive">🧨 Разрывной сердечник</option>
-                  <option value="chain-lightning">⚡ Цепной конденсатор (молния)</option>
-                  <option value="homing">🧠 Умная пуля (наведение)</option>
-                  <option value="boomerang">🪃 Эффект бумеранга</option>
-                  <option value="splinter">✨ Осколочный рикошет</option>
-                  <option value="stun">❄️ Кинетический удар (стан)</option>
-                  <option value="reactive-armor">💥 Реактивная броня</option>
-                  <option value="target-mark">🎯 Метка цели (+30% урона)</option>
+                  <optgroup label="─── ОСНОВНЫЕ УЛУЧШЕНИЯ ───">
+                    <option value="damage">💥 Тяжёлая пуля (+1 урон)</option>
+                    <option value="bounce">🔁 Доп. рикошет (+1 отскок)</option>
+                    <option value="pierce">🏹 Пробитие (+1 цель насквозь)</option>
+                    <option value="bullet-speed">🚀 Разогнанный ствол (+25% скор.)</option>
+                    <option value="move-speed">👟 Лёгкие ботинки (+12% скор.)</option>
+                    <option value="armor">🛡️ Усиленная броня (+2 макс. HP)</option>
+                    <option value="repair">🩹 Ремонтный комплект (хил 1/15с)</option>
+                    <option value="critical">🎯 Крит. механизм (+10% шанс, x2.0)</option>
+                    <option value="caliber">💣 Крупный калибр (+20% размер)</option>
+                    <option value="second-bullet">🔫 Запасной патрон (+1 пуля)</option>
+                  </optgroup>
+                  <optgroup label="─── МАГНИТ И ЗАЩИТА ───">
+                    <option value="pickup">🧲 Магнитное поле (притяжение)</option>
+                    <option value="magnet-range">🧲 Радиус магнита (+5 кл., до +20)</option>
+                    <option value="catch-blast">💥 Импульсный захват (волна)</option>
+                    <option value="emergency-repair">❤️ Аварийный ремонт (щит от смерти)</option>
+                    <option value="reactive-armor">🛡️ Реактивная броня (взрыв при ударе)</option>
+                  </optgroup>
+                  <optgroup label="─── БОЕВЫЕ МОДИФИКАТОРЫ ───">
+                    <option value="explosive">🧨 Разрывной сердечник (взрыв)</option>
+                    <option value="chain-lightning">⚡ Цепной конденсатор (молния)</option>
+                    <option value="homing">🧠 Умная пуля (самонаведение)</option>
+                    <option value="boomerang">🪃 Бумеранг (+50% урон на возврате)</option>
+                    <option value="splinter">✨ Осколочный рикошет (2 осколка)</option>
+                    <option value="stun">❄️ Кинетический удар (+5% шанс стана)</option>
+                    <option value="target-mark">🎯 Метка цели (+40% урон по метке)</option>
+                  </optgroup>
+                  <optgroup label="─── ВЕТКА ЯДА ───">
+                    <option value="poison">🧪 Ядовитая пуля (открытие: 0.5/с, 2с)</option>
+                    <option value="poison-damage">🧪 Урон яда (+0.5/с, макс 5.0)</option>
+                    <option value="poison-duration">🧪 Длительность яда (+1.0с, макс 5.0с)</option>
+                  </optgroup>
+                  <optgroup label="─── ВЕТКА ПАРАЗИТА ───">
+                    <option value="parasite">🪱 Пуля с паразитом (открытие: 25% шанс)</option>
+                    <option value="parasite-chance">🪱 Шанс паразита (+5%, макс 50%)</option>
+                    <option value="parasite-count">🪱 Количество паразитов (+1, макс 5)</option>
+                    <option value="parasite-damage">🪱 Урон паразита (+0.5, макс 4.0)</option>
+                  </optgroup>
                 </select>
               </div>
+
+              <!-- Селектор количества уровней -->
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; background: rgba(99,102,241,0.1); padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(99,102,241,0.25);">
+                <span style="font-size: 10.5px; color: #cbd5e1; font-weight: 500;">Уровней:</span>
+                <input id="dbgUpgradeCount" type="number" min="1" max="100" value="1" style="width: 52px; background: #0f172a; color: #a5b4fc; border: 1px solid #6366f1; border-radius: 4px; padding: 2px 4px; font-size: 11px; font-weight: bold; text-align: center;">
+                <div style="display: flex; gap: 2px;">
+                  <button type="button" class="dbg-cnt-btn" data-cnt="1" style="background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+1</button>
+                  <button type="button" class="dbg-cnt-btn" data-cnt="5" style="background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+5</button>
+                  <button type="button" class="dbg-cnt-btn" data-cnt="10" style="background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+10</button>
+                  <button type="button" class="dbg-cnt-btn" data-cnt="20" style="background: #31104b; color: #f5d0fe; border: 1px solid #a855f7; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+20</button>
+                </div>
+              </div>
+
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
-                <button id="dbgGiveSelectedUp" style="background: #4338ca; color: #e0e7ff; border: 1px solid #6366f1; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➕ Выдать +1</button>
+                <button id="dbgGiveSelectedUp" style="background: #4338ca; color: #e0e7ff; border: 1px solid #6366f1; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➕ Выдать</button>
                 <button id="dbgRemoveSelectedUp" style="background: #881337; color: #fecdd3; border: 1px solid #f43f5e; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➖ Убрать</button>
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
@@ -17472,9 +17516,37 @@
         el.querySelector("#dbgReviveBtn").onclick = () => this.reviveAll();
 
         // Upgrades
+        const upCountInput = el.querySelector("#dbgUpgradeCount");
+        const upCountBadge = el.querySelector("#dbgUpCountBadge");
+        const giveUpBtn = el.querySelector("#dbgGiveSelectedUp");
+
+        const updateCountDisplay = () => {
+          const c = Math.max(1, parseInt(upCountInput.value, 10) || 1);
+          upCountInput.value = c;
+          if (upCountBadge) upCountBadge.textContent = `[x${c} ур.]`;
+          if (giveUpBtn) giveUpBtn.textContent = `➕ Выдать (+${c})`;
+        };
+
+        if (upCountInput) {
+          upCountInput.oninput = updateCountDisplay;
+        }
+
+        el.querySelectorAll(".dbg-cnt-btn").forEach(btn => {
+          btn.onclick = () => {
+            const cnt = Number(btn.dataset.cnt) || 1;
+            if (upCountInput) {
+              upCountInput.value = cnt;
+              updateCountDisplay();
+            }
+          };
+        });
+
+        updateCountDisplay();
+
         el.querySelector("#dbgGiveSelectedUp").onclick = () => {
           const uId = el.querySelector("#dbgUpgradeSelect").value;
-          this.giveUpgrade(uId, 1, this._target);
+          const count = Math.max(1, parseInt(upCountInput?.value, 10) || 1);
+          this.giveUpgrade(uId, 1, this._target, count);
         };
         el.querySelector("#dbgRemoveSelectedUp").onclick = () => {
           const uId = el.querySelector("#dbgUpgradeSelect").value;

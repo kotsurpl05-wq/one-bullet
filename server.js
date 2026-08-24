@@ -5454,11 +5454,14 @@ io.on("connection", socket => {
       case "give-upgrade": {
         if (data.upgradeId) {
           const power = Math.max(1, parseInt(data.power, 10) || 1);
+          const count = Math.max(1, parseInt(data.count, 10) || 1);
           for (const tp of targetPlayers) {
-            applyServerUpgrade(world, tp, {
-              upgradeId: data.upgradeId,
-              power
-            });
+            for (let i = 0; i < count; i++) {
+              applyServerUpgrade(world, tp, {
+                upgradeId: data.upgradeId,
+                power
+              });
+            }
           }
         }
         break;
@@ -5467,10 +5470,11 @@ io.on("connection", socket => {
       case "give-all-upgrades": {
         const allUpgradeIds = [
           "damage", "bounce", "pierce", "bullet-speed", "move-speed",
-          "armor", "repair", "pickup", "critical", "caliber",
+          "armor", "repair", "pickup", "magnet-range", "critical", "caliber",
           "second-bullet", "catch-blast", "emergency-repair", "explosive",
           "chain-lightning", "homing", "boomerang", "splinter", "stun",
-          "reactive-armor", "target-mark"
+          "reactive-armor", "target-mark", "poison", "poison-damage", "poison-duration",
+          "parasite", "parasite-chance", "parasite-count", "parasite-damage"
         ];
         const power = Math.max(1, parseInt(data.power, 10) || 1);
         for (const tp of targetPlayers) {
