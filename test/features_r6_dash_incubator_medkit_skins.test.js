@@ -263,5 +263,64 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(player1.reviveBeacon, null, "Revive beacons must be cleared on game over");
       assert.equal(room.started, true, "room.started remains true to allow game over snapshot delivery");
     });
+
+    await t3.test("3.11 Parasites move towards enemy in updateServerCoopWorld", () => {
+      const { world, room, player1 } = createTestWorld(ctx);
+      room.started = true;
+      const enemy = ctx.createServerEnemy(world, "basic", 400, 300, true);
+      enemy.hasEnteredArena = true;
+      world.enemies.set(enemy.id, enemy);
+
+      world.parasites.set(201, {
+        id: 201,
+        ownerId: player1.id,
+        x: 300,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        damage: 2.0,
+        r: 7
+      });
+
+      ctx.updateServerCoopWorld(room, 0.1, Date.now());
+      const spore = world.parasites.get(201);
+      assert.ok(spore, "Parasite spore must exist");
+      assert.ok(spore.vx > 0, `Parasite vx must accelerate towards enemy (got ${spore.vx})`);
+      assert.ok(spore.x > 300, `Parasite x must move towards enemy (got ${spore.x})`);
+    });
+
+    await t3.test("3.12 Splinter shards spawn on bounce and update in updateServerCoopWorld", () => {
+      const { world, room, player1 } = createTestWorld(ctx);
+      room.started = true;
+      player1.stats.splinter = true;
+      player1.stats.splinterCount = 2;
+      player1.stats.splinterDamagePercent = 0.5;
+
+      const bullet = ctx.createServerBullet(world, player1);
+      bullet.state = "flying";
+      bullet.x = 5;
+      bullet.y = 300;
+      bullet.vx = -400;
+      bullet.vy = 0;
+      bullet.bouncesLeft = 2;
+      world.bullets.set(bullet.id, bullet);
+
+      ctx.updateServerBullet(room, bullet, 0.05);
+      assert.ok(world.splinters.size >= 2, `Splinter shards must spawn on bounce (got ${world.splinters.size})`);
+
+      const snap = ctx.createServerCoopSnapshot(room);
+      assert.ok(Array.isArray(snap.splinters), "Snapshot must contain splinters");
+      assert.ok(snap.splinters.length >= 2, "Snapshot splinters count must match");
+      assert.ok(indexHtml.includes("drawCoopSplinters"), "Client must define drawCoopSplinters");
+    });
+
+    await t3.test("3.13 applyServerUpgrade applies pickup and magnet-range correctly", () => {
+      const { world, player1 } = createTestWorld(ctx);
+      ctx.applyServerUpgrade(world, player1, { upgradeId: "pickup", rarity: { power: 2 } });
+      assert.equal(player1.stats.groundPullSpeed, 220);
+
+      ctx.applyServerUpgrade(world, player1, { upgradeId: "magnet-range", rarity: { power: 1 } });
+      assert.equal(player1.stats.magnetRangeBonusCells, 5);
+    });
   });
 });

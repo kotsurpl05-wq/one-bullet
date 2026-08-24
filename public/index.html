@@ -3119,6 +3119,7 @@
       enemies: new Map(),
       enemyProjectiles: new Map(),
       parasites: new Map(),
+      splinters: new Map(),
       inputs: new Map(),
     
       wave: 1,
@@ -11382,6 +11383,7 @@
       coopSession.bullets.clear();
       coopSession.enemies.clear();
       if (coopSession.parasites) coopSession.parasites.clear();
+      if (coopSession.splinters) coopSession.splinters.clear();
       coopParticles.length = 0;
 
       coopSession.snapshotTimer = 0;
@@ -12031,6 +12033,36 @@
         for (const sporeId of [...coopSession.parasites.keys()]) {
           if (!receivedIds.has(sporeId)) {
             coopSession.parasites.delete(sporeId);
+          }
+        }
+      }
+
+      if (Array.isArray(snapshot.splinters)) {
+        if (!coopSession.splinters) coopSession.splinters = new Map();
+        const receivedIds = new Set();
+        for (const snapShard of snapshot.splinters) {
+          receivedIds.add(snapShard.id);
+          let shard = coopSession.splinters.get(snapShard.id);
+          if (!shard) {
+            shard = {
+              id: snapShard.id,
+              displayX: snapShard.x,
+              displayY: snapShard.y,
+              vx: snapShard.vx || 0,
+              vy: snapShard.vy || 0,
+              r: snapShard.r || 4
+            };
+            coopSession.splinters.set(shard.id, shard);
+          }
+          shard.targetX = snapShard.x;
+          shard.targetY = snapShard.y;
+          shard.vx = snapShard.vx || shard.vx;
+          shard.vy = snapShard.vy || shard.vy;
+          shard.r = snapShard.r || shard.r;
+        }
+        for (const shardId of [...coopSession.splinters.keys()]) {
+          if (!receivedIds.has(shardId)) {
+            coopSession.splinters.delete(shardId);
           }
         }
       }
@@ -13143,6 +13175,15 @@
         }
       }
 
+      if (coopSession.splinters) {
+        for (const shard of coopSession.splinters.values()) {
+          shard.displayX += (shard.vx || 0) * presentationDt;
+          shard.displayY += (shard.vy || 0) * presentationDt;
+          shard.displayX += (shard.targetX - shard.displayX) * Math.min(1, presentationDt * 18);
+          shard.displayY += (shard.targetY - shard.displayY) * Math.min(1, presentationDt * 18);
+        }
+      }
+
       if (coopSession.enemyProjectiles) {
         for (const proj of coopSession.enemyProjectiles.values()) {
           proj.displayX += (proj.vx || 0) * presentationDt;
@@ -13647,6 +13688,20 @@
         ctx.arc(spore.displayX, spore.displayY, (spore.r || 7) * pulse, 0, Math.PI * 2);
         ctx.fill();
 
+        ctx.restore();
+      }
+    }
+
+    function drawCoopSplinters() {
+      if (!coopSession.splinters || coopSession.splinters.size === 0) return;
+      for (const shard of coopSession.splinters.values()) {
+        ctx.save();
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "#00f2fe";
+        ctx.beginPath();
+        ctx.arc(shard.displayX, shard.displayY, shard.r || 4, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       }
     }
@@ -14859,6 +14914,7 @@
 
       drawCoopEnemyProjectiles();
       drawCoopParasiteSpores();
+      drawCoopSplinters();
       /*
        * Сетевые патроны.
        */

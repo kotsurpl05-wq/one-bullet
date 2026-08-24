@@ -1086,19 +1086,21 @@ function updateServerBullet(
        * спавн 2 самонаводящихся осколков.
        */
       if (owner?.stats?.splinter && world.splinters) {
+        const shardCount = Math.min(5, Math.max(2, (owner.stats.splinterCount !== undefined ? owner.stats.splinterCount : 2)));
         const shardDmg = Math.max(
-          1,
-          Math.floor((owner.stats.damage || 1) * 0.25)
+          0.5,
+          (owner.stats.damage || 1) * (owner.stats.splinterDamagePercent || 0.25)
         );
 
-        for (let si = 0; si < 2; si++) {
+        for (let si = 0; si < shardCount; si++) {
           const angle = Math.random() * Math.PI * 2;
-          const shardSpeed = 200;
+          const shardSpeed = 260;
 
+          const splinterId = world.nextEnemyId++;
           world.splinters.set(
-            world.nextEnemyId++,
+            splinterId,
             {
-              id: world.nextEnemyId - 1,
+              id: splinterId,
               ownerId: owner.id,
               x: bullet.x,
               y: bullet.y,
@@ -1754,6 +1756,16 @@ function updateServerCoopWorld(
       dt
     );
   }
+
+  updateServerParasites(
+    world,
+    dt
+  );
+
+  updateServerSplinters(
+    world,
+    dt
+  );
 
   updateServerMedkits(
     room,
@@ -4289,7 +4301,7 @@ function applyServerUpgrade(
 
   const power = Math.max(
     1,
-    Number(offer.power) || 1
+    Number(offer.power || offer.rarity?.power) || 1
   );
 
   switch (offer.upgradeId || offer.id) {
@@ -4398,8 +4410,13 @@ function applyServerUpgrade(
       player.stats.chainRange = (player.stats.chainRange || 140) + 15 * power;
       break;
 
+    case "pickup":
     case "recall-magnet":
       player.stats.groundPullSpeed = (player.stats.groundPullSpeed || 0) + 110 * power;
+      break;
+
+    case "magnet-range":
+      player.stats.magnetRangeBonusCells = Math.min(20, (player.stats.magnetRangeBonusCells || 0) + 5 * power);
       break;
 
     case "boomerang": {
@@ -5056,6 +5073,17 @@ function createServerCoopSnapshot(room) {
       vx: Math.round(spore.vx),
       vy: Math.round(spore.vy),
       r: spore.r || 7
+    })) : [],
+
+    splinters: world.splinters ? [
+      ...world.splinters.values()
+    ].map(shard => ({
+      id: shard.id,
+      x: Math.round(shard.x),
+      y: Math.round(shard.y),
+      vx: Math.round(shard.vx),
+      vy: Math.round(shard.vy),
+      r: shard.r || 4
     })) : []
   };
 }
