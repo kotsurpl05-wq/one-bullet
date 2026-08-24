@@ -8492,13 +8492,17 @@
 
       updateVolume() {
         if (!this.ctx || !this.masterGain) return;
-        const vol = gameSettings.mute ? 0 : (gameSettings.volume ?? 0.7);
-        this.masterGain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        const isMuted = Boolean(gameSettings.mute);
+        const masterVol = isMuted ? 0 : (typeof gameSettings.volume === "number" ? gameSettings.volume : 0.8);
+        const musicVol = isMuted ? 0 : (typeof gameSettings.musicVolume === "number" ? gameSettings.musicVolume : 0.7);
+        const sfxVol = isMuted ? 0 : (typeof gameSettings.sfxVolume === "number" ? gameSettings.sfxVolume : 0.85);
+
+        this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, masterVol)), this.ctx.currentTime);
         if (this.musicGain) {
-          this.musicGain.gain.setValueAtTime(vol > 0 ? 0.32 : 0, this.ctx.currentTime);
+          this.musicGain.gain.setValueAtTime(Math.max(0, Math.min(1, musicVol * 0.4)), this.ctx.currentTime);
         }
         if (this.sfxGain) {
-          this.sfxGain.gain.setValueAtTime(vol > 0 ? 0.85 : 0, this.ctx.currentTime);
+          this.sfxGain.gain.setValueAtTime(Math.max(0, Math.min(1, sfxVol)), this.ctx.currentTime);
         }
       }
 
@@ -8648,7 +8652,7 @@
           gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.16 + 0.14);
 
           osc.connect(gain);
-          gain.connect(this.masterGain);
+          gain.connect(this.sfxGain || this.masterGain);
           osc.start(now + i * 0.16);
           osc.stop(now + i * 0.16 + 0.14);
         });
@@ -8675,7 +8679,7 @@
 
             osc.connect(filter);
             filter.connect(gain);
-            gain.connect(this.masterGain);
+            gain.connect(this.sfxGain || this.masterGain);
             osc.start(t);
             osc.stop(t + 1.8);
           });
@@ -8691,7 +8695,7 @@
           subGain.gain.exponentialRampToValueAtTime(0.001, t + 2.2);
 
           subOsc.connect(subGain);
-          subGain.connect(this.masterGain);
+          subGain.connect(this.sfxGain || this.masterGain);
           subOsc.start(t);
           subOsc.stop(t + 2.2);
         });
@@ -8709,7 +8713,7 @@
         gain.gain.setValueAtTime(0.35, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.12);
       }
@@ -8726,7 +8730,7 @@
         gain.gain.setValueAtTime(0.28, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.08);
       }
@@ -8743,7 +8747,7 @@
         gain.gain.setValueAtTime(0.35, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.09);
       }
@@ -8762,7 +8766,7 @@
         gain1.gain.setValueAtTime(0.4, now);
         gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
         osc1.connect(gain1);
-        gain1.connect(this.masterGain);
+        gain1.connect(this.sfxGain || this.masterGain);
         osc1.start(now);
         osc1.stop(now + 0.14);
 
@@ -8775,7 +8779,7 @@
         gain2.gain.setValueAtTime(0.5, now);
         gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
         osc2.connect(gain2);
-        gain2.connect(this.masterGain);
+        gain2.connect(this.sfxGain || this.masterGain);
         osc2.start(now);
         osc2.stop(now + 0.18);
       }
@@ -8792,7 +8796,7 @@
         gain.gain.setValueAtTime(0.28, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.08);
       }
@@ -8810,7 +8814,7 @@
         gain.gain.setValueAtTime(0.45, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.22);
       }
@@ -8827,7 +8831,7 @@
           gain.gain.setValueAtTime(0.2, now + i * 0.04);
           gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.12);
           osc.connect(gain);
-          gain.connect(this.masterGain);
+          gain.connect(this.sfxGain || this.masterGain);
           osc.start(now + i * 0.04);
           osc.stop(now + i * 0.04 + 0.12);
         });
@@ -8845,7 +8849,7 @@
         gain.gain.setValueAtTime(0.45, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.35);
       }
@@ -8862,7 +8866,7 @@
           gain.gain.setValueAtTime(0.25, now + i * 0.05);
           gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.2);
           osc.connect(gain);
-          gain.connect(this.masterGain);
+          gain.connect(this.sfxGain || this.masterGain);
           osc.start(now + i * 0.05);
           osc.stop(now + i * 0.05 + 0.2);
         });
@@ -8880,7 +8884,7 @@
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.04);
       }
@@ -8896,14 +8900,16 @@
         if (raw) {
           const parsed = JSON.parse(raw);
           return {
-            volume: typeof parsed.volume === "number" ? Math.max(0, Math.min(1, parsed.volume)) : 0.7,
+            volume: typeof parsed.volume === "number" ? Math.max(0, Math.min(1, parsed.volume)) : 0.8,
+            musicVolume: typeof parsed.musicVolume === "number" ? Math.max(0, Math.min(1, parsed.musicVolume)) : 0.7,
+            sfxVolume: typeof parsed.sfxVolume === "number" ? Math.max(0, Math.min(1, parsed.sfxVolume)) : 0.85,
             mute: Boolean(parsed.mute),
             sensitivity: typeof parsed.sensitivity === "number" ? Math.max(0.4, Math.min(2.5, parsed.sensitivity)) : 1.0,
             screenShake: parsed.screenShake !== false
           };
         }
       } catch {}
-      return { volume: 0.7, mute: false, sensitivity: 1.0, screenShake: true };
+      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true };
     }
 
     function saveGameSettings() {
@@ -9180,23 +9186,45 @@
           </div>
 
           <div class="settings-group">
-            <div class="settings-group-title">🔊 ЗВУК И АУДИОЭФФЕКТЫ</div>
+            <div class="settings-group-title">🔊 ЗВУК И МУЗЫКА</div>
             
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-name">Громкость звуков (SFX)</span>
-                <span class="setting-desc">Выстрелы, рикошеты, взрывы и подбор</span>
+                <span class="setting-name">Общая громкость (Master)</span>
+                <span class="setting-desc">Главный регулятор громкости всей игры</span>
               </div>
               <div class="setting-control">
-                <input type="range" id="settingVolume" min="0" max="100" value="${Math.round(gameSettings.volume * 100)}" class="cyber-range">
-                <span class="setting-val-badge" id="settingVolumeVal">${Math.round(gameSettings.volume * 100)}%</span>
+                <input type="range" id="settingVolume" min="0" max="100" value="${Math.round((gameSettings.volume ?? 0.8) * 100)}" class="cyber-range">
+                <span class="setting-val-badge" id="settingVolumeVal">${Math.round((gameSettings.volume ?? 0.8) * 100)}%</span>
               </div>
             </div>
 
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-name">Отключить звук (Mute)</span>
-                <span class="setting-desc">Быстрое отключение всех звуковых эффектов</span>
+                <span class="setting-name">🎵 Музыка (BGM)</span>
+                <span class="setting-desc">Фоновый киберпанк-саундтрек и боевая музыка</span>
+              </div>
+              <div class="setting-control">
+                <input type="range" id="settingMusicVolume" min="0" max="100" value="${Math.round((gameSettings.musicVolume ?? 0.7) * 100)}" class="cyber-range">
+                <span class="setting-val-badge" id="settingMusicVolumeVal">${Math.round((gameSettings.musicVolume ?? 0.7) * 100)}%</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-name">💥 Звуковые эффекты (SFX)</span>
+                <span class="setting-desc">Выстрелы, рикошеты, взрывы, криты и сигналы</span>
+              </div>
+              <div class="setting-control">
+                <input type="range" id="settingSfxVolume" min="0" max="100" value="${Math.round((gameSettings.sfxVolume ?? 0.85) * 100)}" class="cyber-range">
+                <span class="setting-val-badge" id="settingSfxVolumeVal">${Math.round((gameSettings.sfxVolume ?? 0.85) * 100)}%</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-name">Отключить весь звук (Mute)</span>
+                <span class="setting-desc">Быстрое отключение музыки и всех эффектов</span>
               </div>
               <div class="setting-control">
                 <button type="button" id="settingMuteToggle" class="cyber-toggle-btn ${gameSettings.mute ? 'active' : ''}">
@@ -9253,6 +9281,10 @@
 
       const volRange = panel.querySelector("#settingVolume");
       const volVal = panel.querySelector("#settingVolumeVal");
+      const musicRange = panel.querySelector("#settingMusicVolume");
+      const musicVal = panel.querySelector("#settingMusicVolumeVal");
+      const sfxRange = panel.querySelector("#settingSfxVolume");
+      const sfxVal = panel.querySelector("#settingSfxVolumeVal");
       const muteBtn = panel.querySelector("#settingMuteToggle");
       const sensRange = panel.querySelector("#settingSensitivity");
       const sensVal = panel.querySelector("#settingSensVal");
@@ -9265,6 +9297,27 @@
         const val = Number(volRange.value);
         volVal.textContent = val + "%";
         gameSettings.volume = val / 100;
+        gameSettings.mute = false;
+        muteBtn.textContent = "🔊 ВКЛЮЧЕН";
+        muteBtn.classList.remove("active");
+        saveGameSettings();
+        soundManager.playUiClick();
+      };
+
+      musicRange.oninput = () => {
+        const val = Number(musicRange.value);
+        musicVal.textContent = val + "%";
+        gameSettings.musicVolume = val / 100;
+        gameSettings.mute = false;
+        muteBtn.textContent = "🔊 ВКЛЮЧЕН";
+        muteBtn.classList.remove("active");
+        saveGameSettings();
+      };
+
+      sfxRange.oninput = () => {
+        const val = Number(sfxRange.value);
+        sfxVal.textContent = val + "%";
+        gameSettings.sfxVolume = val / 100;
         gameSettings.mute = false;
         muteBtn.textContent = "🔊 ВКЛЮЧЕН";
         muteBtn.classList.remove("active");
@@ -9301,7 +9354,7 @@
       };
 
       resetBtn.onclick = () => {
-        gameSettings = { volume: 0.7, mute: false, sensitivity: 1.0, screenShake: true };
+        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true };
         saveGameSettings();
         soundManager.playUiClick();
         showSettingsMenu();
