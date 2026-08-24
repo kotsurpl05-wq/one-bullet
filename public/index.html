@@ -6928,53 +6928,59 @@
     const upgrades = [
       {
         title: "Тяжёлая пуля",
-        description: "Урон пули увеличивается на 1.",
-        apply() {
-          stats.damage += 1;
+        description: "Увеличивает урон пули.",
+        applyWithPower(power) {
+          stats.damage += power;
         }
       },
       {
         title: "Дополнительный рикошет",
-        description: "Пуля может ещё один раз отскочить от стены.",
-        apply() {
-          stats.maxBounces += 1;
+        description: "Пуля может дополнительно отскакивать от стен.",
+        applyWithPower(power) {
+          stats.maxBounces += power;
         }
       },
       {
         title: "Пробитие",
-        description: "Пуля пробивает ещё одного противника.",
-        apply() {
-          stats.pierce += 1;
+        description: "Пуля пробивает дополнительных противников.",
+        available() {
+          return !((stats.explosionRadius || 0) > 0 || (stats.chainCount || 0) > 0 || (stats.catchBlast || 0) > 0);
+        },
+        applyWithPower(power) {
+          stats.pierce += power;
         }
       },
       {
         title: "Разогнанный ствол",
         description: "Увеличивает скорость полёта пули.",
-        apply() {
+        applyWithPower(power) {
           stats.bulletSpeed +=
-            BASE_BULLET_SPEED * 0.18;
+            BASE_BULLET_SPEED * 0.18 * power;
         }
       },
       {
         title: "Лёгкие ботинки",
         description: "Увеличивает скорость передвижения.",
-        apply() {
+        applyWithPower(power) {
           stats.playerSpeed +=
-            BASE_PLAYER_SPEED * 0.12;
+            BASE_PLAYER_SPEED * 0.12 * power;
         }
       },
       {
         title: "Усиленная броня",
-        description: "Максимальное здоровье увеличивается на 1.",
-        apply() {
-          player.maxHp += 1;
-          player.hp += 1;
+        description: "Повышает максимальное и текущее здоровье.",
+        applyWithPower(power) {
+          player.maxHp += power;
+          player.hp += power;
         }
       },
       {
         title: "Ремонтный комплект",
         description: "Полностью восстанавливает здоровье.",
         fixedRarity: "common",
+        available() {
+          return player.hp < player.maxHp;
+        },
         applyWithPower() {
           player.hp = player.maxHp;
         }
@@ -6990,8 +6996,11 @@
       {
         title: "Импульсный захват",
         description: "Пойманная пуля наносит урон ближайшим врагам.",
-        apply() {
-          stats.catchBlast += 65;
+        available() {
+          return (stats.pierce || 0) <= 0;
+        },
+        applyWithPower(power) {
+          stats.catchBlast = (stats.catchBlast || 0) + 65 * power;
         }
       },
       {
@@ -7048,25 +7057,31 @@
       {
         title: "Цепной конденсатор",
         description: "Попадание выпускает разряд в ближайшего противника.",
-        apply() {
-          stats.chainCount += 1;
-          stats.chainRange += 12;
+        available() {
+          return (stats.pierce || 0) <= 0;
+        },
+        applyWithPower(power) {
+          stats.chainCount = (stats.chainCount || 0) + power;
+          stats.chainRange = (stats.chainRange || 0) + 12 * power;
         }
       },
       {
         title: "Умная пуля",
         description: "Пуля корректирует траекторию к ближайшей цели.",
         applyWithPower(power) {
-          stats.homing += getHomingBonus(power);
+          stats.homing = (stats.homing || 0) + getHomingBonus(power);
         }
       },
       {
         title: "Крупный калибр",
         description: "Все патроны становятся крупнее, поэтому ими проще попадать.",
-        apply() {
+        available() {
+          return (stats.bulletRadius || 0) < 15;
+        },
+        applyWithPower(power) {
           stats.bulletRadius = Math.min(
             15,
-            stats.bulletRadius + 1.5
+            (stats.bulletRadius || 6) + 1.5 * power
           );
         
           for (const bullet of bullets) {
@@ -7295,14 +7310,10 @@
         }
       
         case "Магнитное поле":
-        case "Магнитный захват": {
-          const radiusBonus = 35 * power;
+        case "Магнитный захват":
+        case "Возвратный магнит": {
           const speedBonus = 110 * power;
-        
-          return (
-            `+${formatCells(radiusBonus)} к радиусу подбора, ` +
-            `+${formatCells(speedBonus)}/с к скорости притяжения`
-          );
+          return `+${speedBonus} px/с к скорости притяжения (в радиусе 20 клеток)`;
         }
       
         case "Импульсный захват": {

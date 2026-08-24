@@ -2373,7 +2373,7 @@ const SERVER_UPGRADES = [
       return !player.stats?.splinter;
     },
     bonus(player, power) {
-      const dmg = Math.max(1, Math.floor((player.stats?.damage || 1) * 0.25));
+      const dmg = Number(((player.stats?.damage || 1) * 0.25).toFixed(2));
       return `1 осколок по ${dmg} урона (25%) при рикошете`;
     }
   },
