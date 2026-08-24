@@ -2731,6 +2731,7 @@
     const enemies = [];
     const particles = [];
     const enemyProjectiles = [];
+    const splinterShards = [];
     const selectedUpgradeHistory = [];
     const experienceCrystals = [];
     const coopParticles = [];
@@ -4843,7 +4844,7 @@
 
         if (
           Math.abs(
-            value - baseDamage * 2.5
+            value - baseDamage * 2.0
           ) <= 0.26
         ) {
           return true;
@@ -5137,7 +5138,7 @@
     
       const critical = Math.random() < stats.critChance;
       const damage = critical
-        ? stats.damage * 2.5
+        ? stats.damage * 2.0
         : stats.damage;
 
       createRing(
@@ -5484,7 +5485,7 @@
 
             /*
              * Осколочный Рикошет: при отскоке от стены
-             * спавн 2 самонаводящихся осколков.
+             * спавн 2 самонаводящихся осколков во врагов.
              */
             if (stats.splinter) {
               const shardDmg = Math.max(
@@ -5494,20 +5495,18 @@
 
               for (let si = 0; si < 2; si++) {
                 const sAngle = Math.random() * Math.PI * 2;
-                const sSpeed = 200;
+                const sSpeed = 280;
 
-                enemyProjectiles.push({
+                splinterShards.push({
                   id: ++enemyId,
                   x: bullet.x,
                   y: bullet.y,
                   vx: Math.cos(sAngle) * sSpeed,
                   vy: Math.sin(sAngle) * sSpeed,
                   r: 4,
-                  color: "#7ee7ff",
-                  isSplinter: true,
+                  color: "#00f2fe",
                   damage: shardDmg,
-                  life: 1.5,
-                  homing: true
+                  life: 1.5
                 });
               }
             }
@@ -5834,6 +5833,65 @@
         drone.orbitRadius = 90;
         drone.hasEnteredArena = true;
         enemies.push(drone);
+      }
+    }
+
+    
+    function updateSplinterShards(dt) {
+      for (let i = splinterShards.length - 1; i >= 0; i--) {
+        const shard = splinterShards[i];
+        shard.life -= dt;
+        if (shard.life <= 0) {
+          splinterShards.splice(i, 1);
+          continue;
+        }
+
+        let nearestEnemy = null;
+        let nearestDist = 600;
+        for (const enemy of enemies) {
+          if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+          if (enemy.type === "phantom" && enemy.isPhased) continue;
+          const d = distance(shard.x, shard.y, enemy.x, enemy.y);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestEnemy = enemy;
+          }
+        }
+
+        if (nearestEnemy && nearestDist > 0) {
+          const steer = 6.0 * dt;
+          const targetVx = ((nearestEnemy.x - shard.x) / nearestDist) * 280;
+          const targetVy = ((nearestEnemy.y - shard.y) / nearestDist) * 280;
+          shard.vx += (targetVx - shard.vx) * steer;
+          shard.vy += (targetVy - shard.vy) * steer;
+        }
+
+        shard.x += shard.vx * dt;
+        shard.y += shard.vy * dt;
+
+        for (const enemy of enemies) {
+          if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+          if (enemy.type === "phantom" && enemy.isPhased) continue;
+          if (distance(shard.x, shard.y, enemy.x, enemy.y) <= shard.r + enemy.r) {
+            damageEnemy(enemy, shard.damage);
+            pushParticles(shard.x, shard.y, 6, "#00f2fe");
+            splinterShards.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    function drawSplinterShards() {
+      for (const shard of splinterShards) {
+        ctx.save();
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "#00f2fe";
+        ctx.beginPath();
+        ctx.arc(shard.x, shard.y, shard.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
     }
 
@@ -6686,6 +6744,7 @@
       updateBullets(dt);
       updateEnemies(dt);
       updateEnemyProjectiles(dt);
+      updateSplinterShards(dt);
       updateExperienceCrystals(dt);
       updateParticles(dt);
       updateDamageNumbersIn(damageNumbers, dt);
@@ -6914,8 +6973,10 @@
       {
         title: "Аварийный ремонт",
         description:
-          "Убийства периодически восстанавливают 1 здоровье.",
-      
+          "Убийства периодически восстанавливают 1 здоровье (макс. 8 убийств).",
+        available() {
+          return (stats.healEvery || 0) === 0 || stats.healEvery > 8;
+        },
         applyWithPower(power) {
           stats.healEvery =
             getEmergencyRepairResult(
@@ -6938,11 +6999,11 @@
       },
       {
         title: "Критический механизм",
-        description: "Шанс критического урона увеличивается на 18%.",
+        description: "Шанс критического урона (x2.0) увеличивается на 10% (макс. 60%).",
         apply() {
           stats.critChance = Math.min(
             0.6,
-            stats.critChance + 0.18
+            stats.critChance + 0.10
           );
         }
       },
@@ -7005,9 +7066,12 @@
       },
       {
         title: "Кинетический Удар",
-        description: "Попадание оглушает врага на 0.5с × сила.",
+        description: "Попадание с шансом 5% оглушает врага на 0.3с (макс. 30%).",
+        available() {
+          return (stats.stunChance || 0) < 0.30;
+        },
         applyWithPower(power) {
-          stats.stun = (stats.stun || 0) + 0.5 * power;
+          stats.stunChance = Math.min(0.30, (stats.stunChance || 0) + 0.05 * power);
         }
       },
       {
@@ -7019,8 +7083,12 @@
       },
       {
         title: "Метка Цели",
-        description: "Первое попадание помечает врага на 4с. Помеченный получает +30% урона.",
-        apply() {
+        description: "Первое попадание помечает врага на 4с (+5% урона за уровень, макс. +40%).",
+        available() {
+          return (stats.markBonus || 0) < 0.40;
+        },
+        applyWithPower(power) {
+          stats.markBonus = Math.min(0.40, (stats.markBonus || 0) + 0.05 * power);
           stats.targetMark = true;
         }
       },
@@ -14502,6 +14570,7 @@
       drawAimLine();
       drawEnemies();
       drawEnemyProjectiles();
+      drawSplinterShards();
       drawPlayer();
       drawBullets();
       drawParticles();
@@ -16199,7 +16268,7 @@
                   <option value="armor">🛡️ Усиленная броня</option>
                   <option value="repair">🩹 Ремонтный комплект</option>
                   <option value="pickup">🧲 Магнитное поле</option>
-                  <option value="critical">🎯 Крит. механизм (x2.5)</option>
+                  <option value="critical">🎯 Крит. механизм (x2.0)</option>
                   <option value="caliber">💣 Крупный калибр (размер)</option>
                   <option value="second-bullet">🔫 Запасной патрон (+1)</option>
                   <option value="catch-blast">💥 Импульсный захват (волна)</option>

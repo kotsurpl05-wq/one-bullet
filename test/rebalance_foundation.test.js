@@ -141,38 +141,38 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   // =========================================================================
   // 4. CRITICAL REBALANCE (Item 5)
   // =========================================================================
-  await t.test("4.1 Critical strike +18% per common power, 2.5x crit damage multiplier", () => {
+  await t.test("4.1 Critical strike +10% per common power, 2.0x crit damage multiplier", () => {
     const criticalUpgrade = ctx.SERVER_UPGRADES.find(u => u.id === "critical");
     assert.ok(criticalUpgrade, "critical upgrade must exist");
 
     const { player1 } = createTestWorld(ctx);
     player1.stats.critChance = 0.0;
 
-    // Power 1 bonus text (18%)
+    // Power 1 bonus text (10%)
     const bonusCommon = criticalUpgrade.bonus(player1, 1);
-    assert.match(bonusCommon, /18%/, "Common power 1 must describe +18% crit chance");
+    assert.match(bonusCommon, /10%/, "Common power 1 must describe +10% crit chance");
 
     // Power 2 bonus text (36%)
     const bonusRare = criticalUpgrade.bonus(player1, 2);
-    assert.match(bonusRare, /36%/, "Rare power 2 must describe +36% crit chance");
+    assert.match(bonusRare, /20%/, "Rare power 2 must describe +20% crit chance");
 
     // Application
     ctx.applyServerUpgrade(player1, "critical", 1);
-    assert.ok(Math.abs(player1.stats.critChance - 0.18) < 1e-4, "Crit chance after power 1 should be 0.18");
+    assert.ok(Math.abs(player1.stats.critChance - 0.10) < 1e-4, "Crit chance after power 1 should be 0.10");
 
-    // Verify 2.5x multiplier in server.js source and client source
+    // Verify 2.0x multiplier in server.js source and client source
     const serverPath = path.resolve(process.cwd(), "server.js");
     const serverCode = fs.readFileSync(serverPath, "utf8");
     assert.ok(
-      serverCode.includes("baseDamage * 2.5"),
-      "server.js bullet hit damage must use baseDamage * 2.5 for critical hits"
+      serverCode.includes("baseDamage * 2.0"),
+      "server.js bullet hit damage must use baseDamage * 2.0 for critical hits"
     );
 
     const indexHtmlPath = path.resolve(process.cwd(), "public/index.html");
     const html = fs.readFileSync(indexHtmlPath, "utf8");
     assert.ok(
-      html.includes("stats.damage * 2.5"),
-      "public/index.html bullet hit damage must use stats.damage * 2.5 for critical hits"
+      html.includes("stats.damage * 2.0"),
+      "public/index.html bullet hit damage must use stats.damage * 2.0 for critical hits"
     );
   });
 

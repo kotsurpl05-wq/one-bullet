@@ -896,7 +896,8 @@ function updateServerBullet(
       const prevGY = bullet.y;
 
       const distToOwner = distance(bullet.x, bullet.y, owner.x, owner.y);
-      if (distToOwner > owner.r + bullet.r) {
+      const MAGNET_MAX_DIST = 20 * 48; // 20 клеток (960px)
+      if (distToOwner > owner.r + bullet.r && distToOwner <= MAGNET_MAX_DIST) {
         const pullFactor = owner.stats.groundPullSpeed * dt;
         bullet.x += ((owner.x - bullet.x) / distToOwner) * pullFactor;
         bullet.y += ((owner.y - bullet.y) / distToOwner) * pullFactor;
@@ -949,8 +950,7 @@ function updateServerBullet(
 
     const pickupDistance =
       owner.r +
-      bullet.r +
-      (owner.stats?.pickupRadius || 0);
+      bullet.r;
 
 
     if (
@@ -1209,7 +1209,7 @@ function updateServerBullet(
 
     const hitDamage =
       critical
-        ? baseDamage * 2.5
+        ? baseDamage * 2.0
         : baseDamage;
 
     damageServerEnemy(
@@ -1220,15 +1220,20 @@ function updateServerBullet(
     );
 
     /*
-     * Кинетический Удар: оглушение при попадании.
+     * Кинетический Удар: оглушение 5% за уровень на 0.3с при попадании.
      */
+    const stunChance = (owner.stats?.stunChance !== undefined)
+      ? owner.stats.stunChance
+      : (owner.stats?.stun ? Math.min(1.0, owner.stats.stun) : 0);
+
     if (
-      (owner.stats?.stun || 0) > 0 &&
+      stunChance > 0 &&
+      Math.random() <= stunChance &&
       world.enemies.has(enemy.id)
     ) {
       enemy.stunTimer = Math.max(
         enemy.stunTimer || 0,
-        owner.stats.stun
+        0.3
       );
     }
 
@@ -1434,6 +1439,52 @@ function updateServerWave(world, dt) {
   } else if (world.wavePending) {
     world.wavePending = false;
     world.waveClearTimer = 0;
+  }
+}
+
+
+function updateServerSplinters(world, dt) {
+  if (!world.splinters || world.splinters.size === 0) return;
+  for (const [sId, splinter] of world.splinters) {
+    splinter.life -= dt;
+    if (splinter.life <= 0) {
+      world.splinters.delete(sId);
+      continue;
+    }
+
+    let nearestEnemy = null;
+    let nearestDist = 600;
+    for (const enemy of world.enemies.values()) {
+      if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+      if (enemy.type === "phantom" && enemy.isPhased) continue;
+      const d = distance(splinter.x, splinter.y, enemy.x, enemy.y);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestEnemy = enemy;
+      }
+    }
+
+    if (nearestEnemy && nearestDist > 0) {
+      const steer = 6.0 * dt;
+      const targetVx = ((nearestEnemy.x - splinter.x) / nearestDist) * 280;
+      const targetVy = ((nearestEnemy.y - splinter.y) / nearestDist) * 280;
+      splinter.vx += (targetVx - splinter.vx) * steer;
+      splinter.vy += (targetVy - splinter.vy) * steer;
+    }
+
+    splinter.x += splinter.vx * dt;
+    splinter.y += splinter.vy * dt;
+
+    for (const enemy of world.enemies.values()) {
+      if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
+      if (enemy.type === "phantom" && enemy.isPhased) continue;
+      if (distance(splinter.x, splinter.y, enemy.x, enemy.y) <= splinter.r + enemy.r) {
+        const owner = world.players.get(splinter.ownerId);
+        damageServerEnemy(world, enemy.id, splinter.damage, owner);
+        world.splinters.delete(sId);
+        break;
+      }
+    }
   }
 }
 
@@ -2165,17 +2216,17 @@ const SERVER_UPGRADES = [
     id: "critical",
     title: "Критический механизм",
     description:
-      "Повышает шанс нанести критический урон (x2.5).",
+      "Повышает шанс нанести критический урон (x2.0).",
     available(player) {
       return player.stats.critChance < 0.6;
     },
     bonus(player, power) {
       const current =
-        player.stats.critChance;
+        player.stats.critChance || 0;
 
       const result = Math.min(
         0.6,
-        current + 0.18 * power
+        current + 0.10 * power
       );
 
       const actual =
@@ -2186,7 +2237,7 @@ const SERVER_UPGRADES = [
 
       return (
         `+${Math.round(actual * 100)}% ` +
-        `к шансу крита, итог: ` +
+        `к шансу крита (x2), итог: ` +
         `${Math.round(result * 100)}%`
       );
     }
@@ -2247,16 +2298,19 @@ const SERVER_UPGRADES = [
   {
     id: "emergency-repair",
     title: "Аварийный ремонт",
-    description: "Убийства периодически восстанавливают 1 здоровье.",
+    description: "Убийства периодически восстанавливают 1 здоровье (макс. 8 убийств).",
+    available(player) {
+      return (player.stats?.healEvery || 0) === 0 || player.stats.healEvery > 8;
+    },
     bonus(player, power) {
       const current = player.stats.healEvery || 0;
       let nextVal = 16;
       if (current === 0) {
-        nextVal = power >= 3 ? 10 : power >= 2 ? 13 : 16;
+        nextVal = power >= 3 ? 12 : power >= 2 ? 14 : 16;
       } else {
-        nextVal = Math.max(4, current - (power >= 3 ? 4 : power >= 2 ? 3 : 2));
+        nextVal = Math.max(8, current - (power >= 3 ? 4 : power >= 2 ? 3 : 2));
       }
-      return `Лечение каждые ${nextVal} убийств`;
+      return `Лечение каждые ${nextVal} убийств (макс. 8)`;
     }
   },
 
@@ -2321,10 +2375,14 @@ const SERVER_UPGRADES = [
   {
     id: "stun",
     title: "Кинетический Удар",
-    description: "Попадание оглушает врага на 0.5с × сила.",
+    description: "Попадание с шансом 5% оглушает врага на 0.3с (макс. 30%).",
+    available(player) {
+      return (player.stats?.stunChance || 0) < 0.30;
+    },
     bonus(player, power) {
-      const duration = 0.5 * power;
-      return `Оглушение на ${duration}с при попадании`;
+      const current = player.stats?.stunChance || 0;
+      const result = Math.min(0.30, current + 0.05 * power);
+      return `+${Math.round((result - current) * 100)}% шанс оглушения на 0.3с (итог: ${Math.round(result * 100)}%)`;
     }
   },
 
@@ -2340,9 +2398,14 @@ const SERVER_UPGRADES = [
   {
     id: "target-mark",
     title: "Метка Цели",
-    description: "Первое попадание помечает врага на 4с. Помеченный получает +30% урона.",
+    description: "Первое попадание помечает врага на 4с (+5% урона за уровень, макс. +40%).",
+    available(player) {
+      return (player.stats?.markBonus || 0) < 0.40;
+    },
     bonus(player, power) {
-      return `Метка на 4с, +30% урона от всех источников`;
+      const current = player.stats?.markBonus || 0;
+      const result = Math.min(0.40, current + 0.05 * power);
+      return `+${Math.round((result - current) * 100)}% к урону по метке (итог: +${Math.round(result * 100)}%)`;
     }
   }
 ];
@@ -3879,12 +3942,7 @@ function applyServerUpgrade(
       break;
 
     case "critical":
-      player.stats.critChance =
-        Math.min(
-          0.6,
-          player.stats.critChance +
-            0.18 * power
-        );
+      player.stats.critChance = Math.min(0.6, (player.stats.critChance || 0) + 0.10 * power);
       break;
 
     case "caliber":
@@ -3925,9 +3983,9 @@ function applyServerUpgrade(
     case "emergency-repair": {
       const current = player.stats.healEvery || 0;
       if (current === 0) {
-        player.stats.healEvery = power >= 3 ? 10 : power >= 2 ? 13 : 16;
+        player.stats.healEvery = power >= 3 ? 12 : power >= 2 ? 14 : 16;
       } else {
-        player.stats.healEvery = Math.max(4, current - (power >= 3 ? 4 : power >= 2 ? 3 : 2));
+        player.stats.healEvery = Math.max(8, current - (power >= 3 ? 4 : power >= 2 ? 3 : 2));
       }
       player.stats.repairKillProgress = Math.min(
         player.stats.repairKillProgress || 0,
@@ -3958,7 +4016,8 @@ function applyServerUpgrade(
       break;
 
     case "stun":
-      player.stats.stun = (player.stats.stun || 0) + 0.5 * power;
+      player.stats.stunChance = Math.min(0.30, (player.stats.stunChance || 0) + 0.05 * power);
+      player.stats.stun = player.stats.stunChance;
       break;
 
     case "reactive-armor":
@@ -3966,6 +4025,7 @@ function applyServerUpgrade(
       break;
 
     case "target-mark":
+      player.stats.markBonus = Math.min(0.40, (player.stats.markBonus || 0) + 0.05 * power);
       player.stats.targetMark = true;
       break;
 

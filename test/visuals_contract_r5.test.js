@@ -1715,11 +1715,11 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
         shown,
         Math.round(result.dealt),
         `The displayed damage (${shown}) must match the damage actually dealt ` +
-          `(${result.dealt}) — a 2.5x crit on 4 base damage`
+          `(${result.dealt}) — a 2.0x crit on 4 base damage`
       );
     });
 
-    await t3.test("Crit visuals and the crit damage multiplier agree (2.5x)", () => {
+    await t3.test("Crit visuals and the crit damage multiplier agree (2.0x)", () => {
       const dealtFor = (critChance) => {
         client.resetCombat({ critChance, damage: 4 });
         return client.evaluate(`
@@ -1743,8 +1743,8 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
 
       assert.equal(
         crit.dealt / normal.dealt,
-        2.5,
-        `Crit multiplier must be 2.5x (normal=${normal.dealt}, crit=${crit.dealt})`
+        2.0,
+        `Crit multiplier must be 2.0x (normal=${normal.dealt}, crit=${crit.dealt})`
       );
       assert.ok(
         crit.particles > normal.particles,
@@ -1779,9 +1779,9 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
       screenShake = 0;
       stats.homing = 0;
 
-      // A boss that dies to exactly one 2.5x crit (4 * 2.5 = 10).
+      // A boss that dies to exactly one 2.0x crit (4 * 2.0 = 10).
       const boss = createEnemy("boss", 640, 360);
-      boss.hp = 10;
+      boss.hp = 8;
       boss.hasEnteredArena = true;
       enemies.push(boss);
 
@@ -1854,7 +1854,7 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
     );
 
     // Boss died and celebrated
-    assert.ok(result.afterHit.bossDead, "Stage 2: the boss must die to the 2.5x crit");
+    assert.ok(result.afterHit.bossDead, "Stage 2: the boss must die to the 2.0x crit");
     assert.ok(
       result.afterHit.burst >= 60,
       `Stage 2: the boss kill needs a large explosion, got ${result.afterHit.burst} particles`

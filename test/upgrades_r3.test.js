@@ -54,7 +54,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       );
     });
 
-    await t1.test("1.3 Kinetic Strike (Stun) upgrade definition in SERVER_UPGRADES and duration scaling", () => {
+    await t1.test("1.4 Kinetic Strike (Stun) upgrade definition in SERVER_UPGRADES and duration scaling", () => {
       const stun = ctx.SERVER_UPGRADES.find(u => u.id === "stun");
       assert.ok(stun, "SERVER_UPGRADES must contain upgrade with id 'stun'");
       assert.ok(stun.title, "Stun upgrade must have a title");
@@ -93,8 +93,8 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       const dummyPlayer = { stats: {} };
       const bonusStr = mark.bonus(dummyPlayer, 1);
       assert.ok(
-        bonusStr.includes("30%") || bonusStr.includes("+30%") || bonusStr.includes("4") || bonusStr.includes("урон"),
-        `Bonus should mention 4s mark or +30% damage, got: "${bonusStr}"`
+        bonusStr.includes("40%") || bonusStr.includes("+40%") || bonusStr.includes("4") || bonusStr.includes("урон"),
+        `Bonus should mention 4s mark or +40% damage, got: "${bonusStr}"`
       );
     });
   });
@@ -135,12 +135,12 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       const { world, player1: player } = createTestWorld(ctx);
       const offer1 = { upgradeId: "stun", power: 1 };
       ctx.applyServerUpgrade(world, player, offer1);
-      const stunVal1 = player.stats.stun || player.stats.stunDuration || player.stats.stunPower;
-      assert.ok(stunVal1 >= 0.5, `Stun stat should be >= 0.5s after power 1, got ${stunVal1}`);
+      const stunVal1 = player.stats.stunChance || player.stats.stunChanceDuration || player.stats.stunChancePower;
+      assert.ok(stunVal1 >= 0.05, `Stun stat should be >= 0.05 after power 1, got ${stunVal1}`);
 
       const offer2 = { upgradeId: "stun", power: 2 };
       ctx.applyServerUpgrade(world, player, offer2);
-      const stunVal2 = player.stats.stun || player.stats.stunDuration || player.stats.stunPower;
+      const stunVal2 = player.stats.stunChance || player.stats.stunChanceDuration || player.stats.stunChancePower;
       assert.ok(stunVal2 > stunVal1, "Stun stat should accumulate on subsequent upgrades");
     });
 
@@ -248,7 +248,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       player.x = 100;
       player.y = 100;
       player.stats.damage = 1;
-      player.stats.stun = 1.0; // 1.0s stun
+      player.stats.stunChance = 1.0; // 1.0s stun
 
       const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
       bullet.state = "flying";
@@ -323,7 +323,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       );
     });
 
-    await t1.test("3.5 Target Mark: First hit marks enemy for 4.0s for +30% amplified damage", () => {
+    await t1.test("3.5 Target Mark: First hit marks enemy for 4.0s for +40% amplified damage", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 100;
       player.y = 100;
@@ -357,14 +357,14 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
 
       const hpAfterFirstHit = enemy.hp;
 
-      // Second damage source applied to marked enemy (e.g. 10 damage -> +30% = 13 damage)
+      // Second damage source applied to marked enemy (e.g. 10 damage -> +40% = 13 damage)
       ctx.damageServerEnemy(world, enemy.id, 10, player);
 
       const damageDealt = hpAfterFirstHit - enemy.hp;
       assert.equal(
         damageDealt,
         13,
-        `Marked enemy must take +30% damage (10 * 1.3 = 13), got ${damageDealt}`
+        `Marked enemy must take +40% damage (10 * 1.4 = 13), got ${damageDealt}`
       );
     });
   });
@@ -530,7 +530,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
   // =========================================================================
 
   await t.test("Tier 3 - Cross-Feature Interactions & Parity", async (t3) => {
-    await t3.test("5.1 Boomerang + Target Mark: Compounding damage multipliers (+50% & +30%)", () => {
+    await t3.test("5.1 Boomerang + Target Mark: Compounding damage multipliers (+50% & +40%)", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 200;
       player.y = 200;
@@ -554,7 +554,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
 
       ctx.updateServerBullet({ world }, bullet, 0.05);
 
-      // Base 10 * 1.5 (boomerang) * 1.3 (target mark) = 19.5 -> ~19 or 20 damage
+      // Base 10 * 1.5 (boomerang) * 1.4 (target mark) = 19.5 -> ~19 or 20 damage
       const damageTaken = 100 - enemy.hp;
       assert.ok(
         damageTaken >= 19 && damageTaken <= 20,
@@ -568,7 +568,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       player.y = 300;
       player.hp = 2;
       player.stats.reactiveArmor = true;
-      player.stats.stun = 1.0;
+      player.stats.stunChance = 1.0;
       player.reactiveArmorCooldown = 0;
 
       const enemy = ctx.createServerEnemy(world, "runner", 350, 300, true);
@@ -595,7 +595,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       assert.equal(enemy.x, pushedX, "Stunned enemy must not move back towards player");
     });
 
-    await t3.test("5.3 Target Mark + AoE Effects (Catch Blast / Explosion) apply +30% damage", () => {
+    await t3.test("5.3 Target Mark + AoE Effects (Catch Blast / Explosion) apply +40% damage", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 300;
       player.y = 300;
@@ -610,7 +610,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       markedEnemy.targetMarkTimer = 4.0;
       world.enemies.set(markedEnemy.id, markedEnemy);
 
-      // Catch blast triggers 1 base damage -> on marked enemy deals +30%
+      // Catch blast triggers 1 base damage -> on marked enemy deals +40%
       ctx.catchServerBullet(bullet, player, world);
 
       assert.ok(
@@ -668,7 +668,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       player.stats.groundPullSpeed = 120;
       player.stats.boomerang = true;
       player.stats.splinter = true;
-      player.stats.stun = 0.5;
+      player.stats.stunChance = 1.0; // Guarantee stun in test
       player.stats.reactiveArmor = true;
       player.stats.targetMark = true;
 

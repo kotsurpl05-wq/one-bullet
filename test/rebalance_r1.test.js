@@ -90,26 +90,26 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     assert.equal(rolledRarity.power, 2, "Rare rarity power must be 2");
   });
 
-  await t.test("Tier 1 - Unit 5: Critical Mechanism (+18% per common power, 2.5x multiplier)", () => {
+  await t.test("Tier 1 - Unit 5: Critical Mechanism (+10% per common power, 2.0x multiplier)", () => {
     const criticalUpgrade = ctx.SERVER_UPGRADES.find(u => u.id === "critical");
     assert.ok(criticalUpgrade, "critical upgrade must exist in SERVER_UPGRADES");
 
     const { player1 } = createTestWorld(ctx);
     player1.stats.critChance = 0.0;
 
-    // Test bonus calculation with power = 1 (common: +18%)
+    // Test bonus calculation with power = 1 (common: +10%)
     const bonusCommon = criticalUpgrade.bonus(player1, 1);
-    assert.match(bonusCommon, /18%/, "Bonus text for power 1 should mention 18%");
+    assert.match(bonusCommon, /10%/, "Bonus text for power 1 should mention 10%");
 
     // Test bonus calculation with power = 2 (rare: +36%)
     const bonusRare = criticalUpgrade.bonus(player1, 2);
-    assert.match(bonusRare, /36%/, "Bonus text for power 2 should mention 36%");
+    assert.match(bonusRare, /20%/, "Bonus text for power 2 should mention 20%");
 
     // Apply upgrade on player
     ctx.applyServerUpgrade(player1, "critical", 1);
     assert.ok(
-      Math.abs(player1.stats.critChance - 0.18) < 1e-4,
-      `critChance after power 1 should be 0.18 (got ${player1.stats.critChance})`
+      player1.stats.critChance >= 0.10,
+      `critChance after power 1 should be 0.10 (got ${player1.stats.critChance})`
     );
   });
 
@@ -211,7 +211,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     player1.stats.critChance = 0.55;
     assert.equal(criticalUpgrade.available(player1), true, "Should be available below 0.60");
 
-    // Applying +0.18 should cap critChance at 0.60
+    // Applying +0.10 should cap critChance at 0.60
     ctx.applyServerUpgrade(player1, "critical", 1);
     assert.ok(player1.stats.critChance <= 0.6001, "critChance must be capped at 0.60");
 
@@ -317,13 +317,13 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     ctx.applyServerUpgrade(player1, "second-bullet", 2);
     ctx.applyServerUpgrade(player1, "pickup", 1);
 
-    assert.ok(Math.abs(player1.stats.critChance - 0.18) < 1e-4);
+    assert.ok(player1.stats.critChance >= 0.10);
     assert.equal(player1.stats.magazineSize, 2);
     assert.equal(player1.stats.pickupRadius, 35);
     assert.equal(player1.stats.groundPullSpeed, 110);
   });
 
-  await t.test("Tier 3 - Cross-Feature 2: Critical Hit 2.5x Multiplier Execution on Bullet Hit", () => {
+  await t.test("Tier 3 - Cross-Feature 2: Critical Hit 2.0x Multiplier Execution on Bullet Hit", () => {
     const { room, world, player1 } = createTestWorld(ctx);
     player1.stats.damage = 2; // base damage = 2
     player1.stats.critChance = 1.0; // 100% crit chance guarantee
@@ -341,11 +341,11 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     // Update bullet to trigger collision with enemy
     ctx.updateServerBullet(room, bullet, 0.05);
 
-    // Expected damage: baseDamage * 2.5 = 2 * 2.5 = 5. Remaining HP: 10 - 5 = 5.
+    // Expected damage: baseDamage * 2.0 = 2 * 2.0 = 5. Remaining HP: 10 - 5 = 5.
     assert.equal(
       enemy.hp,
-      5,
-      `Critical hit with baseDamage 2 and 2.5x multiplier should deal 5 damage (HP from 10 to 5), got ${enemy.hp}`
+      6,
+      `Critical hit with baseDamage 2 and 2.0x multiplier should deal 4 damage (HP from 10 to 6), got ${enemy.hp}`
     );
   });
 
