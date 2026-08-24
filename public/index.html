@@ -9671,28 +9671,32 @@
 
     if (window.net) {
       net.addEventListener("connected", () => {
-        updateNetworkStatus("Подключено к серверу");
-
-        const recData = window.net?.getReconnectData?.();
-        if (recData && recData.roomCode && recData.token && !coopSession.active) {
-          checkAndRenderFloatingReconnectWidget();
-          window.net.reconnectRoom(recData.roomCode, recData.token, recData.playerName).then(res => {
-            if (res && res.success) {
-              networkRoom = res.room;
-              const widget = document.getElementById("floatingReconnectWidget");
-              if (widget) widget.classList.add("hidden");
-              if (floatingReconnectTimerInterval) {
-                clearInterval(floatingReconnectTimerInterval);
-                floatingReconnectTimerInterval = null;
+        try {
+          const recData = window.net?.getReconnectData?.();
+          if (recData && recData.roomCode && recData.token && !coopSession.active) {
+            checkAndRenderFloatingReconnectWidget();
+            window.net.reconnectRoom(recData.roomCode, recData.token, recData.playerName).then(res => {
+              if (res && res.success) {
+                networkRoom = res.room;
+                const widget = document.getElementById("floatingReconnectWidget");
+                if (widget) widget.classList.add("hidden");
+                if (floatingReconnectTimerInterval) {
+                  clearInterval(floatingReconnectTimerInterval);
+                  floatingReconnectTimerInterval = null;
+                }
+                overlay.classList.add("hidden");
+                overlay.setAttribute("aria-hidden", "true");
+                startCoopMovementSession();
+                if (res.snapshot) {
+                  applyCoopSnapshot(res.snapshot);
+                }
               }
-              overlay.classList.add("hidden");
-              overlay.setAttribute("aria-hidden", "true");
-              startCoopMovementSession();
-              if (res.snapshot) {
-                applyCoopSnapshot(res.snapshot);
-              }
-            }
-          }).catch(() => {});
+            }).catch(err => {
+              console.warn("Auto-reconnect attempt failed:", err);
+            });
+          }
+        } catch (err) {
+          console.error("Error in net connected handler:", err);
         }
       });
 
