@@ -1212,13 +1212,24 @@ function updateServerBullet(
         ? baseDamage * 2.0
         : baseDamage;
 
+    const wasMarked = Boolean(enemy.targetMarked);
+
+    damageServerEnemy(
+      world,
+      enemy.id,
+      hitDamage,
+      owner
+    );
+
     /*
      * Метка Цели: помечаем врага на 4 секунды (+5% за уровень, до +40%).
+     * Бонусный урон применяется только к СЛЕДУЮЩИМ атакам по уже помеченной цели.
      */
     if (
       (owner.stats?.markBonus || owner.stats?.targetMark) &&
+      !wasMarked &&
       world.enemies.has(enemy.id) &&
-      !enemy.targetMarked
+      enemy.hp > 0
     ) {
       enemy.targetMarked = true;
       enemy.targetMarkTimer = 4.0;
@@ -1236,20 +1247,14 @@ function updateServerBullet(
     if (
       stunChance > 0 &&
       Math.random() <= stunChance &&
-      world.enemies.has(enemy.id)
+      world.enemies.has(enemy.id) &&
+      enemy.hp > 0
     ) {
       enemy.stunTimer = Math.max(
         enemy.stunTimer || 0,
         0.3
       );
     }
-
-    damageServerEnemy(
-      world,
-      enemy.id,
-      hitDamage,
-      owner
-    );
 
     /*
      * Взрыв от улучшения "Разрывной сердечник"

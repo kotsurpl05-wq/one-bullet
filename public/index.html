@@ -5180,13 +5180,21 @@
         triggerHitStop();
       }
 
+      const wasMarked = Boolean(enemy.targetMarked);
+
       /*
-       * Метка Цели: первое попадание помечает живого врага на 4с (+5% за уровень, до +40%).
-       * Применяется строго к атакованному врагу ДО нанесения урона, чтобы избежать смещения индексов при гибели.
+       * Наносим урон (увеличенный только если метка уже была на враге до удара).
+       */
+      damageEnemy(enemy, damage, critical);
+
+      /*
+       * Метка Цели: попадание помечает врага на 4с (+5% за уровень, до +40%).
+       * Бонусный урон начинает действовать только со следующих попаданий по этой цели.
        */
       if (
         (stats.targetMark || (stats.markBonus && stats.markBonus > 0)) &&
-        !enemy.targetMarked &&
+        !wasMarked &&
+        enemy.hp > 0 &&
         enemy.hasEnteredArena !== false
       ) {
         enemy.targetMarked = true;
@@ -5202,14 +5210,12 @@
         ? stats.stunChance
         : (stats.stun ? Math.min(1.0, stats.stun) : 0);
 
-      if (stunChance > 0 && Math.random() <= stunChance) {
+      if (stunChance > 0 && Math.random() <= stunChance && enemy.hp > 0) {
         enemy.stunTimer = Math.max(
           enemy.stunTimer || 0,
           0.3
         );
       }
-
-      damageEnemy(enemy, damage, critical);
       if (stats.explosionRadius > 0) {
         createRing(
           impactX,

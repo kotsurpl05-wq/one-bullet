@@ -360,6 +360,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       );
 
       const hpAfterFirstHit = enemy.hp;
+      assert.equal(hpAfterFirstHit, 90, "First hit must deal regular base 10 damage without mark bonus");
 
       // Second damage source applied to marked enemy (e.g. 10 damage -> +40% = 14 damage)
       ctx.damageServerEnemy(world, enemy.id, 10, player);
