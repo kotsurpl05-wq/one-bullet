@@ -343,7 +343,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     player.stats.targetMark = true;
     player.stats.stunPower = 2; // 0.5s * 2 = 1.0s stun
     player.stats.boomerang = true;
-    player.stats.boomerangBonus = 0.50;
+    player.stats.boomerangPercent = 0.50;
     player.stats.groundPullSpeed = 220; // Active ground pull
     player.stats.reactiveArmor = true;
     player.stats.reactiveArmorCooldown = 0;
@@ -371,11 +371,11 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
 
     // 3. Ground bullet returning via ground pull deals Boomerang damage (+50%) on Target Marked (+30%) enemy
     // Base 3 -> Boomerang: 3 * 1.5 = 4.5 -> Target Mark: 4.5 * 1.3 = 5.85 -> 6 damage
-    const boomerangBase = player.stats.damage * 1.5;
-    const boomerangMarkedDamage = Math.round(boomerangBase * 1.3);
+    const boomerangBase = player.stats.damage * 0.50;
+    const boomerangMarkedDamage = Math.round(boomerangBase * 1.4);
     tank.hp -= boomerangMarkedDamage;
-    assert.equal(boomerangMarkedDamage, 6);
-    assert.equal(tank.hp, 21);
+    assert.equal(boomerangMarkedDamage, 2);
+    assert.equal(tank.hp, 25);
 
     // 4. Reactive Armor: Tank gets unstunned and damages player
     const surroundingEnemy = ctx.createServerEnemy(world, "runner", player.x + 40, player.y, true);

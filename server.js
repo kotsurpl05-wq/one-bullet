@@ -2353,14 +2353,14 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Возвращающаяся пуля наносит дополнительный урон (+25% за уровень, макс. +100%) и пробивает врагов.",
+    description: "Возвращающаяся пуля наносит 25% урона пули (+25% за уровень, макс. 100%) и пробивает врагов.",
     available(player) {
-      return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.boomerangBonus || 0) < 1.0;
+      return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.boomerangPercent || 0) < 1.0;
     },
     bonus(player, power) {
-      const current = player.stats?.boomerangBonus || 0;
-      const result = Math.min(1.0, current + 0.25 * power);
-      return `+${Math.round((result - current) * 100)}% к урону при возврате (итог: +${Math.round(result * 100)}%)`;
+      const current = player.stats?.boomerangPercent || 0;
+      const result = current === 0 ? Math.min(1.0, 0.25 * power) : Math.min(1.0, current + 0.25 * power);
+      return `Урон при возврате: ${Math.round(result * 100)}% урона пули (макс. 100%)`;
     }
   },
 
@@ -4043,10 +4043,12 @@ function applyServerUpgrade(
       player.stats.groundPullSpeed = (player.stats.groundPullSpeed || 0) + 110 * power;
       break;
 
-    case "boomerang":
+    case "boomerang": {
       player.stats.boomerang = true;
-      player.stats.boomerangBonus = Math.min(1.0, (player.stats.boomerangBonus || 0) + 0.25 * power);
+      const cur = player.stats.boomerangPercent || 0;
+      player.stats.boomerangPercent = cur === 0 ? Math.min(1.0, 0.25 * power) : Math.min(1.0, cur + 0.25 * power);
       break;
+    }
 
     case "splinter":
       player.stats.splinter = true;
