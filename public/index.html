@@ -8316,6 +8316,7 @@
       hidePauseMenu();
       hideUpgradeTooltip();
       if (typeof hideLiveStats === "function") hideLiveStats();
+      checkAndRenderFloatingReconnectWidget();
 
       // Скрываем игровые HUD элементы в главном меню
       document.querySelector("#hud")?.classList.add("hidden");
@@ -9672,14 +9673,24 @@
       net.addEventListener("connected", () => {
         updateNetworkStatus("Подключено к серверу");
 
-        const recData = window.net?.getReconnectData();
+        const recData = window.net?.getReconnectData?.();
         if (recData && recData.roomCode && recData.token && !coopSession.active) {
           checkAndRenderFloatingReconnectWidget();
           window.net.reconnectRoom(recData.roomCode, recData.token, recData.playerName).then(res => {
             if (res && res.success) {
+              networkRoom = res.room;
               const widget = document.getElementById("floatingReconnectWidget");
               if (widget) widget.classList.add("hidden");
-              startCoopMovementSession(recData.roomCode, res.role);
+              if (floatingReconnectTimerInterval) {
+                clearInterval(floatingReconnectTimerInterval);
+                floatingReconnectTimerInterval = null;
+              }
+              overlay.classList.add("hidden");
+              overlay.setAttribute("aria-hidden", "true");
+              startCoopMovementSession();
+              if (res.snapshot) {
+                applyCoopSnapshot(res.snapshot);
+              }
             }
           }).catch(() => {});
         }
@@ -9891,6 +9902,9 @@
         return;
       }
     
+      overlay.classList.add("hidden");
+      overlay.setAttribute("aria-hidden", "true");
+
       runMode = "coop";
       gameState = "coop-playing";
     
@@ -10221,7 +10235,7 @@
         return;
       }
 
-      const reconnectData = window.net?.getReconnectData();
+      const reconnectData = window.net?.getReconnectData?.();
       if (!reconnectData || !reconnectData.roomCode || !reconnectData.token) {
         widget.classList.add("hidden");
         if (floatingReconnectTimerInterval) {
@@ -10235,7 +10249,7 @@
       const remainingMs = expiresAt - Date.now();
 
       if (remainingMs <= 0) {
-        window.net?.clearReconnectData();
+        window.net?.clearReconnectData?.();
         widget.classList.add("hidden");
         if (floatingReconnectTimerInterval) {
           clearInterval(floatingReconnectTimerInterval);
@@ -10254,7 +10268,7 @@
       const updateTimer = () => {
         const secsLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
         if (secsLeft <= 0) {
-          window.net?.clearReconnectData();
+          window.net?.clearReconnectData?.();
           widget.classList.add("hidden");
           if (floatingReconnectTimerInterval) {
             clearInterval(floatingReconnectTimerInterval);
@@ -10293,17 +10307,23 @@
           );
 
           if (response.success) {
+            networkRoom = response.room;
+            overlay.classList.add("hidden");
+            overlay.setAttribute("aria-hidden", "true");
             widget.classList.add("hidden");
             if (floatingReconnectTimerInterval) {
               clearInterval(floatingReconnectTimerInterval);
               floatingReconnectTimerInterval = null;
             }
-            startCoopMovementSession(reconnectData.roomCode, response.role);
+            startCoopMovementSession();
+            if (response.snapshot) {
+              applyCoopSnapshot(response.snapshot);
+            }
           } else {
             reconnectBtn.disabled = false;
             reconnectBtn.textContent = "⚡ Вернуться в бой";
             alert(response.message || "Не удалось переподключиться к комнате");
-            window.net?.clearReconnectData();
+            window.net?.clearReconnectData?.();
             widget.classList.add("hidden");
             if (floatingReconnectTimerInterval) {
               clearInterval(floatingReconnectTimerInterval);
@@ -10315,7 +10335,7 @@
 
       if (dismissBtn) {
         dismissBtn.onclick = () => {
-          window.net?.clearReconnectData();
+          window.net?.clearReconnectData?.();
           widget.classList.add("hidden");
           if (floatingReconnectTimerInterval) {
             clearInterval(floatingReconnectTimerInterval);
@@ -16298,6 +16318,7 @@
     resize();
     resetEntities();
     showMainMenu();
+    checkAndRenderFloatingReconnectWidget();
     requestAnimationFrame(gameLoop);
   </script>
 </body>
