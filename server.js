@@ -535,6 +535,8 @@ function dropServerBullet(bullet) {
   bullet.vx = 0;
   bullet.vy = 0;
   bullet.age = 0;
+  bullet.x = Math.max(bullet.r || 8, Math.min(COOP_WORLD_WIDTH - (bullet.r || 8), bullet.x));
+  bullet.y = Math.max(bullet.r || 8, Math.min(COOP_WORLD_HEIGHT - (bullet.r || 8), bullet.y));
 }
 
 function catchServerBullet(
@@ -551,23 +553,33 @@ function catchServerBullet(
   const direction =
     getServerAimDirection(owner);
 
-  bullet.x =
-    owner.x +
-    direction.x *
-      (
-        owner.r +
-        bullet.r +
-        2
-      );
+  bullet.x = Math.max(
+    bullet.r,
+    Math.min(
+      COOP_WORLD_WIDTH - bullet.r,
+      owner.x +
+        direction.x *
+          (
+            owner.r +
+            bullet.r +
+            2
+          )
+    )
+  );
 
-  bullet.y =
-    owner.y +
-    direction.y *
-      (
-        owner.r +
-        bullet.r +
-        2
-      );
+  bullet.y = Math.max(
+    bullet.r,
+    Math.min(
+      COOP_WORLD_HEIGHT - bullet.r,
+      owner.y +
+        direction.y *
+          (
+            owner.r +
+            bullet.r +
+            2
+          )
+    )
+  );
 
   if (world && (owner?.stats?.catchBlast || 0) > 0) {
     for (const enemy of world.enemies.values()) {
@@ -654,23 +666,33 @@ function shootServerBullet(
   bullet.state = "flying";
   bullet.age = 0;
 
-  bullet.x =
-    owner.x +
-    direction.x *
-      (
-        owner.r +
-        bullet.r +
-        2
-      );
+  bullet.x = Math.max(
+    bullet.r || 7,
+    Math.min(
+      COOP_WORLD_WIDTH - (bullet.r || 7),
+      owner.x +
+        direction.x *
+          (
+            owner.r +
+            bullet.r +
+            2
+          )
+    )
+  );
 
-  bullet.y =
-    owner.y +
-    direction.y *
-      (
-        owner.r +
-        bullet.r +
-        2
-      );
+  bullet.y = Math.max(
+    bullet.r || 7,
+    Math.min(
+      COOP_WORLD_HEIGHT - (bullet.r || 7),
+      owner.y +
+        direction.y *
+          (
+            owner.r +
+            bullet.r +
+            2
+          )
+    )
+  );
 
   const bulletSpeed =
     owner.stats?.bulletSpeed ??

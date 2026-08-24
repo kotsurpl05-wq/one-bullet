@@ -346,5 +346,27 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(Array.isArray(snapshot.medkits), "Snapshot must contain medkits array");
       assert.ok(indexHtml.includes("drawMedkits()"), "drawCoopScene must call drawMedkits");
     });
+
+    await t3.test("3.16 Bullet shooting and dropping are clamped strictly within arena boundaries", () => {
+      const { world, room, player1 } = createTestWorld(ctx);
+      room.started = true;
+      player1.x = 5; // Near left edge
+      player1.y = 5; // Near top edge
+      player1.aimX = -100;
+      player1.aimY = -100;
+
+      const success = ctx.shootServerBullet(room, player1.id, -100, -100, 5, 5);
+      assert.ok(success, "Bullet must be shot");
+
+      const bullet = [...world.bullets.values()].find(b => b.ownerId === player1.id);
+      assert.ok(bullet.x >= bullet.r, `Bullet x (${bullet.x}) must not exceed min boundary (${bullet.r})`);
+      assert.ok(bullet.y >= bullet.r, `Bullet y (${bullet.y}) must not exceed min boundary (${bullet.r})`);
+
+      bullet.x = -50;
+      bullet.y = -50;
+      ctx.dropServerBullet(bullet);
+      assert.ok(bullet.x >= bullet.r, "dropServerBullet must clamp x inside arena");
+      assert.ok(bullet.y >= bullet.r, "dropServerBullet must clamp y inside arena");
+    });
   });
 });

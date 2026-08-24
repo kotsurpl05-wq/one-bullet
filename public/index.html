@@ -12658,7 +12658,6 @@
       /*
        * Синхронизация врагов.
        */
-      coopSession.splinters = Array.isArray(snapshot.splinters) ? snapshot.splinters : [];
       coopSession.medkits = Array.isArray(snapshot.medkits) ? snapshot.medkits : [];
       const receivedEnemyIds =
         new Set();
@@ -13522,9 +13521,43 @@
           coopBullet.targetX += coopBullet.vx * dt;
           coopBullet.targetY += coopBullet.vy * dt;
 
+          const minBX = coopBullet.r || 8;
+          const maxBX = COOP_WORLD_WIDTH - minBX;
+          const minBY = coopBullet.r || 8;
+          const maxBY = COOP_WORLD_HEIGHT - minBY;
+
+          if (coopBullet.displayX <= minBX) {
+            coopBullet.displayX = minBX;
+            if (coopBullet.bouncesLeft > 0) {
+              coopBullet.vx = Math.abs(coopBullet.vx);
+            }
+          } else if (coopBullet.displayX >= maxBX) {
+            coopBullet.displayX = maxBX;
+            if (coopBullet.bouncesLeft > 0) {
+              coopBullet.vx = -Math.abs(coopBullet.vx);
+            }
+          }
+
+          if (coopBullet.displayY <= minBY) {
+            coopBullet.displayY = minBY;
+            if (coopBullet.bouncesLeft > 0) {
+              coopBullet.vy = Math.abs(coopBullet.vy);
+            }
+          } else if (coopBullet.displayY >= maxBY) {
+            coopBullet.displayY = maxBY;
+            if (coopBullet.bouncesLeft > 0) {
+              coopBullet.vy = -Math.abs(coopBullet.vy);
+            }
+          }
+
+          coopBullet.targetX = Math.max(minBX, Math.min(maxBX, coopBullet.targetX));
+          coopBullet.targetY = Math.max(minBY, Math.min(maxBY, coopBullet.targetY));
+
           // Мягкая синхронизация с серверной траекторией
-          coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 5);
-          coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 5);
+          coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 10);
+          coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 10);
+          coopBullet.displayX = Math.max(minBX, Math.min(maxBX, coopBullet.displayX));
+          coopBullet.displayY = Math.max(minBY, Math.min(maxBY, coopBullet.displayY));
 
           /*
            * След тянется цветом владельца патрона,
@@ -13553,8 +13586,16 @@
             );
           }
         } else if (coopBullet.state === "ground") {
+          const minBX = coopBullet.r || 8;
+          const maxBX = COOP_WORLD_WIDTH - minBX;
+          const minBY = coopBullet.r || 8;
+          const maxBY = COOP_WORLD_HEIGHT - minBY;
+          coopBullet.targetX = Math.max(minBX, Math.min(maxBX, coopBullet.targetX));
+          coopBullet.targetY = Math.max(minBY, Math.min(maxBY, coopBullet.targetY));
           coopBullet.displayX += (coopBullet.targetX - coopBullet.displayX) * Math.min(1, dt * 18);
           coopBullet.displayY += (coopBullet.targetY - coopBullet.displayY) * Math.min(1, dt * 18);
+          coopBullet.displayX = Math.max(minBX, Math.min(maxBX, coopBullet.displayX));
+          coopBullet.displayY = Math.max(minBY, Math.min(maxBY, coopBullet.displayY));
         }
       }
       for (
