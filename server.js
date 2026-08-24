@@ -1212,12 +1212,19 @@ function updateServerBullet(
         ? baseDamage * 2.0
         : baseDamage;
 
-    damageServerEnemy(
-      world,
-      enemy.id,
-      hitDamage,
-      owner
-    );
+    /*
+     * Метка Цели: помечаем врага на 4 секунды (+5% за уровень, до +40%).
+     */
+    if (
+      (owner.stats?.markBonus || owner.stats?.targetMark) &&
+      world.enemies.has(enemy.id) &&
+      !enemy.targetMarked
+    ) {
+      enemy.targetMarked = true;
+      enemy.targetMarkTimer = 4.0;
+      enemy.targetMarkBonus = owner.stats.markBonus || 0.40;
+      enemy.markBonus = owner.stats.markBonus || 0.40;
+    }
 
     /*
      * Кинетический Удар: оглушение 5% за уровень на 0.3с при попадании.
@@ -1237,17 +1244,12 @@ function updateServerBullet(
       );
     }
 
-    /*
-     * Метка Цели: помечаем врага на 4 секунды.
-     */
-    if (
-      owner.stats?.targetMark &&
-      world.enemies.has(enemy.id) &&
-      !enemy.targetMarked
-    ) {
-      enemy.targetMarked = true;
-      enemy.targetMarkTimer = 4.0;
-    }
+    damageServerEnemy(
+      world,
+      enemy.id,
+      hitDamage,
+      owner
+    );
 
     /*
      * Взрыв от улучшения "Разрывной сердечник"

@@ -5174,31 +5174,36 @@
         triggerHitStop();
       }
 
-      damageEnemy(index, damage, critical);
-
       /*
-       * Кинетический Удар: оглушение при попадании.
+       * Метка Цели: первое попадание помечает живого врага на 4с (+5% за уровень, до +40%).
+       * Применяется строго к атакованному врагу ДО нанесения урона, чтобы избежать смещения индексов при гибели.
        */
-      if (stats.stun > 0) {
-        const target = enemies[index] || enemies.find(e => e.id === targetId);
-        if (target) {
-          target.stunTimer = Math.max(
-            target.stunTimer || 0,
-            stats.stun
-          );
-        }
+      if (
+        (stats.targetMark || (stats.markBonus && stats.markBonus > 0)) &&
+        !enemy.targetMarked &&
+        enemy.hasEnteredArena !== false
+      ) {
+        enemy.targetMarked = true;
+        enemy.targetMarkTimer = 4.0;
+        enemy.targetMarkBonus = stats.markBonus || 0.40;
+        enemy.markBonus = stats.markBonus || 0.40;
       }
 
       /*
-       * Метка Цели: первое попадание помечает на 4с.
+       * Кинетический Удар: оглушение 5% за уровень на 0.3с.
        */
-      if (stats.targetMark) {
-        const target = enemies[index] || enemies.find(e => e.id === targetId);
-        if (target && !target.targetMarked && target.hasEnteredArena !== false) {
-          target.targetMarked = true;
-          target.targetMarkTimer = 4.0;
-        }
+      const stunChance = (stats.stunChance !== undefined)
+        ? stats.stunChance
+        : (stats.stun ? Math.min(1.0, stats.stun) : 0);
+
+      if (stunChance > 0 && Math.random() <= stunChance) {
+        enemy.stunTimer = Math.max(
+          enemy.stunTimer || 0,
+          0.3
+        );
       }
+
+      damageEnemy(enemy, damage, critical);
       if (stats.explosionRadius > 0) {
         createRing(
           impactX,
