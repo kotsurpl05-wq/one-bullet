@@ -4977,7 +4977,8 @@
       
         const currentDistance = Math.hypot(dx, dy);
       
-        const MAGNET_MAX_DIST = 20 * 48; // 20 клеток (960px)
+        const magnetCells = Math.min(40, 20 + (stats.magnetRangeBonusCells || 0));
+        const MAGNET_MAX_DIST = magnetCells * (typeof WORLD_CELL_SIZE !== "undefined" ? WORLD_CELL_SIZE : 48);
 
         if (
           (stats.groundPullSpeed || 0) > 0 &&
@@ -7000,6 +7001,19 @@
         }
       },
       {
+        title: "Радиус магнита",
+        description: "Увеличивает дистанцию притягивания патронов на +5 клеток (макс. 40 клеток).",
+        available() {
+          return (stats.groundPullSpeed || 0) > 0 && (stats.magnetRangeBonusCells || 0) < 20;
+        },
+        applyWithPower(power) {
+          stats.magnetRangeBonusCells = Math.min(
+            20,
+            (stats.magnetRangeBonusCells || 0) + 5 * power
+          );
+        }
+      },
+      {
         title: "Импульсный захват",
         description: "Пойманная пуля наносит урон ближайшим врагам.",
         available() {
@@ -7320,6 +7334,12 @@
         case "Возвратный магнит": {
           const speedBonus = 110 * power;
           return `+${speedBonus} px/с к скорости притяжения (в радиусе 20 клеток)`;
+        }
+
+        case "Радиус магнита": {
+          const current = stats.magnetRangeBonusCells || 0;
+          const result = Math.min(20, current + 5 * power);
+          return `+${result - current} кл. к радиусу притягивания (итог: ${20 + result} кл.)`;
         }
       
         case "Импульсный захват": {
@@ -7779,6 +7799,7 @@
       "Усиленная броня": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" fill-opacity="0.22"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 6v12M7 10h10"/></svg>`,
       "Ремонтный комплект": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M19 10.5h-5.5V5a1.5 1.5 0 0 0-3 0v5.5H5a1.5 1.5 0 0 0 0 3h5.5V19a1.5 1.5 0 0 0 3 0v-5.5H19a1.5 1.5 0 0 0 0-3z"/></svg>`,
       "Магнитное поле": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
+      "Радиус магнита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
       "Магнитный захват": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>`,
       "Импульсный захват": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
       "Аварийный ремонт": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="M12 7v6M9 10h6" stroke="#060c16" stroke-width="2.2" stroke-linecap="round"/></svg>`,

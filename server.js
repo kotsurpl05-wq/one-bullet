@@ -896,7 +896,8 @@ function updateServerBullet(
       const prevGY = bullet.y;
 
       const distToOwner = distance(bullet.x, bullet.y, owner.x, owner.y);
-      const MAGNET_MAX_DIST = 20 * 48; // 20 клеток (960px)
+      const magnetCells = Math.min(40, 20 + (owner.stats?.magnetRangeBonusCells || 0));
+      const MAGNET_MAX_DIST = magnetCells * 48; // базово 20 клеток (960px), до 40 клеток (1920px)
       if (distToOwner > owner.r + bullet.r && distToOwner <= MAGNET_MAX_DIST) {
         const pullFactor = owner.stats.groundPullSpeed * dt;
         bullet.x += ((owner.x - bullet.x) / distToOwner) * pullFactor;
@@ -2089,6 +2090,7 @@ function createServerPlayerStats() {
     pierce: 0,
 
     groundPullSpeed: 0,
+    magnetRangeBonusCells: 0,
     pickupRadius: 0,
     magazineSize: 1
   };
@@ -2214,6 +2216,20 @@ const SERVER_UPGRADES = [
       return (
         `+${speed} px/с к скорости притяжения (в радиусе 20 клеток)`
       );
+    }
+  },
+
+  {
+    id: "magnet-range",
+    title: "Радиус магнита",
+    description: "Увеличивает дистанцию притягивания патронов на +5 клеток (макс. 40 клеток).",
+    available(player) {
+      return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.magnetRangeBonusCells || 0) < 20;
+    },
+    bonus(player, power) {
+      const current = player.stats?.magnetRangeBonusCells || 0;
+      const result = Math.min(20, current + 5 * power);
+      return `+${result - current} кл. к радиусу притягивания (итог: ${20 + result} кл.)`;
     }
   },
 
