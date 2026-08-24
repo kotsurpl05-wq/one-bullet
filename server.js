@@ -183,10 +183,50 @@ function closeRoom(room, reason) {
   rooms.delete(room.code);
 }
 
+function handlePlayerDisconnectDuringMatch(socket, room) {
+  const player = room.players.get(socket.id);
+  if (player && !player.disconnected) {
+    player.disconnected = true;
+    player.disconnectTime = Date.now();
+
+    room.world.reconnectState = {
+      paused: true,
+      disconnectedId: player.id,
+      playerName: player.name,
+      role: player.role,
+      expiresAt: Date.now() + 120000
+    };
+
+    if (room.reconnectTimeout) {
+      clearTimeout(room.reconnectTimeout);
+    }
+
+    room.reconnectTimeout = setTimeout(() => {
+      if (!rooms.has(room.code)) return;
+      if (room.world && room.world.reconnectState?.paused) {
+        closeRoom(room, "Время ожидания напарника (2 мин) истекло");
+      }
+    }, 120000);
+
+    socket.leave(room.code);
+    socket.data.roomCode = null;
+    socket.data.role = null;
+
+    io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+    emitRoomState(room);
+  }
+}
+
 function leaveRoom(socket, reason = "Игрок вышел") {
   const room = getRoomForSocket(socket);
 
   if (!room) {
+    return;
+  }
+
+  // Если матч уже идёт и мир активен — НЕ разрушаем игру, а даём 120 секунд на реконнект!
+  if (room.started && room.world && !room.world.gameOver) {
+    handlePlayerDisconnectDuringMatch(socket, room);
     return;
   }
 
@@ -206,7 +246,7 @@ function leaveRoom(socket, reason = "Игрок вышел") {
     return;
   }
 
-  // Гость вышел: комната остаётся у хоста, сбрасываем статус готовности и мир
+  // Гость вышел из лобби до старта матча
   room.started = false;
   room.world = null;
   for (const p of room.players.values()) {

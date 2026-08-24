@@ -9107,11 +9107,14 @@
         .join("");
       
       panel.innerHTML = `
-        <h1>Комната</h1>
-      
-        <p>
-          Передайте код напарнику. Игра автоматически начнётся через 3 секунды после готовности обоих игроков.
-        </p>
+        <div class="cyber-modal-container" style="max-width: 920px;">
+          <div class="cyber-modal-header">
+            <div class="cyber-modal-icon">👥</div>
+            <div>
+              <h2 class="cyber-modal-title">Кооперативное лобби // Комната [${networkRoom.code}]</h2>
+              <div class="cyber-modal-subtitle">Передайте 5-значный код напарнику для подключения. Игра начнётся автоматически!</div>
+            </div>
+          </div>
       
         <div class="lobby-code">
           <div class="lobby-code-label">
@@ -9755,43 +9758,7 @@
         }
       );
       
-      net.addEventListener(
-        "peer-left",
-        event => {
-          if (returningToMainMenu) {
-            return;
-          }
-        
-          networkStartPending = false;
-        
-          if (coopSession.active) {
-            stopCoopMovementSession();
-            hidePauseMenu();
-            hideUpgradeTooltip();
-          
-            setNetworkMessage(
-              event.detail?.reason ||
-              "Второй игрок отключился"
-            );
-          
-            if (window.net?.isHost && networkRoom) {
-              renderNetworkLobby();
-            } else {
-              showNetworkMenu();
-            }
-            return;
-          }
-        
-          setNetworkMessage(
-            event.detail?.reason ||
-            "Второй игрок отключился"
-          );
-        
-          if (gameState === "network-lobby") {
-            renderNetworkLobby();
-          }
-        }
-      );
+
       
       net.addEventListener(
         "disconnected",
