@@ -3081,10 +3081,11 @@ function damageServerEnemy(
   }
 
   /*
-   * Метка Цели: помеченный враг получает +30% урона.
+   * Метка Цели: помеченный враг получает дополнительный урон (+5% за уровень, до +40%).
    */
   if (enemy.targetMarked) {
-    amount = Math.floor(amount * 1.3);
+    const markBonus = enemy.targetMarkBonus || enemy.markBonus || (killerPlayer?.stats?.markBonus) || 0.40;
+    amount = Number((amount * (1 + markBonus)).toFixed(2));
   }
 
   enemy.hp -= amount;

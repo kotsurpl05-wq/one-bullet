@@ -4215,7 +4215,7 @@
        */
       if (enemy.targetMarked) {
         const markBonus = enemy.targetMarkBonus || enemy.markBonus || (stats && stats.markBonus) || 0.40;
-        damage = Math.round(damage * (1 + markBonus));
+        damage = Number((damage * (1 + markBonus)).toFixed(2));
       }
 
       enemy.hp -= damage;
@@ -4664,9 +4664,9 @@
         x: x + random(-7, 7),
         y: y - 12,
         vy: critical ? -74 : -58,
-        text: String(
-          Math.max(1, Math.round(value))
-        ),
+        text: Number.isInteger(value)
+          ? String(value)
+          : String(Number(value.toFixed(2))),
         color: critical
           ? "#ff496c"
           : "#ffea79",
@@ -5015,10 +5015,7 @@
               if (eDist <= hitDist) {
                 bullet.hitEnemies.add(enemy.id);
                 const percent = Math.min(1.0, Math.max(0.25, stats.boomerangPercent || 0.25));
-                const boomerangDmg = Math.max(
-                  1,
-                  Math.floor(stats.damage * percent)
-                );
+                const boomerangDmg = Number((stats.damage * percent).toFixed(2));
 
                 damageEnemy(ei, boomerangDmg);
               }
@@ -5515,10 +5512,7 @@
             if (stats.splinter) {
               const count = Math.min(5, Math.max(1, stats.splinterCount || 1));
               const percent = Math.min(1.0, Math.max(0.25, stats.splinterDamagePercent || 0.25));
-              const shardDmg = Math.max(
-                1,
-                Math.floor(stats.damage * percent)
-              );
+              const shardDmg = Number((stats.damage * percent).toFixed(2));
 
               for (let si = 0; si < count; si++) {
                 const sAngle = Math.random() * Math.PI * 2;
