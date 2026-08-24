@@ -2668,6 +2668,10 @@
 
     let lastTime = performance.now();
     let gameState = "menu";
+    function isMenuState() {
+      return gameState === "menu" || gameState === "network-menu" || gameState === "network-lobby";
+    }
+
     let difficulty = "normal";
     let wave = 1;
     let kills = 0;
@@ -3946,7 +3950,7 @@
     }
 
     function shoot() {
-      if (gameState !== "playing" && gameState !== "menu") {
+      if (gameState !== "playing" && !isMenuState()) {
         return;
       }
     
@@ -4441,7 +4445,7 @@
       updateHud();
     
       if (player.hp <= 0) {
-        if (gameState === "menu") {
+        if (isMenuState()) {
           player.hp = player.maxHp;
           createParticles(player.x, player.y, "#00f2fe", 20, 240);
           createRing(player.x, player.y, 44, "#00f2fe");
@@ -5414,8 +5418,8 @@
         let hitHorizontal = false;
         let hitVertical = false;
       
-        const currentWorldW = gameState === "menu" ? width : SOLO_WORLD_WIDTH;
-        const currentWorldH = gameState === "menu" ? height : SOLO_WORLD_HEIGHT;
+        const currentWorldW = isMenuState() ? width : SOLO_WORLD_WIDTH;
+        const currentWorldH = isMenuState() ? height : SOLO_WORLD_HEIGHT;
 
         if (bullet.x <= bullet.r) {
           bullet.x = bullet.r;
@@ -8033,7 +8037,7 @@
 
       playShoot() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -8050,7 +8054,7 @@
 
       playBounce() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -8067,7 +8071,7 @@
 
       playHit() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -8084,7 +8088,7 @@
 
       playCatch() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         [523.25, 659.25, 783.99].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
@@ -8102,7 +8106,7 @@
 
       playExplosion() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -8119,7 +8123,7 @@
 
       playUpgrade() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         [440, 554.37, 659.25, 880].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
@@ -8137,7 +8141,7 @@
 
       playUiClick() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || gameState === "menu") return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -14244,7 +14248,7 @@
     
       ctx.save();
 
-      const isMenu = gameState === "menu";
+      const isMenu = isMenuState();
       const worldW = isMenu ? width : SOLO_WORLD_WIDTH;
       const worldH = isMenu ? height : SOLO_WORLD_HEIGHT;
 
@@ -14898,7 +14902,7 @@
 
     function handlePointerUpdate(event) {
       // В главном меню бот целится сам и не должен следить за курсором пользователя
-      if (gameState === "menu") {
+      if (isMenuState()) {
         return;
       }
       const events = (typeof event.getCoalescedEvents === "function")
@@ -15164,7 +15168,7 @@
         if (visualDt > 0) {
           if (gameState === "playing") {
             update(visualDt);
-          } else if (gameState === "menu") {
+          } else if (isMenuState()) {
             updateMenuDemo(visualDt);
           }
         }
