@@ -4183,10 +4183,18 @@
       }
     }
 
-    function damageEnemy(index, damage, critical = false) {
-      const enemy = enemies[index];
+    function damageEnemy(indexOrEnemy, damage, critical = false) {
+      let enemy = null;
+      let index = -1;
+      if (typeof indexOrEnemy === "number") {
+        index = indexOrEnemy;
+        enemy = enemies[index];
+      } else if (indexOrEnemy && typeof indexOrEnemy === "object") {
+        enemy = indexOrEnemy;
+        index = enemies.indexOf(enemy);
+      }
 
-      if (!enemy) {
+      if (!enemy || index === -1) {
         return;
       }
 
@@ -4202,10 +4210,11 @@
       }
 
       /*
-       * Метка Цели: помеченный враг получает +30% урона.
+       * Метка Цели: помеченный враг получает дополнительный урон (+5% за уровень, до +40%).
        */
       if (enemy.targetMarked) {
-        damage = Math.round(damage * 1.3);
+        const markBonus = enemy.targetMarkBonus || enemy.markBonus || (stats && stats.markBonus) || 0.40;
+        damage = Math.round(damage * (1 + markBonus));
       }
 
       enemy.hp -= damage;
@@ -5850,7 +5859,8 @@
 
         let nearestEnemy = null;
         let nearestDist = 600;
-        for (const enemy of enemies) {
+        for (let ei = 0; ei < enemies.length; ei++) {
+          const enemy = enemies[ei];
           if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
           if (enemy.type === "phantom" && enemy.isPhased) continue;
           const d = distance(shard.x, shard.y, enemy.x, enemy.y);
@@ -5871,12 +5881,13 @@
         shard.x += shard.vx * dt;
         shard.y += shard.vy * dt;
 
-        for (const enemy of enemies) {
+        for (let ei = 0; ei < enemies.length; ei++) {
+          const enemy = enemies[ei];
           if (!enemy.hasEnteredArena || enemy.hp <= 0) continue;
           if (enemy.type === "phantom" && enemy.isPhased) continue;
           if (distance(shard.x, shard.y, enemy.x, enemy.y) <= shard.r + enemy.r) {
-            damageEnemy(enemy, shard.damage);
-            pushParticles(shard.x, shard.y, 6, "#00f2fe");
+            damageEnemy(ei, shard.damage);
+            createParticles(shard.x, shard.y, "#00f2fe", 6, 120);
             splinterShards.splice(i, 1);
             break;
           }
@@ -11086,6 +11097,7 @@
       /*
        * Синхронизация врагов.
        */
+      coopSession.splinters = Array.isArray(snapshot.splinters) ? snapshot.splinters : [];
       const receivedEnemyIds =
         new Set();
     
