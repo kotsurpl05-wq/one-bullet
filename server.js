@@ -1609,6 +1609,19 @@ function updateServerCoopWorld(
     return;
   }
 
+  if (typeof world.unpauseCountdown === "number") {
+    world.unpauseCountdown -= dt;
+    world.unpauseCountdownSec = Math.max(1, Math.ceil(world.unpauseCountdown));
+    if (world.unpauseCountdown <= 0) {
+      world.unpauseCountdown = null;
+      world.unpauseCountdownSec = null;
+      for (const p of world.players.values()) {
+        p.invulnerability = Math.max(p.invulnerability || 0, 1.5);
+      }
+    }
+    return;
+  }
+
   if (world.reconnectState) {
     if (world.reconnectState.paused) {
       return;
@@ -4855,6 +4868,11 @@ function createServerCoopSnapshot(room) {
     manualPaused:
       world.manualPaused,
 
+    unpauseCountdown:
+      world.unpauseCountdown
+        ? (world.unpauseCountdownSec || Math.ceil(world.unpauseCountdown))
+        : null,
+
     reconnectState:
       world.reconnectState || null,
 
@@ -5477,7 +5495,17 @@ io.on("connection", socket => {
       return;
     }
     touchRoom(room);
-    room.world.manualPaused = !room.world.manualPaused;
+    if (room.world.manualPaused) {
+      // Unpausing: trigger 3-second countdown before game continues
+      room.world.manualPaused = false;
+      room.world.unpauseCountdown = 3.0;
+      room.world.unpauseCountdownSec = 3;
+    } else {
+      // Pausing
+      room.world.manualPaused = true;
+      room.world.unpauseCountdown = null;
+      room.world.unpauseCountdownSec = null;
+    }
   });
 
   socket.on("net:debug-command", payload => {

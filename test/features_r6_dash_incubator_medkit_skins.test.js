@@ -197,5 +197,29 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes("skin === \"fire\""), "drawCoopBullet must check bullet skin");
       assert.ok(indexHtml.includes("coop-pause"), "Settings must support coop-pause return");
     });
+
+    await t3.test("3.6 Server unpause countdown pauses simulation and grants invulnerability", () => {
+      const { world, room, player1 } = createTestWorld(ctx);
+      world.manualPaused = false;
+      world.unpauseCountdown = 3.0;
+      world.unpauseCountdownSec = 3;
+
+      // When countdown is active, world simulation does not tick enemies or damage
+      ctx.updateServerCoopWorld(room, 0.5, Date.now());
+      assert.equal(world.unpauseCountdown, 2.5);
+      assert.equal(world.unpauseCountdownSec, 3);
+
+      // Finish countdown
+      ctx.updateServerCoopWorld(room, 2.6, Date.now());
+      assert.equal(world.unpauseCountdown, null);
+      assert.ok(player1.invulnerability >= 1.0, "Player must receive invulnerability buffer after unpausing");
+    });
+
+    await t3.test("3.7 Client crosshair contains Dash Charge Ring for both solo and coop", () => {
+      assert.ok(indexHtml.includes("renderCoopUnpauseUI"), "Client must define renderCoopUnpauseUI");
+      assert.ok(indexHtml.includes("drawCrosshair"), "Solo drawCrosshair must exist");
+      assert.ok(indexHtml.includes("drawCoopCrosshair"), "Coop drawCoopCrosshair must exist");
+      assert.ok(indexHtml.includes("startAngle = -Math.PI / 2"), "Crosshair must render circular charge arc");
+    });
   });
 });

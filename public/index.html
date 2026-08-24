@@ -11601,6 +11601,58 @@
     }
 
     let coopReconnectUiActive = false;
+    let coopUnpauseUiActive = false;
+    let lastUnpauseCountdownSec = null;
+
+    function renderCoopUnpauseUI(unpauseCountdown) {
+      if (unpauseCountdown) {
+        const count = typeof unpauseCountdown === "number" ? unpauseCountdown : 3;
+        coopUnpauseUiActive = true;
+        hidePauseMenu();
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+
+        if (count !== lastUnpauseCountdownSec) {
+          lastUnpauseCountdownSec = count;
+          soundManager.playUiTick();
+        }
+
+        const unpauseTimerEl = panel.querySelector("#coopUnpauseTimer");
+        if (unpauseTimerEl) {
+          unpauseTimerEl.textContent = count;
+        } else {
+          panel.innerHTML = `
+            <div class="coop-reconnect-screen">
+              <div class="coop-reconnect-badge" style="color: #00f2fe; border-color: rgba(0, 242, 254, 0.45); background: rgba(0, 242, 254, 0.15);">
+                <span class="coop-reconnect-pulse-dot" style="background: #00f2fe; box-shadow: 0 0 10px #00f2fe;"></span>
+                <span>СНЯТИЕ С ПАУЗЫ // ВОЗОБНОВЛЕНИЕ БОЯ</span>
+              </div>
+
+              <div class="coop-reconnect-timer-box" style="border-color: rgba(0, 242, 254, 0.5); background: rgba(0, 242, 254, 0.12); padding: 20px 40px;">
+                <div class="coop-reconnect-timer-val" id="coopUnpauseTimer" style="font-size: 54px; color: #00f2fe; letter-spacing: 2px;">${count}</div>
+                <div class="coop-reconnect-timer-label" style="color: #7ee7ff;">БОЙ ВОЗОБНОВИТСЯ ЧЕРЕЗ...</div>
+              </div>
+
+              <h2 class="coop-reconnect-title">Приготовьтесь к бою!</h2>
+              <p class="coop-reconnect-subtitle">
+                Пауза снята игроком. Симуляция возобновится через несколько секунд.
+              </p>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      if (!unpauseCountdown && coopUnpauseUiActive) {
+        coopUnpauseUiActive = false;
+        lastUnpauseCountdownSec = null;
+        if (!coopUpgradeUiActive && !coopGameOverUiActive && !coopReconnectUiActive && !coopSession.manualPaused) {
+          overlay.classList.add("hidden");
+          overlay.setAttribute("aria-hidden", "true");
+          soundManager.playWaveStart();
+        }
+      }
+    }
 
     function renderCoopReconnectUI(reconnectState) {
       if (reconnectState && reconnectState.unfreezing) {
@@ -11896,6 +11948,9 @@
 
       coopSession.upgradePaused =
         Boolean(snapshot.upgradePaused);
+
+      coopSession.unpauseCountdown = snapshot.unpauseCountdown || null;
+      renderCoopUnpauseUI(coopSession.unpauseCountdown);
 
       const previousManualPaused = coopSession.manualPaused;
       coopSession.manualPaused =
@@ -12968,7 +13023,7 @@
      * считать мир независимо, поэтому эффекты не рассинхронят кооп.
      */
     function updateCoopClient(dt, visualDt = dt) {
-      if (coopSession.manualPaused || coopSession.upgradePaused || coopSession.reconnectState?.paused || coopSession.reconnectState?.unfreezing) {
+      if (coopSession.manualPaused || coopSession.upgradePaused || coopSession.reconnectState?.paused || coopSession.reconnectState?.unfreezing || coopSession.unpauseCountdown) {
         return;
       }
 
@@ -14069,11 +14124,17 @@
       const lineWidth = 1.5 / coopView.scale;
       const extension = 6 / coopView.scale;
       const innerOffset = 2 / coopView.scale;
+      const ringRadius = radius + 6 / coopView.scale;
     
+      const myPlayer = coopSession.players.get(window.net?.playerId);
+      const cd = myPlayer ? (myPlayer.dashCooldown || 0) : 0;
+      const isReady = cd <= 0;
+      const progress = Math.min(1, Math.max(0, (8.0 - cd) / 8.0));
+
       ctx.save();
       ctx.translate(coopPointer.x, coopPointer.y);
     
-      ctx.strokeStyle = "rgba(200, 247, 255, 0.75)";
+      ctx.strokeStyle = isReady ? "rgba(56, 189, 248, 0.95)" : "rgba(200, 247, 255, 0.6)";
       ctx.lineWidth = lineWidth;
     
       ctx.beginPath();
@@ -14090,8 +14151,59 @@
     
       ctx.moveTo(0, radius - innerOffset);
       ctx.lineTo(0, radius + extension);
-    
       ctx.stroke();
+
+      // Круговой индикатор зарядки рывка вокруг сетевого прицела
+      if (!isReady) {
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 242, 254, 0.15)";
+        ctx.lineWidth = 2.2 / coopView.scale;
+        ctx.stroke();
+
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + progress * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius, startAngle, endAngle);
+        ctx.strokeStyle = "#00f2fe";
+        ctx.lineWidth = 2.4 / coopView.scale;
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+
+        const tipX = Math.cos(endAngle) * ringRadius;
+        const tipY = Math.sin(endAngle) * ringRadius;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 2.5 / coopView.scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      } else {
+        const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.05;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2.0 / coopView.scale;
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+
+        for (let i = 0; i < 4; i++) {
+          const ang = (i * Math.PI / 2) + Math.PI / 4;
+          const nx1 = Math.cos(ang) * (ringRadius * pulse - 1.5 / coopView.scale);
+          const ny1 = Math.sin(ang) * (ringRadius * pulse - 1.5 / coopView.scale);
+          const nx2 = Math.cos(ang) * (ringRadius * pulse + 2.5 / coopView.scale);
+          const ny2 = Math.sin(ang) * (ringRadius * pulse + 2.5 / coopView.scale);
+          ctx.beginPath();
+          ctx.moveTo(nx1, ny1);
+          ctx.lineTo(nx2, ny2);
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1.5 / coopView.scale;
+          ctx.stroke();
+        }
+      }
+
       ctx.restore();
     }
 
@@ -16300,80 +16412,89 @@
         return;
       }
     
-      const radius =
-        10 / soloView.scale;
+      const radius = 10 / soloView.scale;
+      const lineWidth = 1.5 / soloView.scale;
+      const extension = 6 / soloView.scale;
+      const innerOffset = 2 / soloView.scale;
+      const ringRadius = radius + 6 / soloView.scale;
     
-      const lineWidth =
-        1.5 / soloView.scale;
-    
-      const extension =
-        6 / soloView.scale;
-    
-      const innerOffset =
-        2 / soloView.scale;
-    
+      const cd = player ? (player.dashCooldown || 0) : 0;
+      const isReady = cd <= 0;
+      const progress = Math.min(1, Math.max(0, (8.0 - cd) / 8.0));
+
       ctx.save();
-      ctx.translate(
-        pointer.x,
-        pointer.y
-      );
+      ctx.translate(pointer.x, pointer.y);
     
-      ctx.strokeStyle =
-        "rgba(200, 247, 255, 0.75)";
-    
+      ctx.strokeStyle = isReady ? "rgba(56, 189, 248, 0.95)" : "rgba(200, 247, 255, 0.6)";
       ctx.lineWidth = lineWidth;
     
       ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
     
-      ctx.arc(
-        0,
-        0,
-        radius,
-        0,
-        Math.PI * 2
-      );
+      ctx.moveTo(-radius - extension, 0);
+      ctx.lineTo(-radius + innerOffset, 0);
     
-      ctx.moveTo(
-        -radius - extension,
-        0
-      );
+      ctx.moveTo(radius - innerOffset, 0);
+      ctx.lineTo(radius + extension, 0);
     
-      ctx.lineTo(
-        -radius + innerOffset,
-        0
-      );
+      ctx.moveTo(0, -radius - extension);
+      ctx.lineTo(0, -radius + innerOffset);
     
-      ctx.moveTo(
-        radius - innerOffset,
-        0
-      );
-    
-      ctx.lineTo(
-        radius + extension,
-        0
-      );
-    
-      ctx.moveTo(
-        0,
-        -radius - extension
-      );
-    
-      ctx.lineTo(
-        0,
-        -radius + innerOffset
-      );
-    
-      ctx.moveTo(
-        0,
-        radius - innerOffset
-      );
-    
-      ctx.lineTo(
-        0,
-        radius + extension
-      );
-    
+      ctx.moveTo(0, radius - innerOffset);
+      ctx.lineTo(0, radius + extension);
       ctx.stroke();
+
+      // Круговой индикатор зарядки рывка вокруг прицела
+      if (!isReady) {
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 242, 254, 0.15)";
+        ctx.lineWidth = 2.2 / soloView.scale;
+        ctx.stroke();
+
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + progress * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius, startAngle, endAngle);
+        ctx.strokeStyle = "#00f2fe";
+        ctx.lineWidth = 2.4 / soloView.scale;
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+
+        const tipX = Math.cos(endAngle) * ringRadius;
+        const tipY = Math.sin(endAngle) * ringRadius;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 2.5 / soloView.scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      } else {
+        const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.05;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2.0 / soloView.scale;
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+
+        for (let i = 0; i < 4; i++) {
+          const ang = (i * Math.PI / 2) + Math.PI / 4;
+          const nx1 = Math.cos(ang) * (ringRadius * pulse - 1.5 / soloView.scale);
+          const ny1 = Math.sin(ang) * (ringRadius * pulse - 1.5 / soloView.scale);
+          const nx2 = Math.cos(ang) * (ringRadius * pulse + 2.5 / soloView.scale);
+          const ny2 = Math.sin(ang) * (ringRadius * pulse + 2.5 / soloView.scale);
+          ctx.beginPath();
+          ctx.moveTo(nx1, ny1);
+          ctx.lineTo(nx2, ny2);
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1.5 / soloView.scale;
+          ctx.stroke();
+        }
+      }
+
       ctx.restore();
     }
       
@@ -16468,6 +16589,9 @@
        * В меню симуляция заполняет весь экран.
        */
       if (!isMenu) {
+        if (gameState === "playing") {
+          updateHud();
+        }
         drawArenaFrame(
           SOLO_WORLD_WIDTH,
           SOLO_WORLD_HEIGHT
