@@ -7024,10 +7024,13 @@
       {
         title: "Критический механизм",
         description: "Шанс критического урона (x2.0) увеличивается на 10% (макс. 60%).",
-        apply() {
+        available() {
+          return (stats.critChance || 0) < 0.60;
+        },
+        applyWithPower(power) {
           stats.critChance = Math.min(
-            0.6,
-            stats.critChance + 0.10
+            0.60,
+            (stats.critChance || 0) + 0.10 * power
           );
         }
       },
@@ -7334,7 +7337,7 @@
       
         case "Критический механизм": {
           const maximumCritChance = 0.6;
-          const requestedBonus = 0.18 * power;
+          const requestedBonus = 0.10 * power;
         
           const resultingChance = Math.min(
             maximumCritChance,
