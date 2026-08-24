@@ -9737,7 +9737,7 @@
     let teammateReturnedToLobby = false;
 
     function showCoopGameOverScreen() {
-      if (!coopSession.active) {
+      if (!coopSession.active || !coopSession.gameOver) {
         return;
       }
 
@@ -9937,7 +9937,7 @@
         
           if (gameState === "network-lobby") {
             renderNetworkLobby();
-          } else if (coopGameOverUiActive && coopSession.active) {
+          } else if (coopGameOverUiActive && coopSession.active && coopSession.gameOver) {
             showCoopGameOverScreen();
           }
         }
@@ -10149,11 +10149,15 @@
       coopSession.experienceCrystals.clear();
       coopScreenShake = 0;
 
+      coopSession.gameOver = false;
+      coopGameOverUiActive = false;
+      teammateReturnedToLobby = false;
       coopUpgradeUiActive = false;
       coopUpgradeChoiceLocked = false;
       coopUpgradeOfferId = "";
       coopUpgradeOffers = [];
-      coopGameOverUiActive = false;
+      panel.innerHTML = "";
+      panel.onclick = null;
 
       document.querySelector("#hud")?.classList.remove("hidden");
       document.querySelector("#help")?.classList.remove("hidden");
@@ -10713,6 +10717,14 @@
     
       coopSession.gameOver =
         Boolean(snapshot.gameOver);
+      if (!coopSession.gameOver && coopGameOverUiActive) {
+        coopGameOverUiActive = false;
+        overlay.classList.add("hidden");
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.classList.remove("fullscreen-menu-mode");
+        panel.innerHTML = "";
+        panel.onclick = null;
+      }
       coopSession.reconnectState = snapshot.reconnectState || null;
       renderCoopReconnectUI(coopSession.reconnectState);
     
