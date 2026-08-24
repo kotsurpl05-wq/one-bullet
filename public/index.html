@@ -2821,6 +2821,15 @@
 
     addEventListener("resize", resize);
 
+    window.addEventListener("beforeunload", () => {
+      if (window.net?.isMultiplayer && coopSession.active) {
+        try {
+          window.net.socket?.emit("room:going-away");
+        } catch {}
+      }
+    });
+
+
     function updateArenaView(
       view,
       worldWidth,

@@ -5295,6 +5295,39 @@ io.on("connection", socket => {
     acknowledge?.({ success: true });
   });
 
+  socket.on("room:going-away", () => {
+    const room = getRoomForSocket(socket);
+    if (!room || !room.started || !room.world || room.world.gameOver) return;
+
+    const player = room.players.get(socket.id);
+    if (player && !player.disconnected) {
+      player.disconnected = true;
+      player.disconnectTime = Date.now();
+
+      room.world.reconnectState = {
+        paused: true,
+        disconnectedId: player.id,
+        playerName: player.name,
+        role: player.role,
+        expiresAt: Date.now() + 120000
+      };
+
+      if (room.reconnectTimeout) {
+        clearTimeout(room.reconnectTimeout);
+      }
+
+      room.reconnectTimeout = setTimeout(() => {
+        if (!rooms.has(room.code)) return;
+        if (room.world && room.world.reconnectState?.paused) {
+          closeRoom(room, "Время ожидания напарника (2 мин) истекло");
+        }
+      }, 120000);
+
+      io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+      emitRoomState(room);
+    }
+  });
+
   socket.on("disconnect", () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
