@@ -3985,6 +3985,7 @@
         player.y +
         direction.y * (player.r + bullet.r + 2);
     
+      soundManager.playShoot();
       bullet.vx = direction.x * stats.bulletSpeed;
       bullet.vy = direction.y * stats.bulletSpeed;
       bullet.bouncesLeft = stats.maxBounces;
@@ -4411,6 +4412,7 @@
         return false;
       }
     
+      soundManager.playPlayerHurt();
       player.hp = Math.max(
         0,
         player.hp - actualDamage
@@ -8166,19 +8168,69 @@
 
       playHit() {
         this.init();
-        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0 || isMenuState()) return;
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.setValueAtTime(280, now);
         osc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
-        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.setValueAtTime(0.35, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
         osc.connect(gain);
         gain.connect(this.masterGain);
         osc.start(now);
         osc.stop(now + 0.09);
+      }
+
+      playCritHit() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+        
+        // High crisp snap
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = "sawtooth";
+        osc1.frequency.setValueAtTime(720, now);
+        osc1.frequency.exponentialRampToValueAtTime(140, now + 0.14);
+        gain1.gain.setValueAtTime(0.4, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        osc1.connect(gain1);
+        gain1.connect(this.masterGain);
+        osc1.start(now);
+        osc1.stop(now + 0.14);
+
+        // Low heavy impact thud
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = "triangle";
+        osc2.frequency.setValueAtTime(220, now);
+        osc2.frequency.exponentialRampToValueAtTime(45, now + 0.18);
+        gain2.gain.setValueAtTime(0.5, now);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc2.connect(gain2);
+        gain2.connect(this.masterGain);
+        osc2.start(now);
+        osc2.stop(now + 0.18);
+      }
+
+      playPlayerHurt() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(35, now + 0.22);
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.22);
       }
 
       playCatch() {
@@ -10773,6 +10825,9 @@
             coopScreenShake,
             snapshotPlayer.id === window.net?.playerId ? 14 : 8
           );
+          if (snapshotPlayer.id === window.net?.playerId) {
+            soundManager.playPlayerHurt();
+          }
         }
 
         coopPlayer.hp = newPlayerHp;
@@ -11026,8 +11081,14 @@
 
         const newState = snapshotBullet.state || coopBullet.state;
 
+        if (previousState === "held" && newState === "flying") {
+          // Пуля выстрелена
+          soundManager.playShoot();
+        }
+
         if (previousState === "flying" && newBounces < previousBounces) {
           // Отскок пули от границы арены или препятствия
+          soundManager.playBounce();
           createCoopParticles(snapshotBullet.x, snapshotBullet.y, "#7ee7ff", 10, 160);
           createCoopRing(snapshotBullet.x, snapshotBullet.y, 22, "#7ee7ff");
           coopScreenShake = Math.max(coopScreenShake, 3);
@@ -11035,6 +11096,7 @@
 
         if (previousState !== "held" && newState === "held") {
           // Пуля поймана
+          soundManager.playCatch();
           createCoopRing(snapshotBullet.x, snapshotBullet.y, 26, "#7ee7ff");
           createCoopParticles(snapshotBullet.x, snapshotBullet.y, "#7ee7ff", 8, 130);
 
@@ -11284,7 +11346,10 @@
           );
 
           if (criticalHit) {
+            soundManager.playCritHit();
             triggerHitStop();
+          } else {
+            soundManager.playHit();
           }
 
           if (nextEnemyHp <= 0) {
