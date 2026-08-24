@@ -4841,7 +4841,7 @@ function createServerCoopSnapshot(room) {
       twinPartnerId: enemy.type === "twin" ? (enemy.twinPartnerId || null) : undefined,
       isEnraged: enemy.type === "twin" ? Boolean(enemy.isEnraged) : undefined,
       targetMarked: Boolean(enemy.targetMarked),
-      poisoned: Boolean(enemy.poisonDuration && enemy.poisonDuration > 0),
+      poisoned: Boolean(enemy.poisonTimer && enemy.poisonTimer > 0),
       parasiteInfested: Boolean(enemy.parasiteInfested)
     })),
 

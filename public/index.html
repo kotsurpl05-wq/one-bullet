@@ -6046,22 +6046,60 @@
     }
 
     function drawParasiteSpores() {
+      const now = performance.now();
       for (const spore of parasiteSpores) {
         ctx.save();
-        ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 15;
         
-        // Внешнее белое био-свечение
-        ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+        // Расчёт направления хвоста
+        const speed = Math.hypot(spore.vx, spore.vy) || 1;
+        const nx = spore.vx / speed;
+        const ny = spore.vy / speed;
+        const pulse = 1 + Math.sin(now * 0.02 + spore.x) * 0.18;
+
+        // 1. Хвост паразита (извивающийся био-кометный шлейф)
+        for (let t = 3; t >= 1; t--) {
+          const tDist = t * 7;
+          const wave = Math.sin(now * 0.025 - t * 0.8) * 4;
+          const tx = spore.x - nx * tDist - ny * wave;
+          const ty = spore.y - ny * tDist + nx * wave;
+          const tRadius = Math.max(2, (spore.r || 7) * (1 - t * 0.26));
+
+          ctx.shadowColor = "#ffffff";
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.7 - t * 0.18})`;
+          ctx.beginPath();
+          ctx.arc(tx, ty, tRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 2. Внешняя сияющая белая био-аура
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 24;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
         ctx.beginPath();
-        ctx.arc(spore.x, spore.y, spore.r + 3, 0, Math.PI * 2);
+        ctx.arc(spore.x, spore.y, (spore.r || 7) * 1.55 * pulse, 0, Math.PI * 2);
         ctx.fill();
 
-        // Белое ядро паразита
+        // 3. Плотное белое ядро паразита
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(spore.x, spore.y, spore.r, 0, Math.PI * 2);
+        ctx.arc(spore.x, spore.y, (spore.r || 7) * pulse, 0, Math.PI * 2);
         ctx.fill();
+
+        // 4. Микро-щупальца / усики на голове
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.8;
+        for (let s = -1; s <= 1; s += 2) {
+          const tentAngle = Math.atan2(ny, nx) + s * 0.6 + Math.sin(now * 0.03) * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(spore.x, spore.y);
+          ctx.lineTo(
+            spore.x + Math.cos(tentAngle) * (spore.r + 6),
+            spore.y + Math.sin(tentAngle) * (spore.r + 6)
+          );
+          ctx.stroke();
+        }
+
         ctx.restore();
       }
     }
@@ -6069,73 +6107,118 @@
     function drawEnemyStatusEffects(enemy) {
       const now = performance.now();
 
-      // 1. 🧪 ЯД: Кислотно-зелёное мерцание / пульсация
-      const isPoisoned = Boolean(enemy.poisonDuration && enemy.poisonDuration > 0) || Boolean(enemy.poisoned);
+      // 1. 🧪 ЯД: Яркое токсично-кислотное зелёное мерцание + всплывающие пузыри
+      const isPoisoned = Boolean(enemy.poisonTimer && enemy.poisonTimer > 0) || Boolean(enemy.poisoned);
       if (isPoisoned) {
-        const pPulse = 0.5 + 0.5 * Math.sin(now * 0.018); // Быстрая кислотная пульсация
+        const pPulse = 0.5 + 0.5 * Math.sin(now * 0.02); // Быстрая кислотная пульсация
         ctx.save();
+
+        // Мощная кислотная аура
         ctx.shadowColor = "#39ff14";
-        ctx.shadowBlur = 14 * pPulse + 4;
+        ctx.shadowBlur = 22 * pPulse + 6;
         
-        // Кислотное свечение по контуру
-        ctx.strokeStyle = `rgba(57, 255, 20, ${0.45 + 0.45 * pPulse})`;
-        ctx.lineWidth = 2.5;
+        // Внешнее кислотное кольцо с двойным контуром
+        ctx.strokeStyle = `rgba(57, 255, 20, ${0.75 + 0.25 * pPulse})`;
+        ctx.lineWidth = 3.2;
         ctx.beginPath();
-        ctx.arc(0, 0, enemy.r + 3, 0, Math.PI * 2);
+        ctx.arc(0, 0, enemy.r + 4 + 2 * pPulse, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Кислотная закраска поверх тела
-        ctx.fillStyle = `rgba(57, 255, 20, ${0.18 + 0.22 * pPulse})`;
+        // Внутренняя токсичная заливка
+        ctx.fillStyle = `rgba(57, 255, 20, ${0.32 + 0.25 * pPulse})`;
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
         ctx.fill();
+
+        // Всплывающие токсичные пузыри яда вокруг врага
+        ctx.fillStyle = "#39ff14";
+        for (let b = 0; b < 4; b++) {
+          const bOffset = (now * 0.035 + b * 18) % (enemy.r * 2.4);
+          const bx = Math.sin(now * 0.006 + b * 1.8) * (enemy.r * 0.85);
+          const by = enemy.r * 0.6 - bOffset;
+          const bRadius = Math.max(1.2, 3.2 * (1 - bOffset / (enemy.r * 2.4)));
+
+          ctx.beginPath();
+          ctx.arc(bx, by, bRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         ctx.restore();
       }
 
-      // 2. 🪱 ПАРАЗИТ: Белые пульсирующие вены / паутина заражения
+      // 2. 🪱 ПАРАЗИТ: Яркие толстые белые светящиеся вены + органические наросты/щупальца
       const isParasited = Boolean(enemy.parasiteInfested);
       if (isParasited) {
-        const vPulse = 0.7 + 0.3 * Math.sin(now * 0.009 + (enemy.id || 0));
+        const vPulse = 0.75 + 0.25 * Math.sin(now * 0.012 + (enemy.id || 0));
         ctx.save();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * vPulse})`;
         ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 8 * vPulse;
-        ctx.lineWidth = 1.6;
+        ctx.shadowBlur = 16 * vPulse;
 
-        // Органический ветвящийся рисунок вен
-        const r = enemy.r * 0.75;
+        // Внешние паразитарные наросты / щупальца по периметру
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2.2;
+        const cystCount = 6;
+        for (let c = 0; c < cystCount; c++) {
+          const cystAngle = (Math.PI * 2 * c / cystCount) + Math.sin(now * 0.008 + c) * 0.25;
+          const cystOut = enemy.r + 5 + Math.sin(now * 0.015 + c * 2) * 3;
+          const cx = Math.cos(cystAngle) * cystOut;
+          const cy = Math.sin(cystAngle) * cystOut;
+
+          // Щупальце от тела к наросту
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(cystAngle) * (enemy.r * 0.8), Math.sin(cystAngle) * (enemy.r * 0.8));
+          ctx.lineTo(cx, cy);
+          ctx.stroke();
+
+          // Нарост/кокон
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3.0 * vPulse, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Толстый, чёткий ветвящийся рисунок вен по телу
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 * vPulse})`;
+        ctx.lineWidth = 2.8;
+        const r = enemy.r * 0.85;
+
         ctx.beginPath();
-        // Ветвь 1
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(-r * 0.4, -r * 0.3, -r * 0.8, -r * 0.6);
-        ctx.moveTo(-r * 0.4, -r * 0.3);
-        ctx.lineTo(-r * 0.7, 0);
-        // Ветвь 2
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(r * 0.3, -r * 0.5, r * 0.75, -r * 0.55);
-        ctx.moveTo(r * 0.3, -r * 0.5);
-        ctx.lineTo(r * 0.6, -r * 0.2);
-        // Ветвь 3
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(r * 0.4, r * 0.3, r * 0.7, r * 0.7);
-        // Ветвь 4
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(-r * 0.3, r * 0.4, -r * 0.65, r * 0.65);
+        // Главная вертикальная жила
+        ctx.moveTo(0, -r);
+        ctx.quadraticCurveTo(r * 0.35 * Math.sin(now * 0.01), 0, 0, r);
+        // Ветвь влево-вверх
+        ctx.moveTo(0, -r * 0.3);
+        ctx.quadraticCurveTo(-r * 0.5, -r * 0.5, -r * 0.9, -r * 0.4);
+        // Ветвь влево-вниз
+        ctx.moveTo(0, r * 0.2);
+        ctx.quadraticCurveTo(-r * 0.6, r * 0.4, -r * 0.85, r * 0.7);
+        // Ветвь вправо-вверх
+        ctx.moveTo(0, -r * 0.2);
+        ctx.quadraticCurveTo(r * 0.6, -r * 0.6, r * 0.9, -r * 0.5);
+        // Ветвь вправо-вниз
+        ctx.moveTo(0, r * 0.3);
+        ctx.quadraticCurveTo(r * 0.5, r * 0.5, r * 0.85, r * 0.75);
         ctx.stroke();
 
-        // Белые органические узлы
+        // Крупные белые узлы заражения
         ctx.fillStyle = "#ffffff";
         [
-          [-r * 0.8, -r * 0.6],
-          [r * 0.75, -r * 0.55],
-          [r * 0.7, r * 0.7],
-          [-r * 0.65, r * 0.65],
-          [0, 0]
+          [0, 0],
+          [-r * 0.5, -r * 0.4],
+          [r * 0.5, -r * 0.45],
+          [-r * 0.6, r * 0.45],
+          [r * 0.5, r * 0.5]
         ].forEach(([vx, vy]) => {
           ctx.beginPath();
-          ctx.arc(vx, vy, 1.8, 0, Math.PI * 2);
+          ctx.arc(vx, vy, 2.5 * vPulse, 0, Math.PI * 2);
           ctx.fill();
         });
+
+        // Белая дымка био-спор
+        ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.9, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
       }
