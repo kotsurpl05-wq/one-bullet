@@ -905,6 +905,19 @@ function updateServerBullet(
       }
 
       /*
+       * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px.
+       */
+      for (const enemy of world.enemies.values()) {
+        if (enemy.type !== "magnetizer" || !enemy.hasEnteredArena || enemy.hp <= 0) continue;
+        const distToMag = distance(bullet.x, bullet.y, enemy.x, enemy.y);
+        if (distToMag < 400 && distToMag > enemy.r + bullet.r) {
+          const magPull = (350 + (1 - distToMag / 400) * 450) * dt;
+          bullet.x += ((enemy.x - bullet.x) / distToMag) * magPull;
+          bullet.y += ((enemy.y - bullet.y) / distToMag) * magPull;
+        }
+      }
+
+      /*
        * Эффект Бумеранга: возвращающаяся пуля
        * наносит +50% урона и получает +1 пробитие.
        * Проверяем swept-коллизию от старой позиции до владельца
@@ -998,7 +1011,7 @@ function updateServerBullet(
     );
 
     if (distToBullet < 400 && distToBullet > 1) {
-      const pullStrength = 340 * dt;
+      const pullStrength = (1600 + (1 - distToBullet / 400) * 2400) * dt;
       const dx = enemy.x - bullet.x;
       const dy = enemy.y - bullet.y;
 

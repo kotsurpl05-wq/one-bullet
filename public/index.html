@@ -5497,17 +5497,17 @@
         }
 
         /*
-         * Магнетизатор: искривляет траекторию пуль в 400px с усиленным притяжением.
+         * Магнетизатор: мощно притягивает и искривляет траекторию пуль в радиусе 400px.
          */
         for (const mag of enemies) {
-          if (mag.type !== "magnetizer") continue;
+          if (mag.type !== "magnetizer" || !mag.hasEnteredArena || mag.hp <= 0) continue;
           const magDist = Math.hypot(
             mag.x - bullet.x,
             mag.y - bullet.y
           );
 
           if (magDist < 400 && magDist > 0.1) {
-            const pullStrength = 340 * dt;
+            const pullStrength = (1600 + (1 - magDist / 400) * 2400) * dt;
             bullet.vx += ((mag.x - bullet.x) / magDist) * pullStrength;
             bullet.vy += ((mag.y - bullet.y) / magDist) * pullStrength;
           }
@@ -15048,6 +15048,32 @@
           ctx.shadowBlur = 16;
           ctx.fill();
           ctx.shadowBlur = 0;
+        } else if (enemy.type === "magnetizer") {
+          const now = performance.now();
+          ctx.save();
+          ctx.rotate(now * 0.003);
+          ctx.strokeStyle = "#c084fc";
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 12;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([8, 6]);
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r + 6, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#3b0764";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
+          ctx.fillStyle = "#e9d5ff";
+          ctx.shadowColor = "#c084fc";
+          ctx.shadowBlur = 10;
+          ctx.fill();
         } else if (enemy.type === "tank") {
 
           ctx.beginPath();
