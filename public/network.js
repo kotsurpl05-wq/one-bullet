@@ -202,21 +202,28 @@ class OneBulletNetwork extends EventTarget {
   }
 
   async joinRoom(code, name) {
+    const saved = this.getReconnectData();
+    const token = (saved && saved.roomCode === code) ? saved.token : null;
+
     const result = await this.request(
       "room:join",
       {
         code,
-        name
+        name,
+        token
       }
     );
 
     if (result.success) {
-      this.role = "guest";
+      this.role = result.role || "guest";
       this.room = result.room;
       this.playerId = result.playerId;
-      this.reconnectToken = result.reconnectToken;
-      if (result.reconnectToken && code) {
-        this.saveReconnectData(code, result.reconnectToken, name);
+      this.reconnectToken = result.reconnectToken || token;
+      if (result.snapshot) {
+        this.lastSnapshot = result.snapshot;
+      }
+      if (this.reconnectToken && code) {
+        this.saveReconnectData(code, this.reconnectToken, name);
       }
     }
 

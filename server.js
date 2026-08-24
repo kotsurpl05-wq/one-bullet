@@ -4614,10 +4614,113 @@ io.on("connection", socket => {
 
       touchRoom(room);
 
-      if (room.started) {
+      // Если матч уже идёт, проверяем возможность переподключения по токену или слоту
+      if (room.started && room.world && !room.world.gameOver) {
+        const token = String(payload?.token || payload?.reconnectToken || "").trim();
+        const name = sanitizeName(payload?.name);
+
+        let matchedPlayer = null;
+        let oldPlayerId = null;
+
+        // Поиск по токену переподключения
+        if (token) {
+          for (const [pId, p] of room.players.entries()) {
+            if (p.reconnectToken && p.reconnectToken === token) {
+              matchedPlayer = p;
+              oldPlayerId = pId;
+              break;
+            }
+          }
+        }
+
+        // Если токена нет, но в комнате есть отключившийся игрок (по имени или единственный)
+        if (!matchedPlayer && (room.world.reconnectState?.paused || room.reconnectTimeout)) {
+          for (const [pId, p] of room.players.entries()) {
+            if (p.disconnected && (!name || p.name === name || room.players.size <= 2)) {
+              matchedPlayer = p;
+              oldPlayerId = pId;
+              break;
+            }
+          }
+        }
+
+        if (matchedPlayer) {
+          if (room.reconnectTimeout) {
+            clearTimeout(room.reconnectTimeout);
+            room.reconnectTimeout = null;
+          }
+
+          if (oldPlayerId !== socket.id) {
+            room.players.delete(oldPlayerId);
+            matchedPlayer.id = socket.id;
+            room.players.set(socket.id, matchedPlayer);
+
+            if (room.hostId === oldPlayerId) {
+              room.hostId = socket.id;
+            }
+
+            const coopPlayer = room.world.players.get(oldPlayerId);
+            if (coopPlayer) {
+              room.world.players.delete(oldPlayerId);
+              coopPlayer.id = socket.id;
+              room.world.players.set(socket.id, coopPlayer);
+            }
+
+            for (const bullet of room.world.bullets.values()) {
+              if (bullet.ownerId === oldPlayerId) {
+                bullet.ownerId = socket.id;
+              }
+            }
+
+            ensureServerMagazine(room.world, coopPlayer);
+
+            if (room.world.upgradeRound) {
+              if (room.world.upgradeRound.waitingPlayers.has(oldPlayerId)) {
+                room.world.upgradeRound.waitingPlayers.delete(oldPlayerId);
+                room.world.upgradeRound.waitingPlayers.add(socket.id);
+              }
+              if (room.world.upgradeRound.offersByPlayer.has(oldPlayerId)) {
+                const offers = room.world.upgradeRound.offersByPlayer.get(oldPlayerId);
+                room.world.upgradeRound.offersByPlayer.delete(oldPlayerId);
+                room.world.upgradeRound.offersByPlayer.set(socket.id, offers);
+              }
+            }
+          }
+
+          matchedPlayer.disconnected = false;
+          matchedPlayer.disconnectTime = null;
+
+          socket.data.roomCode = code;
+          socket.data.role = matchedPlayer.role;
+          socket.join(code);
+
+          room.world.reconnectState = {
+            unfreezing: true,
+            countdown: 3.0,
+            countdownSec: 3,
+            playerName: matchedPlayer.name,
+            role: matchedPlayer.role
+          };
+
+          const snapshot = createServerCoopSnapshot(room);
+
+          acknowledge?.({
+            success: true,
+            role: matchedPlayer.role,
+            playerId: socket.id,
+            reconnectToken: matchedPlayer.reconnectToken,
+            room: getPublicRoomState(room),
+            snapshot
+          });
+
+          io.to(room.code).emit("net:snapshot", snapshot);
+          emitRoomState(room);
+          return;
+        }
+
         acknowledge?.({
           success: false,
-          message: "Забег уже начался"
+          message: "Забег уже идёт, свободных мест для переподключения нет"
         });
 
         return;
