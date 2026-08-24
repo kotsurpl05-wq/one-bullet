@@ -9567,7 +9567,7 @@
           <div class="hero-brand-container">
             <div class="hero-version-pill">
               <span class="status-dot"></span>
-              <span>v2.1 PRECISION & CO-OP UPDATE // ROGUELIKE</span>
+              <span>v2.2 CO-OP FULL PARITY & STABILITY // ROGUELIKE</span>
             </div>
             
             <h1 class="hero-cyber-logo">ONE BULLET</h1>
@@ -10021,22 +10021,40 @@
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
             
-            <!-- v2.1 -->
-            <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(0, 242, 254, 0.6); border-radius: 14px; padding: 18px; box-shadow: 0 6px 22px rgba(0, 242, 254, 0.12);">
+            <!-- v2.2 -->
+            <div style="background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(0, 242, 254, 0.65); border-radius: 14px; padding: 18px; box-shadow: 0 6px 24px rgba(0, 242, 254, 0.14);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.1</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Зарядка на прицеле, Таймер снятия паузы & Кооп-полировка</span>
+                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.2</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Сетевой паритет всех улучшений, Осколки & Паразиты</span>
                 </div>
                 <span style="font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
-                <li>⏱️ <strong>3-секундный таймер снятия паузы в Коопе:</strong> При продолжении игры включается синхронный отсчёт <em>(3... 2... 1... БОЙ!)</em> с оверлеем и 1.5с защитой от урона.</li>
-                <li>🎯 <strong>Круговой индикатор зарядки рывка на прицеле:</strong> Вокруг курсора мыши вращается светящаяся дуга кулдауна с искрой, пульсирующая засечками при готовности.</li>
-                <li>⚡ <strong>Полная поддержка Рывка в онлайн-коопе:</strong> Авторитетная синхронизация рывка (850 px/s) между клиентом и сервером без телепортаций.</li>
-                <li>⚙️ <strong>Настройки в Лобби и Паузе:</strong> Доступ к параметрам игры из лобби и корректный возврат в бой без сброса состояния матча.</li>
-                <li>🎨 <strong>Скины пуль в мультиплеере:</strong> Все 5 скинов теперь полноценно отрисовываются для кооперативных снарядов.</li>
-                <li>🔄 <strong>Плавный 60 FPS HUD:</strong> Исправлено зависание таймера кулдауна при бездействии — статус обновляется в реальном времени.</li>
+                <li>🪱 <strong>Синхронизация и физика Паразитов:</strong> Споры паразитов в коопе наводятся на врагов со скоростью 320 px/s, наносят авторитетный урон и улетают за арену при отсутствии целей.</li>
+                <li>✨ <strong>Осколочный Рикошет (Splinters) в Коопе:</strong> Осколки при отскоке от стен транслируются клиентам, наводятся на цели и масштабируют урон и количество (до 5 осколков).</li>
+                <li>🧲 <strong>Паритет прокачки способностей:</strong> Исправлена синхронизация Магнитного поля (+110 px/s), Радиуса магнита (+5 кл.), Бумеранга, Оглушения, Реактивной брони и Яда в мультиплеере.</li>
+                <li>⚡ <strong>Устранение рассинхрона движения:</strong> Авторитетная координатная синхронизация исключила дергания и ложные телепортации при спринте и рывках.</li>
+                <li>⚙️ <strong>Исправление модальных меню:</strong> Повышен приоритет оверлея настроек — меню паузы больше не всплывает поверх экрана параметров.</li>
+                <li>💀 <strong>Фикс зависания при поражении:</strong> Сервер бесперебойно транслирует Game Over при гибели обоих игроков (включая гибель во время воскрешения напарника).</li>
+                <li>🔊 <strong>Web Audio API & SoundManager:</strong> Исправлены браузерные предупреждения автовоспроизведения, добавлены звуки отсчёта и возобновления раунда.</li>
+              </ul>
+            </div>
+
+            <!-- v2.1 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.1</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Зарядка на прицеле, Таймер снятия паузы & Кооп-полировка</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>⏱️ <strong>3-секундный таймер снятия паузы в Коопе:</strong> Синхронный отсчёт <em>(3... 2... 1... БОЙ!)</em> с 1.5с неуязвимостью.</li>
+                <li>🎯 <strong>Индикатор зарядки рывка на прицеле:</strong> Круговая светящаяся дуга кулдауна вокруг курсора с искрами.</li>
+                <li>⚡ <strong>Поддержка Рывка в коопе:</strong> Авторитетная синхронизация рывка (850 px/s).</li>
+                <li>⚙️ <strong>Настройки в Лобби и Паузе:</strong> Доступ к параметрам игры из лобби и кооп-паузы.</li>
+                <li>🎨 <strong>Скины пуль в мультиплеере:</strong> Все 5 скинов отрисовываются для сетевых пуль.</li>
               </ul>
             </div>
 
