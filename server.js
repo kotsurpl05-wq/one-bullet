@@ -2354,8 +2354,9 @@ const SERVER_UPGRADES = [
     id: "boomerang",
     title: "Эффект Бумеранга",
     description: "Возвращающаяся пуля наносит +50% урона и +1 пробитие.",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.groundPullSpeed || 0) > 0;
+      return (player.stats?.groundPullSpeed || 0) > 0 && !player.stats?.boomerang;
     },
     bonus(player, power) {
       return `+50% урона и +1 пробитие при возврате`;
@@ -2365,10 +2366,42 @@ const SERVER_UPGRADES = [
   {
     id: "splinter",
     title: "Осколочный Рикошет",
-    description: "При рикошете от стены — 2 самонаводящихся осколка (25% урона, 1.5с).",
+    description: "При рикошете от стены — 1 самонаводящийся осколок (25% урона пули, 1.5с).",
+    fixedRarity: "rare",
+    available(player) {
+      return !player.stats?.splinter;
+    },
     bonus(player, power) {
       const dmg = Math.max(1, Math.floor((player.stats?.damage || 1) * 0.25));
-      return `2 осколка по ${dmg} урона (25%) при рикошете`;
+      return `1 осколок по ${dmg} урона (25%) при рикошете`;
+    }
+  },
+
+  {
+    id: "splinter-count",
+    title: "Количество осколков",
+    description: "Увеличивает количество осколков при каждом рикошете (макс. 5).",
+    available(player) {
+      return Boolean(player.stats?.splinter) && (player.stats?.splinterCount || 1) < 5;
+    },
+    bonus(player, power) {
+      const current = player.stats?.splinterCount || 1;
+      const result = Math.min(5, current + 1 * power);
+      return `+${result - current} осколка при рикошете (итог: ${result})`;
+    }
+  },
+
+  {
+    id: "splinter-damage",
+    title: "Урон осколков",
+    description: "Увеличивает урон самонаводящихся осколков на +15% (макс. 100% урона пули).",
+    available(player) {
+      return Boolean(player.stats?.splinter) && (player.stats?.splinterDamagePercent || 0.25) < 1.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.splinterDamagePercent || 0.25;
+      const result = Math.min(1.0, current + 0.15 * power);
+      return `+${Math.round((result - current) * 100)}% к урону осколков (итог: ${Math.round(result * 100)}%)`;
     }
   },
 
@@ -2390,6 +2423,10 @@ const SERVER_UPGRADES = [
     id: "reactive-armor",
     title: "Реактивная Броня",
     description: "При получении урона — взрыв, отбрасывающий врагов в 120px. КД 3с.",
+    fixedRarity: "rare",
+    available(player) {
+      return !player.stats?.reactiveArmor;
+    },
     bonus(player, power) {
       return `Взрыв 120px при уроне, кулдаун 3с`;
     }
@@ -4011,6 +4048,16 @@ function applyServerUpgrade(
 
     case "splinter":
       player.stats.splinter = true;
+      player.stats.splinterCount = Math.max(1, player.stats.splinterCount || 1);
+      player.stats.splinterDamagePercent = Math.max(0.25, player.stats.splinterDamagePercent || 0.25);
+      break;
+
+    case "splinter-count":
+      player.stats.splinterCount = Math.min(5, (player.stats.splinterCount || 1) + 1 * power);
+      break;
+
+    case "splinter-damage":
+      player.stats.splinterDamagePercent = Math.min(1.0, (player.stats.splinterDamagePercent || 0.25) + 0.15 * power);
       break;
 
     case "stun":

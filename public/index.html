@@ -5511,12 +5511,14 @@
              * спавн 2 самонаводящихся осколков во врагов.
              */
             if (stats.splinter) {
+              const count = Math.min(5, Math.max(1, stats.splinterCount || 1));
+              const percent = Math.min(1.0, Math.max(0.25, stats.splinterDamagePercent || 0.25));
               const shardDmg = Math.max(
                 1,
-                Math.floor(stats.damage * 0.25)
+                Math.floor(stats.damage * percent)
               );
 
-              for (let si = 0; si < 2; si++) {
+              for (let si = 0; si < count; si++) {
                 const sAngle = Math.random() * Math.PI * 2;
                 const sSpeed = 280;
 
@@ -7076,8 +7078,9 @@
       {
         title: "Эффект Бумеранга",
         description: "Возвращающаяся пуля наносит +50% урона и +1 пробитие.",
+        fixedRarity: "rare",
         available() {
-          return (stats.groundPullSpeed || 0) > 0;
+          return (stats.groundPullSpeed || 0) > 0 && !stats.boomerang;
         },
         apply() {
           stats.boomerang = true;
@@ -7085,9 +7088,35 @@
       },
       {
         title: "Осколочный Рикошет",
-        description: "При рикошете — 2 самонаводящихся осколка (25% урона, 1.5с).",
+        description: "При рикошете — 1 самонаводящийся осколок (25% урона пули, 1.5с).",
+        fixedRarity: "rare",
+        available() {
+          return !stats.splinter;
+        },
         apply() {
           stats.splinter = true;
+          stats.splinterCount = 1;
+          stats.splinterDamagePercent = 0.25;
+        }
+      },
+      {
+        title: "Количество осколков",
+        description: "Увеличивает количество осколков при каждом рикошете (макс. 5).",
+        available() {
+          return Boolean(stats.splinter) && (stats.splinterCount || 1) < 5;
+        },
+        applyWithPower(power) {
+          stats.splinterCount = Math.min(5, (stats.splinterCount || 1) + 1 * power);
+        }
+      },
+      {
+        title: "Урон осколков",
+        description: "Увеличивает урон самонаводящихся осколков на +15% (макс. 100% урона пули).",
+        available() {
+          return Boolean(stats.splinter) && (stats.splinterDamagePercent || 0.25) < 1.0;
+        },
+        applyWithPower(power) {
+          stats.splinterDamagePercent = Math.min(1.0, (stats.splinterDamagePercent || 0.25) + 0.15 * power);
         }
       },
       {
@@ -7103,6 +7132,10 @@
       {
         title: "Реактивная Броня",
         description: "При получении урона — взрыв 120px, отбрасывающий врагов. КД 3с.",
+        fixedRarity: "rare",
+        available() {
+          return !stats.reactiveArmor;
+        },
         apply() {
           stats.reactiveArmor = true;
         }
