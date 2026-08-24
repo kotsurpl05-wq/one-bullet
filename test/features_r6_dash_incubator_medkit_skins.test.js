@@ -127,6 +127,31 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(snapshot.medkits[0].x, 250);
       assert.equal(snapshot.medkits[0].y, 350);
     });
+
+    await t2.test("2.5 Medkits DO NOT drop from secondary enemies (minion, shard)", () => {
+      const { world, player1 } = createTestWorld(ctx);
+      const vm = require("node:vm");
+      vm.runInContext("this.__origRandom = Math.random; Math.random = () => 0.0;", ctx);
+
+      try {
+        const minion = ctx.createServerEnemy(world, "minion", 400, 300, true);
+        world.enemies.set(minion.id, minion);
+        ctx.killServerEnemy(world, minion, player1);
+        assert.equal(world.medkits.size, 0, "Killing minion must never drop a medkit");
+
+        const shard = ctx.createServerEnemy(world, "shard", 400, 300, true);
+        world.enemies.set(shard.id, shard);
+        ctx.killServerEnemy(world, shard, player1);
+        assert.equal(world.medkits.size, 0, "Killing splitter shard must never drop a medkit");
+
+        const incubator = ctx.createServerEnemy(world, "incubator", 400, 300, true);
+        world.enemies.set(incubator.id, incubator);
+        ctx.killServerEnemy(world, incubator, player1);
+        assert.equal(world.medkits.size, 1, "Killing primary enemy (incubator) can drop a medkit");
+      } finally {
+        vm.runInContext("if (this.__origRandom) Math.random = this.__origRandom;", ctx);
+      }
+    });
   });
 
   await t.test("Tier 3: Client Contracts & Settings Verification", async (t3) => {

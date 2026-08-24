@@ -3232,8 +3232,9 @@ function killServerEnemy(
 
   world.kills += 1;
 
-  // 5% шанс выпадения аптечки (+1 HP)
-  if (Math.random() < 0.05 && world.medkits) {
+  // 5% шанс выпадения аптечки (+1 HP) только из основных мобов (не из осколков сплиттера или личинок инкубатора)
+  const isSubEnemy = enemy.type === "shard" || enemy.type === "minion";
+  if (!isSubEnemy && Math.random() < 0.05 && world.medkits) {
     const medkitId = world.nextMedkitId++;
     world.medkits.set(medkitId, {
       id: medkitId,
