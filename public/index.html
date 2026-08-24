@@ -3836,8 +3836,10 @@
       if (isBossWave) {
         /*
          * Босс появляется за случайной границей
-         * с предупреждающим свечением.
+         * с предупреждающим звуком и свечением.
          */
+        soundManager.playBossSpawn();
+        screenShake = Math.max(screenShake, 16);
         spawnEnemyFromEdge("boss");
       
         const bossTier = Math.max(
@@ -6908,6 +6910,12 @@
       updateParticles(dt);
       updateDamageNumbersIn(damageNumbers, dt);
 
+      /*
+       * Динамическое переключение музыки: обычный бой / схватка с боссом.
+       */
+      const hasLiveBoss = enemies.some(e => e && e.type === "boss" && e.hp > 0);
+      soundManager.setBossMusic(hasLiveBoss);
+
       waveToast = Math.max(0, waveToast - dt);
       screenShake = Math.max(
         0,
@@ -8451,6 +8459,12 @@
       constructor() {
         this.ctx = null;
         this.masterGain = null;
+        this.musicGain = null;
+        this.sfxGain = null;
+        this.bgmTimer = null;
+        this.bgmStep = 0;
+        this.isBossMusic = false;
+        this.bgmStarted = false;
       }
 
       init() {
@@ -8460,7 +8474,15 @@
             this.ctx = new AudioContextClass();
             this.masterGain = this.ctx.createGain();
             this.masterGain.connect(this.ctx.destination);
+
+            this.musicGain = this.ctx.createGain();
+            this.musicGain.connect(this.masterGain);
+
+            this.sfxGain = this.ctx.createGain();
+            this.sfxGain.connect(this.masterGain);
+
             this.updateVolume();
+            this.startBgm();
           }
         }
         if (this.ctx && this.ctx.state === "suspended") {
@@ -8469,9 +8491,210 @@
       }
 
       updateVolume() {
-        if (!this.masterGain || !this.ctx) return;
+        if (!this.ctx || !this.masterGain) return;
         const vol = gameSettings.mute ? 0 : (gameSettings.volume ?? 0.7);
         this.masterGain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        if (this.musicGain) {
+          this.musicGain.gain.setValueAtTime(vol > 0 ? 0.32 : 0, this.ctx.currentTime);
+        }
+        if (this.sfxGain) {
+          this.sfxGain.gain.setValueAtTime(vol > 0 ? 0.85 : 0, this.ctx.currentTime);
+        }
+      }
+
+      setBossMusic(active) {
+        this.isBossMusic = Boolean(active);
+      }
+
+      startBgm() {
+        if (this.bgmStarted || !this.ctx) return;
+        this.bgmStarted = true;
+
+        const baseBpm = 126;
+        const stepTime = (60 / baseBpm) / 4; // 16th note (~119ms)
+
+        // Notes in Hz (D minor / Dorian Cyber Scale)
+        const bassNotes = [73.4, 0, 73.4, 87.3, 73.4, 0, 98.0, 87.3, 73.4, 0, 73.4, 110.0, 73.4, 87.3, 65.4, 73.4];
+        const bossBassNotes = [36.7, 36.7, 36.7, 43.6, 36.7, 36.7, 49.0, 43.6, 36.7, 36.7, 36.7, 55.0, 36.7, 43.6, 32.7, 36.7];
+        const arpNotes = [293.7, 349.2, 440.0, 523.3, 587.3, 523.3, 440.0, 349.2, 392.0, 466.2, 587.3, 698.5, 659.3, 587.3, 440.0, 349.2];
+
+        let nextNoteTime = this.ctx.currentTime + 0.1;
+
+        const scheduler = () => {
+          if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) {
+            setTimeout(scheduler, 100);
+            return;
+          }
+
+          while (nextNoteTime < this.ctx.currentTime + 0.25) {
+            const step = this.bgmStep % 16;
+            const isBoss = this.isBossMusic;
+
+            // 1. Bass Synth Pulse
+            const bFreq = isBoss ? bossBassNotes[step] : bassNotes[step];
+            if (bFreq > 0) {
+              const bOsc = this.ctx.createOscillator();
+              const bGain = this.ctx.createGain();
+              const bFilter = this.ctx.createBiquadFilter();
+
+              bOsc.type = isBoss ? "sawtooth" : "triangle";
+              bOsc.frequency.setValueAtTime(bFreq, nextNoteTime);
+
+              bFilter.type = "lowpass";
+              bFilter.frequency.setValueAtTime(isBoss ? 550 : 380, nextNoteTime);
+              bFilter.frequency.exponentialRampToValueAtTime(120, nextNoteTime + stepTime * 0.9);
+
+              bGain.gain.setValueAtTime(isBoss ? 0.28 : 0.22, nextNoteTime);
+              bGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + stepTime * 0.9);
+
+              bOsc.connect(bFilter);
+              bFilter.connect(bGain);
+              bGain.connect(this.musicGain);
+
+              bOsc.start(nextNoteTime);
+              bOsc.stop(nextNoteTime + stepTime * 0.9);
+            }
+
+            // 2. Kick / Sub Rhythm (Every beat / 4-on-the-floor for boss)
+            const isKickStep = isBoss ? (step % 2 === 0) : (step % 4 === 0);
+            if (isKickStep) {
+              const kOsc = this.ctx.createOscillator();
+              const kGain = this.ctx.createGain();
+              kOsc.type = "sine";
+              kOsc.frequency.setValueAtTime(isBoss ? 150 : 120, nextNoteTime);
+              kOsc.frequency.exponentialRampToValueAtTime(32, nextNoteTime + 0.08);
+
+              kGain.gain.setValueAtTime(isBoss ? 0.35 : 0.24, nextNoteTime);
+              kGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.08);
+
+              kOsc.connect(kGain);
+              kGain.connect(this.musicGain);
+              kOsc.start(nextNoteTime);
+              kOsc.stop(nextNoteTime + 0.08);
+            }
+
+            // 3. Cyber Hi-hat Click (offbeats)
+            if (step % 2 === 1 || isBoss) {
+              const hOsc = this.ctx.createOscillator();
+              const hGain = this.ctx.createGain();
+              const hFilter = this.ctx.createBiquadFilter();
+
+              hOsc.type = "sawtooth";
+              hOsc.frequency.setValueAtTime(2400 + (step * 80), nextNoteTime);
+
+              hFilter.type = "highpass";
+              hFilter.frequency.setValueAtTime(3200, nextNoteTime);
+
+              hGain.gain.setValueAtTime(isBoss ? 0.08 : 0.04, nextNoteTime);
+              hGain.gain.exponentialRampToValueAtTime(0.0001, nextNoteTime + 0.03);
+
+              hOsc.connect(hFilter);
+              hFilter.connect(hGain);
+              hGain.connect(this.musicGain);
+              hOsc.start(nextNoteTime);
+              hOsc.stop(nextNoteTime + 0.03);
+            }
+
+            // 4. Synth Arpeggio / Atmosphere
+            const aFreq = arpNotes[step];
+            if (aFreq && (!isBoss || step % 2 === 0)) {
+              const aOsc = this.ctx.createOscillator();
+              const aGain = this.ctx.createGain();
+              const aFilter = this.ctx.createBiquadFilter();
+
+              aOsc.type = "sawtooth";
+              aOsc.frequency.setValueAtTime(aFreq, nextNoteTime);
+
+              aFilter.type = "lowpass";
+              aFilter.frequency.setValueAtTime(isBoss ? 1600 : 950, nextNoteTime);
+              aFilter.frequency.exponentialRampToValueAtTime(200, nextNoteTime + stepTime * 0.7);
+
+              aGain.gain.setValueAtTime(isBoss ? 0.09 : 0.07, nextNoteTime);
+              aGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + stepTime * 0.7);
+
+              aOsc.connect(aFilter);
+              aFilter.connect(aGain);
+              aGain.connect(this.musicGain);
+              aOsc.start(nextNoteTime);
+              aOsc.stop(nextNoteTime + stepTime * 0.7);
+            }
+
+            nextNoteTime += stepTime;
+            this.bgmStep++;
+          }
+
+          setTimeout(scheduler, 45);
+        };
+
+        scheduler();
+      }
+
+      playBossSpawn() {
+        this.init();
+        if (!this.ctx || gameSettings.mute || gameSettings.volume <= 0) return;
+        const now = this.ctx.currentTime;
+
+        this.setBossMusic(true);
+
+        // 1. High Tech Warning Siren / Klaxon
+        [880, 587.33, 880, 587.33].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(freq, now + i * 0.16);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + i * 0.16 + 0.14);
+
+          gain.gain.setValueAtTime(0.35, now + i * 0.16);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.16 + 0.14);
+
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(now + i * 0.16);
+          osc.stop(now + i * 0.16 + 0.14);
+        });
+
+        // 2. Cinematic Dark Synth BRAAAM Horn Blast
+        const hornTimes = [now + 0.35];
+        hornTimes.forEach(t => {
+          [-0.6, 0, 0.6].forEach(detune => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(55, t);
+            osc.detune.setValueAtTime(detune * 15, t);
+
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(2400, t);
+            filter.frequency.exponentialRampToValueAtTime(220, t + 1.8);
+            filter.Q.setValueAtTime(6, t);
+
+            gain.gain.setValueAtTime(0.45, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + 1.8);
+          });
+
+          // Sub Rumble
+          const subOsc = this.ctx.createOscillator();
+          const subGain = this.ctx.createGain();
+          subOsc.type = "sine";
+          subOsc.frequency.setValueAtTime(90, t);
+          subOsc.frequency.exponentialRampToValueAtTime(25, t + 2.2);
+
+          subGain.gain.setValueAtTime(0.6, t);
+          subGain.gain.exponentialRampToValueAtTime(0.001, t + 2.2);
+
+          subOsc.connect(subGain);
+          subGain.connect(this.masterGain);
+          subOsc.start(t);
+          subOsc.stop(t + 2.2);
+        });
       }
 
       playShoot() {
@@ -11572,6 +11795,11 @@
       
         const isNewEnemy =
           !coopEnemy;
+
+        if (isNewEnemy && snapshotEnemy.type === "boss") {
+          soundManager.playBossSpawn();
+          screenShake = Math.max(screenShake, 16);
+        }
       
         if (!coopEnemy) {
           coopEnemy = {
@@ -11871,7 +12099,10 @@
           );
         }
       }
-    
+
+      const hasCoopBoss = [...coopSession.enemies.values()].some(e => e && e.type === "boss");
+      soundManager.setBossMusic(hasCoopBoss);
+
       const receivedCrystalIds =
         new Set();
 
