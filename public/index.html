@@ -2600,7 +2600,7 @@
             class="secondary-button"
             data-pause-action="settings"
           >
-            ⚙ Настройки (Esc)
+            ⚙ Настройки
           </button>
 
           <button
@@ -9387,6 +9387,7 @@
         soundManager.playUiClick();
         if (fromView === "pause") {
           overlay.classList.add("hidden");
+          currentMenuSubView = "pause";
           showPauseMenu();
         } else {
           showMainMenu();
@@ -9404,6 +9405,7 @@
         soundManager.playUiClick();
         if (fromView === "pause") {
           overlay.classList.add("hidden");
+          currentMenuSubView = "pause";
           showPauseMenu();
         } else {
           showMainMenu();
@@ -15991,6 +15993,13 @@
       upgradeTooltip.classList.add("hidden");
     }
 
+    function showPauseMenu() {
+      gameState = "paused";
+      renderPauseMenu();
+      pauseMenu.classList.remove("hidden");
+      pauseMenu.setAttribute("aria-hidden", "false");
+    }
+
     function hidePauseMenu() {
       pauseMenu.classList.add("hidden");
     
@@ -16251,6 +16260,19 @@
         ) &&
         !event.repeat
       ) {
+        if (currentMenuSubView === "settings" && !overlay.classList.contains("hidden")) {
+          event.preventDefault();
+          soundManager.playUiClick();
+          overlay.classList.add("hidden");
+          if (gameState === "paused" || gameState === "playing") {
+            currentMenuSubView = "pause";
+            showPauseMenu();
+          } else {
+            showMainMenu();
+          }
+          return;
+        }
+
         if (
           gameState === "playing" ||
           gameState === "paused" ||
