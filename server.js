@@ -4840,7 +4840,9 @@ function createServerCoopSnapshot(room) {
       isPhased: enemy.type === "phantom" ? Boolean(enemy.isPhased) : undefined,
       twinPartnerId: enemy.type === "twin" ? (enemy.twinPartnerId || null) : undefined,
       isEnraged: enemy.type === "twin" ? Boolean(enemy.isEnraged) : undefined,
-      targetMarked: Boolean(enemy.targetMarked)
+      targetMarked: Boolean(enemy.targetMarked),
+      poisoned: Boolean(enemy.poisonDuration && enemy.poisonDuration > 0),
+      parasiteInfested: Boolean(enemy.parasiteInfested)
     })),
 
     enemyProjectiles: [

@@ -6037,7 +6037,7 @@
           if (distance(spore.x, spore.y, enemy.x, enemy.y) <= spore.r + enemy.r) {
             damageEnemy(ei, spore.damage);
             soundManager.playSplinterHit();
-            createParticles(spore.x, spore.y, "#bd00ff", 8, 140);
+            createParticles(spore.x, spore.y, "#ffffff", 8, 140);
             parasiteSpores.splice(i, 1);
             break;
           }
@@ -6048,16 +6048,132 @@
     function drawParasiteSpores() {
       for (const spore of parasiteSpores) {
         ctx.save();
-        ctx.shadowColor = "#bd00ff";
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = "#bd00ff";
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 15;
+        
+        // Внешнее белое био-свечение
+        ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+        ctx.beginPath();
+        ctx.arc(spore.x, spore.y, spore.r + 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Белое ядро паразита
+        ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(spore.x, spore.y, spore.r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#ffffff";
+        ctx.restore();
+      }
+    }
+
+    function drawEnemyStatusEffects(enemy) {
+      const now = performance.now();
+
+      // 1. 🧪 ЯД: Кислотно-зелёное мерцание / пульсация
+      const isPoisoned = Boolean(enemy.poisonDuration && enemy.poisonDuration > 0) || Boolean(enemy.poisoned);
+      if (isPoisoned) {
+        const pPulse = 0.5 + 0.5 * Math.sin(now * 0.018); // Быстрая кислотная пульсация
+        ctx.save();
+        ctx.shadowColor = "#39ff14";
+        ctx.shadowBlur = 14 * pPulse + 4;
+        
+        // Кислотное свечение по контуру
+        ctx.strokeStyle = `rgba(57, 255, 20, ${0.45 + 0.45 * pPulse})`;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(spore.x, spore.y, spore.r * 0.45, 0, Math.PI * 2);
+        ctx.arc(0, 0, enemy.r + 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Кислотная закраска поверх тела
+        ctx.fillStyle = `rgba(57, 255, 20, ${0.18 + 0.22 * pPulse})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+      }
+
+      // 2. 🪱 ПАРАЗИТ: Белые пульсирующие вены / паутина заражения
+      const isParasited = Boolean(enemy.parasiteInfested);
+      if (isParasited) {
+        const vPulse = 0.7 + 0.3 * Math.sin(now * 0.009 + (enemy.id || 0));
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * vPulse})`;
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 8 * vPulse;
+        ctx.lineWidth = 1.6;
+
+        // Органический ветвящийся рисунок вен
+        const r = enemy.r * 0.75;
+        ctx.beginPath();
+        // Ветвь 1
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-r * 0.4, -r * 0.3, -r * 0.8, -r * 0.6);
+        ctx.moveTo(-r * 0.4, -r * 0.3);
+        ctx.lineTo(-r * 0.7, 0);
+        // Ветвь 2
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(r * 0.3, -r * 0.5, r * 0.75, -r * 0.55);
+        ctx.moveTo(r * 0.3, -r * 0.5);
+        ctx.lineTo(r * 0.6, -r * 0.2);
+        // Ветвь 3
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(r * 0.4, r * 0.3, r * 0.7, r * 0.7);
+        // Ветвь 4
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-r * 0.3, r * 0.4, -r * 0.65, r * 0.65);
+        ctx.stroke();
+
+        // Белые органические узлы
+        ctx.fillStyle = "#ffffff";
+        [
+          [-r * 0.8, -r * 0.6],
+          [r * 0.75, -r * 0.55],
+          [r * 0.7, r * 0.7],
+          [-r * 0.65, r * 0.65],
+          [0, 0]
+        ].forEach(([vx, vy]) => {
+          ctx.beginPath();
+          ctx.arc(vx, vy, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.restore();
+      }
+
+      // 3. 🎯 МЕТКА ЦЕЛИ: Красный тактический прицел
+      if (enemy.targetMarked) {
+        ctx.save();
+        ctx.strokeStyle = "#ff1f4b";
+        ctx.shadowColor = "#ff0033";
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 2.0;
+
+        const aimR = enemy.r + 7;
+        // Внешнее прицельное кольцо
+        ctx.beginPath();
+        ctx.arc(0, 0, aimR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 4 прицельные риски (перекрестие)
+        const tickIn = aimR - 3;
+        const tickOut = aimR + 5;
+        ctx.beginPath();
+        // Верх
+        ctx.moveTo(0, -tickIn); ctx.lineTo(0, -tickOut);
+        // Низ
+        ctx.moveTo(0, tickIn);  ctx.lineTo(0, tickOut);
+        // Лево
+        ctx.moveTo(-tickIn, 0); ctx.lineTo(-tickOut, 0);
+        // Право
+        ctx.moveTo(tickIn, 0);  ctx.lineTo(tickOut, 0);
+        ctx.stroke();
+
+        // Красная точка в центре
+        ctx.fillStyle = "#ff1f4b";
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
       }
     }
@@ -12138,6 +12254,12 @@
         coopEnemy.targetMarked =
           Boolean(snapshotEnemy.targetMarked);
 
+        coopEnemy.poisoned =
+          Boolean(snapshotEnemy.poisoned);
+
+        coopEnemy.parasiteInfested =
+          Boolean(snapshotEnemy.parasiteInfested);
+
         coopEnemy.stunTimer =
           snapshotEnemy.stunTimer || 0;
       
@@ -13685,6 +13807,8 @@
         );
       }
 
+      drawEnemyStatusEffects(enemy);
+
       ctx.restore();
     }
 
@@ -14882,6 +15006,8 @@
             barHeight
           );
         }
+
+        drawEnemyStatusEffects(enemy);
 
         ctx.restore();
       }
