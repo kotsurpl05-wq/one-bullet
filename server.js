@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 "use strict";
 
 const path = require("path");
@@ -48,6 +49,10 @@ function sanitizeCode(value) {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 5);
+}
+
+function generateReconnectToken() {
+  return crypto.randomBytes(8).toString("hex");
 }
 
 function generateRoomCode() {
@@ -237,7 +242,7 @@ const COOP_PLAYER_SPEED = 285;
 const COOP_SIMULATION_RATE = 60;
 const COOP_SNAPSHOT_RATE = 20;
 
-const COOP_INPUT_TIMEOUT = 500;
+const COOP_INPUT_TIMEOUT = 1200;
 
 const COOP_SHOOT_MAX_POSITION_DRIFT = 60;
 const COOP_REPAIR_HEAL_COOLDOWN = 1.75;
@@ -1477,6 +1482,17 @@ function updateServerCoopWorld(
             coopPlayer.x = beacon.x;
             coopPlayer.y = beacon.y;
             coopPlayer.reviveBeacon = null;
+
+            for (const bullet of world.bullets.values()) {
+              if (bullet.ownerId === coopPlayer.id) {
+                bullet.state = "held";
+                bullet.x = beacon.x;
+                bullet.y = beacon.y;
+                bullet.vx = 0;
+                bullet.vy = 0;
+                bullet.bounces = 0;
+              }
+            }
           }
         }
       }
@@ -1851,16 +1867,12 @@ function spawnServerWave(world) {
     for (let i = 0; i < escortCount; i++) {
       const escortType = escortPool[i % escortPool.length];
       if (escortType === "twin") {
-        const ptA = randomServerSpawnPoint();
-        const ptB = randomServerSpawnPoint();
-        const twinA = createServerEnemy(world, "twin", ptA.x, ptA.y, false);
-        const twinB = createServerEnemy(world, "twin", ptB.x, ptB.y, false);
-        twinA.twinPartnerId = twinB.id;
-        twinB.twinPartnerId = twinA.id;
-        twinA.spawnEdge = ptA.side || "top";
-        twinB.spawnEdge = ptB.side || "top";
-        world.enemies.set(twinA.id, twinA);
-        world.enemies.set(twinB.id, twinB);
+        const twinA = spawnServerEnemyFromEdge(world, "twin");
+        const twinB = spawnServerEnemyFromEdge(world, "twin");
+        if (twinA && twinB) {
+          twinA.twinPartnerId = twinB.id;
+          twinB.twinPartnerId = twinA.id;
+        }
       } else {
         spawnServerEnemyFromEdge(world, escortType);
       }
@@ -1933,16 +1945,12 @@ function spawnServerWave(world) {
      * Связанные Близнецы спавнятся парами.
      */
     if (type === "twin") {
-      const ptA = randomServerSpawnPoint();
-      const ptB = randomServerSpawnPoint();
-      const twinA = createServerEnemy(world, "twin", ptA.x, ptA.y, false);
-      const twinB = createServerEnemy(world, "twin", ptB.x, ptB.y, false);
-      twinA.twinPartnerId = twinB.id;
-      twinB.twinPartnerId = twinA.id;
-      twinA.spawnEdge = ptA.edge || "top";
-      twinB.spawnEdge = ptB.edge || "top";
-      world.enemies.set(twinA.id, twinA);
-      world.enemies.set(twinB.id, twinB);
+      const twinA = spawnServerEnemyFromEdge(world, "twin");
+      const twinB = spawnServerEnemyFromEdge(world, "twin");
+      if (twinA && twinB) {
+        twinA.twinPartnerId = twinB.id;
+        twinB.twinPartnerId = twinA.id;
+      }
     } else {
       spawnServerEnemyFromEdge(
         world,
@@ -2594,6 +2602,7 @@ function damageServerPlayer(
   amount
 ) {
   if (
+    coopPlayer._godMode ||
     !coopPlayer.alive ||
     coopPlayer.invulnerability > 0 ||
     world.gameOver
@@ -3241,6 +3250,12 @@ function updateServerEnemies(
     const enemy of
     world.enemies.values()
   ) {
+    if (!Number.isFinite(enemy.x) || !Number.isFinite(enemy.y)) {
+      enemy.x = COOP_WORLD_WIDTH / 2;
+      enemy.y = COOP_WORLD_HEIGHT / 2;
+      enemy.hasEnteredArena = true;
+    }
+
     enemy.contactCooldown =
       Math.max(
         0,
@@ -3253,6 +3268,10 @@ function updateServerEnemies(
       enemy.spawnEdge &&
       !enemy.hasEnteredArena
     ) {
+      if (!Number.isFinite(enemy.spawnDelay)) {
+        enemy.spawnDelay = 0;
+      }
+
       enemy.spawnDelay =
         Math.max(
           0,
@@ -3266,8 +3285,11 @@ function updateServerEnemies(
       const entryTarget =
         getServerEnemyEntryTarget(enemy);
 
-      const entryDx = entryTarget.x - enemy.x;
-      const entryDy = entryTarget.y - enemy.y;
+      const targetX = Number.isFinite(entryTarget.x) ? entryTarget.x : COOP_WORLD_WIDTH / 2;
+      const targetY = Number.isFinite(entryTarget.y) ? entryTarget.y : COOP_WORLD_HEIGHT / 2;
+
+      const entryDx = targetX - enemy.x;
+      const entryDy = targetY - enemy.y;
       const entryDistance =
         Math.hypot(entryDx, entryDy) || 1;
 
@@ -3285,7 +3307,9 @@ function updateServerEnemies(
         entryDy / entryDistance *
         Math.min(entryStep, entryDistance);
 
-      if (isServerEnemyInside(enemy)) {
+      enemy.outOfBoundsTimer = (enemy.outOfBoundsTimer || 0) + dt;
+
+      if (isServerEnemyInside(enemy) || enemy.outOfBoundsTimer > 5.0) {
         enemy.hasEnteredArena = true;
       }
 
@@ -3909,6 +3933,52 @@ function applyServerUpgrade(
   return true;
 }
 
+function recalculateServerPlayerStats(world, player) {
+  if (!player) return;
+  const difficulty = (world && COOP_DIFFICULTY[world.difficulty]) || COOP_DIFFICULTY.normal;
+  const baseHp = difficulty.playerHp || 5;
+  player.stats = createServerPlayerStats();
+  player.maxHp = baseHp;
+  player.hp = Math.min(player.hp, player.maxHp);
+  if (player.hp <= 0 && player.alive) player.hp = 1;
+
+  if (world && world.bullets) {
+    let count = 0;
+    for (const [bId, bullet] of world.bullets) {
+      if (bullet.ownerId === player.id) {
+        count++;
+        if (count > 1) {
+          world.bullets.delete(bId);
+        }
+      }
+    }
+  }
+
+  const currentUpgrades = player.selectedUpgrades ? [...player.selectedUpgrades] : [];
+  player.selectedUpgrades = [];
+  for (const up of currentUpgrades) {
+    applyServerUpgrade(world, player, up);
+  }
+}
+
+function removeServerUpgrade(world, player, upgradeId) {
+  if (!player || !player.selectedUpgrades || player.selectedUpgrades.length === 0) return false;
+  const index = player.selectedUpgrades.findIndex(u => (u.upgradeId === upgradeId || u.id === upgradeId));
+  if (index !== -1) {
+    player.selectedUpgrades.splice(index, 1);
+    recalculateServerPlayerStats(world, player);
+    return true;
+  }
+  return false;
+}
+
+function resetServerPlayerUpgrades(world, player) {
+  if (!player) return false;
+  player.selectedUpgrades = [];
+  recalculateServerPlayerStats(world, player);
+  return true;
+}
+
 function startServerUpgradeRound(room) {
   const world = room.world;
 
@@ -4431,11 +4501,14 @@ io.on("connection", socket => {
           players: new Map()
         };
 
+        const reconnectToken = generateReconnectToken();
+
         room.players.set(socket.id, {
           id: socket.id,
           name,
           role: "host",
-          ready: false
+          ready: false,
+          reconnectToken
         });
 
         rooms.set(code, room);
@@ -4448,6 +4521,7 @@ io.on("connection", socket => {
           success: true,
           role: "host",
           playerId: socket.id,
+          reconnectToken,
           room: getPublicRoomState(room)
         });
 
@@ -4502,11 +4576,14 @@ io.on("connection", socket => {
 
       const name = sanitizeName(payload?.name);
 
+      const reconnectToken = generateReconnectToken();
+
       room.players.set(socket.id, {
         id: socket.id,
         name,
         role: "guest",
-        ready: false
+        ready: false,
+        reconnectToken
       });
 
       socket.data.roomCode = code;
@@ -4517,6 +4594,7 @@ io.on("connection", socket => {
         success: true,
         role: "guest",
         playerId: socket.id,
+        reconnectToken,
         room: getPublicRoomState(room)
       });
 
@@ -4733,6 +4811,220 @@ io.on("connection", socket => {
     room.world.manualPaused = !room.world.manualPaused;
   });
 
+  socket.on("net:debug-command", payload => {
+    const room = getRoomForSocket(socket);
+    if (!room || !room.started || !room.world) {
+      return;
+    }
+    touchRoom(room);
+
+    const world = room.world;
+    const player = world.players.get(socket.id);
+    const action = payload?.action;
+    const data = payload?.data || {};
+
+    // Resolve target player(s) for player-specific commands
+    let targetPlayers = [];
+    if (data.target === "all") {
+      targetPlayers = [...world.players.values()];
+    } else if (data.target === "teammate") {
+      targetPlayers = [...world.players.values()].filter(p => p.id !== socket.id);
+      if (targetPlayers.length === 0 && player) targetPlayers = [player];
+    } else if (typeof data.target === "string" && world.players.has(data.target)) {
+      targetPlayers = [world.players.get(data.target)];
+    } else {
+      targetPlayers = player ? [player] : [];
+    }
+
+    switch (action) {
+      case "set-wave": {
+        const targetWave = Math.max(1, parseInt(data.wave, 10) || 1);
+        world.wave = targetWave;
+        world.enemies.clear();
+        world.enemyProjectiles.clear();
+        world.wavePending = false;
+        world.waveClearTimer = 0;
+        spawnServerWave(world);
+        break;
+      }
+
+      case "skip-wave": {
+        world.wave += 1;
+        world.enemies.clear();
+        world.enemyProjectiles.clear();
+        world.wavePending = false;
+        world.waveClearTimer = 0;
+        spawnServerWave(world);
+        break;
+      }
+
+      case "restart-wave": {
+        world.enemies.clear();
+        world.enemyProjectiles.clear();
+        world.wavePending = false;
+        world.waveClearTimer = 0;
+        spawnServerWave(world);
+        break;
+      }
+
+      case "prev-wave": {
+        world.wave = Math.max(1, world.wave - 1);
+        world.enemies.clear();
+        world.enemyProjectiles.clear();
+        world.wavePending = false;
+        world.waveClearTimer = 0;
+        spawnServerWave(world);
+        break;
+      }
+
+      case "set-hp": {
+        const amount = Math.max(1, parseInt(data.hp, 10) || 1);
+        for (const tp of targetPlayers) {
+          if (amount > tp.maxHp) tp.maxHp = amount;
+          tp.hp = amount;
+          tp.alive = true;
+          if (tp.reviveBeacon) tp.reviveBeacon = null;
+        }
+        break;
+      }
+
+      case "god-mode": {
+        for (const tp of targetPlayers) {
+          tp._godMode = typeof data.enabled === "boolean" ? data.enabled : !tp._godMode;
+          if (tp._godMode) {
+            tp.maxHp = Math.max(tp.maxHp, 9999);
+            tp.hp = tp.maxHp;
+            tp.alive = true;
+            if (tp.reviveBeacon) tp.reviveBeacon = null;
+          }
+        }
+        break;
+      }
+
+      case "revive-all": {
+        for (const p of world.players.values()) {
+          p.alive = true;
+          p.hp = p.maxHp;
+          p.invulnerability = 2.0;
+          p.reviveBeacon = null;
+          for (const b of world.bullets.values()) {
+            if (b.ownerId === p.id) {
+              b.state = "held";
+              b.x = p.x;
+              b.y = p.y;
+              b.vx = 0;
+              b.vy = 0;
+              b.bounces = 0;
+            }
+          }
+        }
+        break;
+      }
+
+      case "trigger-upgrade": {
+        startServerUpgradeRound(room);
+        break;
+      }
+
+      case "give-upgrade": {
+        if (data.upgradeId) {
+          const power = Math.max(1, parseInt(data.power, 10) || 1);
+          for (const tp of targetPlayers) {
+            applyServerUpgrade(world, tp, {
+              upgradeId: data.upgradeId,
+              power
+            });
+          }
+        }
+        break;
+      }
+
+      case "give-all-upgrades": {
+        const allUpgradeIds = [
+          "damage", "bounce", "pierce", "bullet-speed", "move-speed",
+          "armor", "repair", "pickup", "critical", "caliber",
+          "second-bullet", "catch-blast", "emergency-repair", "explosive",
+          "chain-lightning", "homing", "boomerang", "splinter", "stun",
+          "reactive-armor", "target-mark"
+        ];
+        const power = Math.max(1, parseInt(data.power, 10) || 1);
+        for (const tp of targetPlayers) {
+          for (const uId of allUpgradeIds) {
+            try {
+              applyServerUpgrade(world, tp, { upgradeId: uId, power });
+            } catch (e) {}
+          }
+        }
+        break;
+      }
+
+      case "remove-upgrade": {
+        if (data.upgradeId) {
+          for (const tp of targetPlayers) {
+            removeServerUpgrade(world, tp, data.upgradeId);
+          }
+        }
+        break;
+      }
+
+      case "reset-upgrades": {
+        for (const tp of targetPlayers) {
+          resetServerPlayerUpgrades(world, tp);
+        }
+        break;
+      }
+
+      case "kill-all": {
+        world.enemies.clear();
+        world.enemyProjectiles.clear();
+        break;
+      }
+
+      case "spawn-enemy": {
+        const type = data.type || "normal";
+        const count = Math.max(1, parseInt(data.count, 10) || 1);
+        for (let i = 0; i < count; i++) {
+          spawnServerEnemyFromEdge(world, type);
+        }
+        break;
+      }
+
+      case "set-level": {
+        world.level = Math.max(1, parseInt(data.level, 10) || 1);
+        world.experience = 0;
+        world.experienceToNext = getServerExperienceRequirement(world.level);
+        break;
+      }
+
+      case "add-level": {
+        const count = Math.max(1, parseInt(data.count, 10) || 1);
+        world.level += count;
+        world.experience = 0;
+        world.experienceToNext = getServerExperienceRequirement(world.level);
+        break;
+      }
+
+      case "remove-level": {
+        const count = Math.max(1, parseInt(data.count, 10) || 1);
+        world.level = Math.max(1, world.level - count);
+        world.experience = 0;
+        world.experienceToNext = getServerExperienceRequirement(world.level);
+        break;
+      }
+
+      case "add-exp": {
+        const exp = Math.max(1, parseInt(data.amount, 10) || 10);
+        addServerExperience(room, exp);
+        break;
+      }
+    }
+
+    io.to(room.code).emit(
+      "net:snapshot",
+      createServerCoopSnapshot(room)
+    );
+  });
+
   socket.on("net:shoot", payload => {
     const room =
       getRoomForSocket(socket);
@@ -4884,7 +5176,164 @@ io.on("connection", socket => {
       .emit("net:game-event", payload);
   });
 
+  socket.on("room:reconnect", (payload, acknowledge) => {
+    try {
+      const code = sanitizeCode(payload?.code);
+      const token = String(payload?.token || "").trim();
+      const room = rooms.get(code);
+
+      if (!room || !room.started || !room.world || room.world.gameOver) {
+        acknowledge?.({
+          success: false,
+          message: "Активный забег не найден или уже завершён"
+        });
+        return;
+      }
+
+      touchRoom(room);
+
+      let matchedPlayer = null;
+      let oldPlayerId = null;
+
+      for (const [pId, p] of room.players.entries()) {
+        if (p.reconnectToken && p.reconnectToken === token) {
+          matchedPlayer = p;
+          oldPlayerId = pId;
+          break;
+        }
+      }
+
+      if (!matchedPlayer) {
+        acknowledge?.({
+          success: false,
+          message: "Недействительный токен переподключения"
+        });
+        return;
+      }
+
+      if (room.reconnectTimeout) {
+        clearTimeout(room.reconnectTimeout);
+        room.reconnectTimeout = null;
+      }
+
+      if (oldPlayerId !== socket.id) {
+        room.players.delete(oldPlayerId);
+        matchedPlayer.id = socket.id;
+        room.players.set(socket.id, matchedPlayer);
+
+        if (room.hostId === oldPlayerId) {
+          room.hostId = socket.id;
+        }
+
+        const coopPlayer = room.world.players.get(oldPlayerId);
+        if (coopPlayer) {
+          room.world.players.delete(oldPlayerId);
+          coopPlayer.id = socket.id;
+          room.world.players.set(socket.id, coopPlayer);
+        }
+
+        for (const bullet of room.world.bullets) {
+          if (bullet.ownerId === oldPlayerId) {
+            bullet.ownerId = socket.id;
+          }
+        }
+
+        if (room.world.upgradeRound) {
+          if (room.world.upgradeRound.waitingPlayers.has(oldPlayerId)) {
+            room.world.upgradeRound.waitingPlayers.delete(oldPlayerId);
+            room.world.upgradeRound.waitingPlayers.add(socket.id);
+          }
+          if (room.world.upgradeRound.offersByPlayer.has(oldPlayerId)) {
+            const offers = room.world.upgradeRound.offersByPlayer.get(oldPlayerId);
+            room.world.upgradeRound.offersByPlayer.delete(oldPlayerId);
+            room.world.upgradeRound.offersByPlayer.set(socket.id, offers);
+          }
+        }
+      }
+
+      matchedPlayer.disconnected = false;
+      matchedPlayer.disconnectTime = null;
+
+      socket.data.roomCode = code;
+      socket.data.role = matchedPlayer.role;
+      socket.join(code);
+
+      room.world.reconnectState = null;
+
+      const snapshot = createServerCoopSnapshot(room);
+
+      acknowledge?.({
+        success: true,
+        role: matchedPlayer.role,
+        playerId: socket.id,
+        reconnectToken: matchedPlayer.reconnectToken,
+        room: getPublicRoomState(room),
+        snapshot
+      });
+
+      io.to(room.code).emit("net:snapshot", snapshot);
+      emitRoomState(room);
+    } catch (err) {
+      acknowledge?.({
+        success: false,
+        message: err?.message || "Ошибка переподключения"
+      });
+    }
+  });
+
+  socket.on("room:cancel-reconnect-wait", (payload, acknowledge) => {
+    const room = getRoomForSocket(socket);
+    if (!room) {
+      acknowledge?.({ success: false });
+      return;
+    }
+    if (room.reconnectTimeout) {
+      clearTimeout(room.reconnectTimeout);
+      room.reconnectTimeout = null;
+    }
+    closeRoom(room, "Ожидание напарника отменено игроком");
+    acknowledge?.({ success: true });
+  });
+
   socket.on("disconnect", () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+
+    if (room.started && room.world && !room.world.gameOver) {
+      const player = room.players.get(socket.id);
+      if (player && !player.disconnected) {
+        player.disconnected = true;
+        player.disconnectTime = Date.now();
+
+        room.world.reconnectState = {
+          paused: true,
+          disconnectedId: player.id,
+          playerName: player.name,
+          role: player.role,
+          expiresAt: Date.now() + 120000
+        };
+
+        if (room.reconnectTimeout) {
+          clearTimeout(room.reconnectTimeout);
+        }
+
+        room.reconnectTimeout = setTimeout(() => {
+          if (!rooms.has(room.code)) return;
+          if (room.world && room.world.reconnectState?.paused) {
+            closeRoom(room, "Время ожидания напарника (2 мин) истекло");
+          }
+        }, 120000);
+
+        socket.leave(room.code);
+        socket.data.roomCode = null;
+        socket.data.role = null;
+
+        io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+        emitRoomState(room);
+        return;
+      }
+    }
+
     leaveRoom(
       socket,
       "Игрок отключился"

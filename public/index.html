@@ -2924,6 +2924,24 @@
       );
     }
 
+    function distToSegmentSquared(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const l2 = dx * dx + dy * dy;
+      if (l2 === 0) return (px - x1) * (px - x1) + (py - y1) * (py - y1);
+      let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+      t = Math.max(0, Math.min(1, t));
+      const projX = x1 + t * dx;
+      const projY = y1 + t * dy;
+      const ex = px - projX;
+      const ey = py - projY;
+      return ex * ex + ey * ey;
+    }
+
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      return Math.sqrt(distToSegmentSquared(px, py, x1, y1, x2, y2));
+    }
+
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -3543,6 +3561,10 @@
        * В кооперативе верхний HUD отображает общее состояние забега
        * и личные показатели локального игрока.
        */
+      document.querySelector("#hud")?.classList.remove("hidden");
+      document.querySelector("#help")?.classList.remove("hidden");
+      document.querySelector("#coopStatus")?.classList.remove("hidden");
+
       waveValue.textContent = coopSession.wave;
       killsValue.textContent = coopSession.kills;
       scoreValue.textContent = coopSession.score;
@@ -9894,6 +9916,10 @@
       coopUpgradeOffers = [];
       coopGameOverUiActive = false;
 
+      document.querySelector("#hud")?.classList.remove("hidden");
+      document.querySelector("#help")?.classList.remove("hidden");
+      document.querySelector("#coopStatus")?.classList.remove("hidden");
+
       coopSession.waitingForSnapshot = true;
       coopSession.snapshotRequestTimer = 0;
       keys.clear();
@@ -9997,6 +10023,7 @@
         coopUpgradeOfferId = "";
         coopUpgradeOffers = [];
         coopGameOverUiActive = false;
+        coopReconnectUiActive = false;
 
         coopSession.snapshotTimer = 0;
         coopSession.inputTimer = 0;
@@ -10115,6 +10142,65 @@
         coopPlayer.y;
     }
 
+    let coopReconnectUiActive = false;
+
+    function renderCoopReconnectUI(reconnectState) {
+      if (reconnectState && reconnectState.paused) {
+        if (!coopReconnectUiActive) {
+          coopReconnectUiActive = true;
+          overlay.classList.remove("hidden");
+          overlay.setAttribute("aria-hidden", "false");
+        }
+
+        const secondsLeft = Math.max(0, Math.ceil((reconnectState.expiresAt - Date.now()) / 1000));
+        const mins = Math.floor(secondsLeft / 60);
+        const secs = secondsLeft % 60;
+        const timeFormatted = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+
+        panel.innerHTML = `
+          <div class="coop-reconnect-screen">
+            <div class="coop-reconnect-badge">
+              <span class="coop-reconnect-pulse-dot"></span>
+              <span>СВЯЗЬ ПРЕРВАНА // ОЖИДАНИЕ ПЕРЕПОДКЛЮЧЕНИЯ</span>
+            </div>
+
+            <div class="coop-reconnect-timer-box">
+              <div class="coop-reconnect-timer-val" id="coopReconnectTimer">${timeFormatted}</div>
+              <div class="coop-reconnect-timer-label">ТАЙМАУТ ОЖИДАНИЯ НАПАРНИКА (2 МИН)</div>
+            </div>
+
+            <h2 class="coop-reconnect-title">Забег временно заморожен</h2>
+            <p class="coop-reconnect-subtitle">
+              Игрок <strong style="color: #ffaa55;">${escapeHtml(reconnectState.playerName || 'Напарник')}</strong> отключился или свернул вкладку.<br>
+              Симуляция боя и таймеры полностью остановлены.
+            </p>
+
+            <div class="coop-reconnect-actions">
+              <button type="button" class="secondary-button" id="coopCancelWaitBtn" style="min-width: 220px;">
+                Завершить и выйти в лобби
+              </button>
+            </div>
+          </div>
+        `;
+
+        const cancelBtn = panel.querySelector("#coopCancelWaitBtn");
+        if (cancelBtn) {
+          cancelBtn.onclick = async () => {
+            cancelBtn.disabled = true;
+            await window.net?.cancelReconnectWait();
+            stopCoopMovementSession();
+            showMainMenu();
+          };
+        }
+      } else if (coopReconnectUiActive) {
+        coopReconnectUiActive = false;
+        if (!coopUpgradeUiActive && !coopGameOverUiActive && gameState === "coop-playing") {
+          overlay.classList.add("hidden");
+          overlay.setAttribute("aria-hidden", "true");
+        }
+      }
+    }
+
     function applyCoopSnapshot(snapshot) {
       if (!coopSession.active) {
         return;
@@ -10228,6 +10314,8 @@
     
       coopSession.gameOver =
         Boolean(snapshot.gameOver);
+      coopSession.reconnectState = snapshot.reconnectState || null;
+      renderCoopReconnectUI(coopSession.reconnectState);
     
       /*
        * Синхронизация игроков.
@@ -10353,15 +10441,15 @@
           coopPlayer.name ||
           "Игрок";
       
-        coopPlayer.x = snapshotX;
-        coopPlayer.y = snapshotY;
         coopPlayer.serverX = snapshotX;
         coopPlayer.serverY = snapshotY;
-      
-        coopPlayer.targetX = snapshotX;
-        coopPlayer.targetY = snapshotY;
-      
+        coopPlayer.reviveBeacon = snapshotPlayer.reviveBeacon || null;
+
         if (snapshotPlayer.id !== window.net?.playerId) {
+          coopPlayer.x = snapshotX;
+          coopPlayer.y = snapshotY;
+          coopPlayer.targetX = snapshotX;
+          coopPlayer.targetY = snapshotY;
           coopPlayer.aimX = snapshotAimX;
           coopPlayer.aimY = snapshotAimY;
         }
@@ -10400,8 +10488,20 @@
             ? snapshotPlayer.maxHp
             : coopPlayer.maxHp;
 
-        coopPlayer.alive =
-          snapshotPlayer.alive !== false;
+        const wasDead = !coopPlayer.alive;
+        const isAliveNow = snapshotPlayer.alive !== false;
+        if (wasDead && isAliveNow) {
+          coopPlayer.x = snapshotX;
+          coopPlayer.y = snapshotY;
+          coopPlayer.displayX = snapshotX;
+          coopPlayer.displayY = snapshotY;
+          coopPlayer.targetX = snapshotX;
+          coopPlayer.targetY = snapshotY;
+          createCoopParticles(snapshotX, snapshotY, "#00f2fe", 25, 200);
+          createCoopRing(snapshotX, snapshotY, 50, "#00f2fe");
+        }
+
+        coopPlayer.alive = isAliveNow;
 
         coopPlayer.stats =
           snapshotPlayer.stats ||
@@ -12711,29 +12811,64 @@
         const beacon = coopPlayer.reviveBeacon;
         if (!beacon || !beacon.active) continue;
 
-        const pulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
+        const pulse = 0.6 + Math.sin(Date.now() * 0.006) * 0.35;
+        const progressRatio = Math.min(1, (beacon.progress || 0) / (beacon.requiredTime || 3.0));
+
         ctx.save();
+
+        // Пульсирующая радиальная аура маяка
+        const grad = ctx.createRadialGradient(beacon.x, beacon.y, 10, beacon.x, beacon.y, beacon.radius);
+        grad.addColorStop(0, "rgba(255, 0, 128, 0.45)");
+        grad.addColorStop(0.7, "rgba(255, 0, 128, 0.15)");
+        grad.addColorStop(1, "rgba(255, 0, 128, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(beacon.x, beacon.y, beacon.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Внешнее пульсирующее кольцо маяка
         ctx.globalAlpha = pulse;
-        ctx.strokeStyle = "#00f2fe";
+        ctx.strokeStyle = "#ff007f";
         ctx.lineWidth = 2.5;
+        ctx.setLineDash([8, 6]);
         ctx.beginPath();
         ctx.arc(beacon.x, beacon.y, beacon.radius, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.setLineDash([]);
 
-        /* Прогресс-бар воскрешения */
-        if (beacon.progress > 0) {
-          const progressAngle = (beacon.progress / beacon.requiredTime) * Math.PI * 2;
-          ctx.strokeStyle = "#7ee7ff";
-          ctx.lineWidth = 4;
-          ctx.globalAlpha = 0.9;
+        // Прогресс-бар воскрешения по кругу
+        if (progressRatio > 0) {
+          ctx.strokeStyle = "#00f2fe";
+          ctx.lineWidth = 5;
+          ctx.globalAlpha = 0.95;
+          ctx.shadowColor = "#00f2fe";
+          ctx.shadowBlur = 10;
           ctx.beginPath();
           ctx.arc(
             beacon.x, beacon.y,
-            beacon.radius - 6,
+            beacon.radius - 4,
             -Math.PI / 2,
-            -Math.PI / 2 + progressAngle
+            -Math.PI / 2 + progressRatio * Math.PI * 2
           );
           ctx.stroke();
+        }
+
+        // Текст над маяком
+        ctx.globalAlpha = 1.0;
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillStyle = "#ff79c6";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "#ff007f";
+        ctx.shadowBlur = 6;
+        ctx.fillText("💖 ВОСКРЕШЕНИЕ", beacon.x, beacon.y - beacon.radius - 12);
+
+        if (progressRatio > 0) {
+          ctx.fillStyle = "#00f2fe";
+          ctx.font = "bold 13px monospace";
+          ctx.shadowColor = "#00f2fe";
+          ctx.shadowBlur = 8;
+          ctx.fillText(`${Math.round(progressRatio * 100)}%`, beacon.x, beacon.y);
         }
 
         ctx.restore();
@@ -12769,12 +12904,73 @@
       }
 
       drawDamageNumbersIn(coopDamageNumbers);
-      /*
-       * Будущих сетевых врагов, кристаллы и вражеские
-       * снаряды нужно будет рисовать внутри этого
-       * обрезанного блока.
-       */
-    
+
+      // Индикатор направления к маяку напарника, если он далеко
+      const myPlayer = coopSession.players.get(window.net?.playerId);
+      if (myPlayer && myPlayer.alive) {
+        for (const [pId, otherPlayer] of coopSession.players) {
+          if (pId === window.net?.playerId || otherPlayer.alive) continue;
+          const beacon = otherPlayer.reviveBeacon;
+          if (!beacon || !beacon.active) continue;
+
+          const dx = beacon.x - myPlayer.displayX;
+          const dy = beacon.y - myPlayer.displayY;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist > 160) {
+            const angle = Math.atan2(dy, dx);
+            const indX = myPlayer.displayX + Math.cos(angle) * 75;
+            const indY = myPlayer.displayY + Math.sin(angle) * 75;
+
+            ctx.save();
+            ctx.translate(indX, indY);
+            ctx.rotate(angle);
+
+            ctx.fillStyle = "#ff007f";
+            ctx.shadowColor = "#ff007f";
+            ctx.shadowBlur = 10;
+
+            ctx.beginPath();
+            ctx.moveTo(12, 0);
+            ctx.lineTo(-8, -6);
+            ctx.lineTo(-4, 0);
+            ctx.lineTo(-8, 6);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+
+            ctx.save();
+            ctx.font = "bold 10px sans-serif";
+            ctx.fillStyle = "#ff79c6";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.shadowColor = "#ff007f";
+            ctx.shadowBlur = 6;
+            ctx.fillText(`💖 СПАСТИ (${Math.round(dist)}px)`, indX, indY + 16);
+            ctx.restore();
+          }
+        }
+      }
+
+      if (myPlayer && !myPlayer.alive) {
+        ctx.save();
+        ctx.fillStyle = "rgba(10, 16, 28, 0.85)";
+        ctx.fillRect(COOP_WORLD_WIDTH / 2 - 220, 24, 440, 36);
+        ctx.strokeStyle = "#ff5577";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(COOP_WORLD_WIDTH / 2 - 220, 24, 440, 36);
+
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillStyle = "#ff79c6";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "#ff007f";
+        ctx.shadowBlur = 8;
+        ctx.fillText("💀 ВЫ ПОГИБЛИ • Напарник может спасти вас в круге маяка!", COOP_WORLD_WIDTH / 2, 42);
+        ctx.restore();
+      }
+
       ctx.restore();
     
       /*
@@ -14750,6 +14946,18 @@
         return;
       }
 
+      if (event.code === "F2" || event.code === "Backquote" || event.key === "`" || event.key === "~" || event.key === "ё" || event.key === "Ё") {
+        event.preventDefault();
+        if (typeof window.debug !== "undefined") {
+          if (!window.debug._adminActive) {
+            window.debug.admin = 1;
+          } else {
+            window.debug.toggleUi();
+          }
+        }
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey || event.altKey) {
         return;
       }
@@ -14979,6 +15187,989 @@
         }
       }
     }
+
+    /* =========================================================================
+     * DEBUG & ADMIN TOOLS (Activated via console: debug.admin = 1)
+     * Supports both SOLO and ONLINE CO-OP (Host/Guest/Teammate editing)!
+     * ========================================================================= */
+    function sendNetDebugCommand(action, data = {}) {
+      try {
+        if (window.net?.socket?.emit) {
+          window.net.socket.emit("net:debug-command", { action, data });
+          return true;
+        }
+        if (typeof window.net?.sendDebugCommand === "function") {
+          window.net.sendDebugCommand(action, data);
+          return true;
+        }
+      } catch (err) {
+        console.error("[DEBUG] Network send error:", err);
+      }
+      return false;
+    }
+
+    if (window.net && !window.net.sendDebugCommand) {
+      window.net.sendDebugCommand = function(action, data = {}) {
+        if (this.socket) {
+          this.socket.emit("net:debug-command", { action, data });
+        }
+      };
+    }
+
+    const debug = {
+      _adminActive: false,
+      _godMode: false,
+      _target: "self", // "self", "teammate", "all"
+      _uiElement: null,
+
+      get isOnline() {
+        return Boolean(coopSession.active || (window.net?.isMultiplayer && window.net?.connected));
+      },
+
+      get admin() {
+        return this._adminActive;
+      },
+
+      set admin(val) {
+        const active = Boolean(val && val !== "0" && val !== "false" && val !== "null");
+        this._adminActive = active;
+        if (active) {
+          const modeStr = this.isOnline ? "🌐 ОНЛАЙН (КООП)" : "🕹️ СОЛО";
+          console.log(
+            `%c[DEBUG ADMIN ENABLED] 🛠️ Режим разработчика активирован! Режим: ${modeStr}. Меню открыто на экране (F2 / ~ для скрытия).`,
+            "color: #00ffcc; font-size: 14px; font-weight: bold; background: #0b1524; padding: 6px 12px; border: 1px solid #00e5ff; border-radius: 6px;"
+          );
+          this.help();
+          this.showUi();
+        } else {
+          console.log("%c[DEBUG ADMIN DISABLED] Режим разработчика отключен.", "color: #ffaa00; font-size: 13px;");
+          this._godMode = false;
+          this.hideUi();
+        }
+      },
+
+      get target() {
+        return this._target;
+      },
+      set target(t) {
+        if (t === "self" || t === "teammate" || t === "all") {
+          this._target = t;
+          this.refreshUi();
+        }
+      },
+
+      get wave() {
+        return this.isOnline ? coopSession.wave : wave;
+      },
+      set wave(v) { this.setWave(v); },
+
+      get hp() {
+        if (this.isOnline) {
+          const myP = coopSession.players.get(window.net?.playerId);
+          return myP ? myP.hp : 0;
+        }
+        return player ? player.hp : 0;
+      },
+      set hp(v) { this.setHp(v, "self"); },
+
+      get maxHp() {
+        if (this.isOnline) {
+          const myP = coopSession.players.get(window.net?.playerId);
+          return myP ? myP.maxHp : 0;
+        }
+        return player ? player.maxHp : 0;
+      },
+      set maxHp(v) { this.setMaxHp(v, "self"); },
+
+      get level() {
+        return this.isOnline ? coopSession.level : playerLevel;
+      },
+      set level(v) { this.setLevel(v); },
+
+      get god() { return this._godMode; },
+      set god(v) { this.godMode(v, "self"); },
+
+      // Sub-object for direct teammate controls in console: debug.teammate.setHp(50), etc.
+      get teammate() {
+        const self = this;
+        return {
+          setHp(amount) { return self.setHp(amount, "teammate"); },
+          setMaxHp(amount) { return self.setMaxHp(amount, "teammate"); },
+          fullHp() { return self.fullHp("teammate"); },
+          godMode(enable) { return self.godMode(enable, "teammate"); },
+          giveUpgrade(query, power) { return self.giveUpgrade(query, power, "teammate"); },
+          removeUpgrade(query) { return self.removeUpgrade(query, "teammate"); },
+          resetUpgrades() { return self.resetUpgrades("teammate"); },
+          giveAllUpgrades(power) { return self.giveAllUpgrades(power, "teammate"); },
+          addLevel(count) { return self.addLevel(count); },
+          removeLevel(count) { return self.removeLevel(count); },
+          setLevel(lvl) { return self.setLevel(lvl); },
+          get hp() {
+            if (self.isOnline) {
+              const tm = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
+              return tm ? tm.hp : 0;
+            }
+            return 0;
+          },
+          set hp(v) { this.setHp(v); },
+          get maxHp() {
+            if (self.isOnline) {
+              const tm = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
+              return tm ? tm.maxHp : 0;
+            }
+            return 0;
+          },
+          set maxHp(v) { this.setMaxHp(v); }
+        };
+      },
+
+      // Sub-object for all players in room: debug.all.godMode(), debug.all.giveAllUpgrades(), etc.
+      get all() {
+        const self = this;
+        return {
+          setHp(amount) { return self.setHp(amount, "all"); },
+          fullHp() { return self.fullHp("all"); },
+          godMode(enable) { return self.godMode(enable, "all"); },
+          giveUpgrade(query, power) { return self.giveUpgrade(query, power, "all"); },
+          removeUpgrade(query) { return self.removeUpgrade(query, "all"); },
+          resetUpgrades() { return self.resetUpgrades("all"); },
+          giveAllUpgrades(power) { return self.giveAllUpgrades(power, "all"); },
+          addLevel(count) { return self.addLevel(count); },
+          removeLevel(count) { return self.removeLevel(count); },
+          setLevel(lvl) { return self.setLevel(lvl); },
+          revive() { return self.reviveAll(); }
+        };
+      },
+
+      setWave(targetWave) {
+        const w = Math.max(1, parseInt(targetWave, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("set-wave", { wave: w });
+          console.log(`%c[DEBUG ONLINE] 🌊 Запрос на установку волны ${w} отправлен на сервер!`, "color: #00e5ff; font-weight: bold;");
+          return w;
+        }
+
+        if (gameState !== "playing" && gameState !== "choosing") {
+          console.warn("[DEBUG] Игра не запущена. Начните игру перед установкой волны.");
+          return false;
+        }
+        wave = w;
+        enemies.length = 0;
+        enemyProjectiles.length = 0;
+        wavePending = false;
+        waveClearTimer = 0;
+        waveToast = 2.0;
+        spawnWave();
+        updateHud();
+        console.log(`%c[DEBUG] 🌊 Волна установлена: ${wave}`, "color: #00e5ff; font-weight: bold;");
+        this.refreshUi();
+        return wave;
+      },
+
+      skipWave() {
+        if (this.isOnline) {
+          sendNetDebugCommand("skip-wave");
+          console.log("%c[DEBUG ONLINE] ⏭️ Запрос на пропуск волны отправлен на сервер!", "color: #a3e635; font-weight: bold;");
+          return true;
+        }
+
+        if (gameState !== "playing" && gameState !== "choosing") {
+          console.warn("[DEBUG] Игра не запущена.");
+          return false;
+        }
+        enemies.length = 0;
+        enemyProjectiles.length = 0;
+        wave += 1;
+        wavePending = false;
+        waveClearTimer = 0;
+        waveToast = 2.0;
+        spawnWave();
+        updateHud();
+        console.log(`%c[DEBUG] ⏭️ Волна пропущена! Текущая волна: ${wave}`, "color: #a3e635; font-weight: bold;");
+        this.refreshUi();
+        return wave;
+      },
+
+      restartWave() {
+        if (this.isOnline) {
+          sendNetDebugCommand("restart-wave");
+          console.log("%c[DEBUG ONLINE] 🔄 Запрос на перезапуск волны отправлен на сервер!", "color: #facc15; font-weight: bold;");
+          return true;
+        }
+
+        if (gameState !== "playing" && gameState !== "choosing") {
+          console.warn("[DEBUG] Игра не запущена.");
+          return false;
+        }
+        enemies.length = 0;
+        enemyProjectiles.length = 0;
+        wavePending = false;
+        waveClearTimer = 0;
+        waveToast = 2.0;
+        spawnWave();
+        updateHud();
+        console.log(`%c[DEBUG] 🔄 Волна перезапущена: ${wave}`, "color: #facc15; font-weight: bold;");
+        this.refreshUi();
+        return wave;
+      },
+
+      prevWave() {
+        if (this.isOnline) {
+          sendNetDebugCommand("prev-wave");
+          console.log("%c[DEBUG ONLINE] ◀️ Запрос на предыдущую волну отправлен на сервер!", "color: #38bdf8; font-weight: bold;");
+          return true;
+        }
+        if (gameState !== "playing" && gameState !== "choosing") return false;
+        return this.setWave(Math.max(1, wave - 1));
+      },
+
+      nextWave() {
+        return this.skipWave();
+      },
+
+      setHp(amount, target = this._target) {
+        const h = Math.max(1, parseInt(amount, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("set-hp", { hp: h, target });
+          console.log(`%c[DEBUG ONLINE] ❤️ Запрос на установку HP (${h}) для «${target}» отправлен!`, "color: #f43f5e; font-weight: bold;");
+          return h;
+        }
+
+        if (!player) return false;
+        if (h > player.maxHp) player.maxHp = h;
+        player.hp = h;
+        updateHud();
+        console.log(`%c[DEBUG] ❤️ HP установлено: ${player.hp} / ${player.maxHp}`, "color: #f43f5e; font-weight: bold;");
+        this.refreshUi();
+        return player.hp;
+      },
+
+      setMaxHp(amount, target = this._target) {
+        const mh = Math.max(1, parseInt(amount, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("set-hp", { hp: mh, target });
+          return mh;
+        }
+
+        if (!player) return false;
+        player.maxHp = mh;
+        player.hp = Math.min(player.hp, player.maxHp);
+        updateHud();
+        console.log(`%c[DEBUG] 💖 Макс HP: ${player.maxHp}`, "color: #f43f5e; font-weight: bold;");
+        this.refreshUi();
+        return player.maxHp;
+      },
+
+      fullHp(target = this._target) {
+        if (this.isOnline) {
+          sendNetDebugCommand("set-hp", { hp: 999, target });
+          console.log(`%c[DEBUG ONLINE] 💚 Запрос на полное восстановление HP для «${target}» отправлен!`, "color: #22c55e; font-weight: bold;");
+          return true;
+        }
+
+        if (!player) return false;
+        player.hp = player.maxHp;
+        updateHud();
+        console.log(`%c[DEBUG] 💚 Здоровье полностью восстановлено: ${player.hp}/${player.maxHp}`, "color: #22c55e; font-weight: bold;");
+        this.refreshUi();
+        return player.hp;
+      },
+
+      godMode(enable, target = this._target) {
+        if (typeof enable === "undefined") {
+          this._godMode = !this._godMode;
+        } else {
+          this._godMode = Boolean(enable);
+        }
+
+        if (this.isOnline) {
+          sendNetDebugCommand("god-mode", { enabled: this._godMode, target });
+          console.log(
+            `%c[DEBUG ONLINE] 🛡️ Бессмертие для «${target}»: ${this._godMode ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО"}!`,
+            `color: ${this._godMode ? "#22c55e" : "#f97316"}; font-weight: bold;`
+          );
+        } else {
+          if (this._godMode && player) {
+            player.maxHp = Math.max(player.maxHp, 9999);
+            player.hp = player.maxHp;
+            updateHud();
+          }
+          console.log(
+            `%c[DEBUG] 🛡️ Режим бессмертия (God Mode): ${this._godMode ? "ВКЛЮЧЕН" : "ВЫКЛЮЧЕН"}`,
+            `color: ${this._godMode ? "#22c55e" : "#f97316"}; font-weight: bold;`
+          );
+        }
+
+        this.refreshUi();
+        return this._godMode;
+      },
+
+      reviveAll() {
+        if (this.isOnline) {
+          sendNetDebugCommand("revive-all");
+          console.log("%c[DEBUG ONLINE] 💖 Запрос на мгновенное воскрешение всех игроков отправлен!", "color: #ec4899; font-weight: bold;");
+          return true;
+        }
+        if (player) {
+          player.hp = player.maxHp;
+          updateHud();
+        }
+        return true;
+      },
+
+      showUpgrades() {
+        if (this.isOnline) {
+          sendNetDebugCommand("trigger-upgrade");
+          console.log("%c[DEBUG ONLINE] 🎁 Запрос на запуск раунда улучшений отправлен на сервер!", "color: #a855f7; font-weight: bold;");
+          return true;
+        }
+
+        if (gameState !== "playing" && gameState !== "choosing") {
+          console.warn("[DEBUG] Начните игру перед выбором улучшений.");
+          return false;
+        }
+        pendingLevelUps = Math.max(1, pendingLevelUps + 1);
+        showUpgradeSelection();
+        console.log("%c[DEBUG] 🎁 Открыто меню выбора улучшений", "color: #a855f7; font-weight: bold;");
+        return true;
+      },
+
+      resolveUpgradeId(query) {
+        if (typeof query !== "string") return "damage";
+        const q = query.toLowerCase().trim();
+        const map = {
+          damage: "damage", "тяжёлая пуля": "damage", "урон": "damage",
+          bounce: "bounce", "дополнительный рикошет": "bounce", "рикошет": "bounce",
+          pierce: "pierce", "пробитие": "pierce",
+          speed: "bullet-speed", "bullet-speed": "bullet-speed", "разогнанный ствол": "bullet-speed",
+          boots: "move-speed", movespeed: "move-speed", "move-speed": "move-speed", "лёгкие ботинки": "move-speed",
+          armor: "armor", "усиленная броня": "armor", "броня": "armor",
+          repair: "repair", heal: "repair", "ремонтный комплект": "repair", "ремонт": "repair",
+          pickup: "pickup", magnet: "pickup", "magnetic-field": "pickup", "магнитное поле": "pickup", "магнит": "pickup",
+          crit: "critical", critical: "critical", "критический механизм": "critical", "крит": "critical",
+          caliber: "caliber", "крупный калибр": "caliber", "калибр": "caliber",
+          "second-bullet": "second-bullet", second: "second-bullet", "запасной патрон": "second-bullet", "патрон": "second-bullet",
+          "catch-blast": "catch-blast", blast: "catch-blast", "импульсный захват": "catch-blast", "взрыв": "catch-blast",
+          "emergency-repair": "emergency-repair", emergency: "emergency-repair", "аварийный ремонт": "emergency-repair",
+          explosive: "explosive", explosion: "explosive", "разрывной сердечник": "explosive",
+          chain: "chain-lightning", "chain-lightning": "chain-lightning", lightning: "chain-lightning", "цепной конденсатор": "chain-lightning", "молния": "chain-lightning",
+          homing: "homing", "умная пуля": "homing", "самонаведение": "homing",
+          boomerang: "boomerang", "эффект бумеранга": "boomerang", "бумеранг": "boomerang",
+          splinter: "splinter", "осколочный рикошет": "splinter", "осколки": "splinter",
+          stun: "stun", "кинетический удар": "stun", "стан": "stun", "оглушение": "stun",
+          reactive: "reactive-armor", "reactive-armor": "reactive-armor", "реактивная броня": "reactive-armor",
+          mark: "target-mark", target: "target-mark", "target-mark": "target-mark", "метка цели": "target-mark", "метка": "target-mark"
+        };
+        const clean = q.replace(/[^a-zа-я0-9]/gi, "");
+        if (map[clean]) return map[clean];
+        if (map[q]) return map[q];
+        return "damage";
+      },
+
+      giveUpgrade(query, power = 1, target = this._target) {
+        const p = Math.max(1, Math.min(3, parseInt(power, 10) || 1));
+        const uId = this.resolveUpgradeId(typeof query === "number" ? (upgrades[query]?.title || "damage") : query);
+
+        if (this.isOnline) {
+          sendNetDebugCommand("give-upgrade", { upgradeId: uId, power: p, target });
+          console.log(`%c[DEBUG ONLINE] ⚡ Запрос на выдачу «${uId}» (x${p}) для «${target}» отправлен!`, "color: #38bdf8; font-weight: bold;");
+          return uId;
+        }
+
+        if (!stats) {
+          console.warn("[DEBUG] Статистика игрока не инициализирована.");
+          return false;
+        }
+        let targetUp = upgrades.find(u => u.title.toLowerCase().includes(String(query).toLowerCase()));
+        if (!targetUp && typeof query === "number") targetUp = upgrades[query];
+        if (!targetUp) targetUp = upgrades.find(u => this.resolveUpgradeId(u.title) === uId) || upgrades[0];
+
+        if (!window._soloUpgradeHistory) window._soloUpgradeHistory = [];
+        window._soloUpgradeHistory.push({ upgrade: targetUp, power: p });
+
+        applyUpgradeByRarity(targetUp, p);
+        updateHud();
+        console.log(`%c[DEBUG] ⚡ Применено улучшение: «${targetUp.title}» (Сила: ${p})`, "color: #38bdf8; font-weight: bold;");
+        this.refreshUi();
+        return targetUp.title;
+      },
+
+      removeUpgrade(query, target = this._target) {
+        const uId = this.resolveUpgradeId(typeof query === "number" ? (upgrades[query]?.title || "damage") : query);
+
+        if (this.isOnline) {
+          sendNetDebugCommand("remove-upgrade", { upgradeId: uId, target });
+          console.log(`%c[DEBUG ONLINE] ➖ Запрос на удаление улучшения «${uId}» для «${target}» отправлен!`, "color: #f43f5e; font-weight: bold;");
+          return true;
+        }
+
+        if (!window._soloUpgradeHistory || window._soloUpgradeHistory.length === 0) {
+          console.warn("[DEBUG] У игрока нет активных улучшений.");
+          return false;
+        }
+
+        const idx = window._soloUpgradeHistory.findIndex(item => this.resolveUpgradeId(item.upgrade.title) === uId);
+        if (idx !== -1) {
+          const removed = window._soloUpgradeHistory.splice(idx, 1)[0];
+          // Rebuild solo stats
+          const currentHp = player ? player.hp : 10;
+          resetEntities();
+          const history = [...window._soloUpgradeHistory];
+          window._soloUpgradeHistory = [];
+          for (const item of history) {
+            applyUpgradeByRarity(item.upgrade, item.power);
+            window._soloUpgradeHistory.push(item);
+          }
+          if (player) player.hp = Math.min(currentHp, player.maxHp);
+          updateHud();
+          console.log(`%c[DEBUG] ➖ Удалено улучшение: «${removed.upgrade.title}»`, "color: #f43f5e; font-weight: bold;");
+          this.refreshUi();
+          return true;
+        }
+        console.warn(`[DEBUG] Улучшение «${uId}» не найдено у игрока.`);
+        return false;
+      },
+
+      resetUpgrades(target = this._target) {
+        if (this.isOnline) {
+          sendNetDebugCommand("reset-upgrades", { target });
+          console.log(`%c[DEBUG ONLINE] 🔄 Запрос на сброс ВСЕХ улучшений для «${target}» отправлен!`, "color: #eab308; font-weight: bold;");
+          return true;
+        }
+
+        window._soloUpgradeHistory = [];
+        const currentHp = player ? player.hp : 10;
+        resetEntities();
+        if (player) player.hp = Math.min(currentHp, player.maxHp);
+        updateHud();
+        console.log("%c[DEBUG] 🔄 Все улучшения игрока сброшены к базовым!", "color: #eab308; font-weight: bold;");
+        this.refreshUi();
+        return true;
+      },
+
+      giveAllUpgrades(power = 1, target = this._target) {
+        const p = Math.max(1, parseInt(power, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("give-all-upgrades", { power: p, target });
+          console.log(`%c[DEBUG ONLINE] 🌟 Запрос на выдачу ВСЕХ улучшений (x${p}) для «${target}» отправлен!`, "color: #e879f9; font-weight: bold;");
+          return true;
+        }
+
+        if (!stats) return false;
+        if (!window._soloUpgradeHistory) window._soloUpgradeHistory = [];
+        for (const up of upgrades) {
+          try {
+            applyUpgradeByRarity(up, p);
+            window._soloUpgradeHistory.push({ upgrade: up, power: p });
+          } catch (e) {}
+        }
+        updateHud();
+        console.log(`%c[DEBUG] 🌟 Выданы ВСЕ улучшения (Сила: ${p})!`, "color: #e879f9; font-weight: bold;");
+        this.refreshUi();
+        return true;
+      },
+
+      listUpgrades() {
+        console.log("%c=== СПИСОК УЛУЧШЕНИЙ ===", "color: #38bdf8; font-weight: bold; font-size: 14px;");
+        console.table(
+          upgrades.map((u, i) => ({
+            "№": i,
+            "Название": u.title,
+            "Описание": u.description,
+            "ID для консоли": this.resolveUpgradeId(u.title)
+          }))
+        );
+        return upgrades.map(u => u.title);
+      },
+
+      killAll() {
+        if (this.isOnline) {
+          sendNetDebugCommand("kill-all");
+          console.log("%c[DEBUG ONLINE] 💀 Запрос на уничтожение всех врагов отправлен на сервер!", "color: #ef4444; font-weight: bold;");
+          return true;
+        }
+
+        const count = enemies.length;
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const enemy = enemies[i];
+          if (enemy) {
+            enemy.hp = 0;
+            killEnemy(i);
+          }
+        }
+        enemyProjectiles.length = 0;
+        console.log(`%c[DEBUG] 💀 Уничтожено всех врагов: ${count}`, "color: #ef4444; font-weight: bold;");
+        this.refreshUi();
+        return count;
+      },
+
+      spawnEnemy(type = "normal", count = 1) {
+        const cnt = Math.max(1, parseInt(count, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("spawn-enemy", { type, count: cnt });
+          console.log(`%c[DEBUG ONLINE] 👾 Запрос на спавн «${type}» x${cnt} отправлен на сервер!`, "color: #c084fc; font-weight: bold;");
+          return true;
+        }
+
+        if (gameState !== "playing" && gameState !== "choosing") {
+          console.warn("[DEBUG] Игра не запущена.");
+          return false;
+        }
+        for (let i = 0; i < cnt; i++) {
+          spawnEnemyFromEdge(type);
+        }
+        console.log(`%c[DEBUG] 👾 Заспавнен враг «${type}» x${cnt}`, "color: #c084fc; font-weight: bold;");
+        this.refreshUi();
+        return true;
+      },
+
+      setLevel(lvl) {
+        const targetLvl = Math.max(1, parseInt(lvl, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("set-level", { level: targetLvl });
+          console.log(`%c[DEBUG ONLINE] 🎖️ Запрос на установку уровня (${targetLvl}) отправлен!`, "color: #fbbf24; font-weight: bold;");
+          return targetLvl;
+        }
+
+        playerLevel = targetLvl;
+        experience = 0;
+        experienceToNext = getExperienceRequirement(playerLevel);
+        updateHud();
+        console.log(`%c[DEBUG] 🎖️ Уровень игрока установлен: ${playerLevel}`, "color: #fbbf24; font-weight: bold;");
+        this.refreshUi();
+        return playerLevel;
+      },
+
+      addLevel(count = 1) {
+        const cnt = Math.max(1, parseInt(count, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("add-level", { count: cnt });
+          console.log(`%c[DEBUG ONLINE] 🎖️ Запрос на добавление +${cnt} ур. отправлен!`, "color: #fbbf24; font-weight: bold;");
+          return this.level + cnt;
+        }
+        return this.setLevel(playerLevel + cnt);
+      },
+
+      removeLevel(count = 1) {
+        const cnt = Math.max(1, parseInt(count, 10) || 1);
+        if (this.isOnline) {
+          sendNetDebugCommand("remove-level", { count: cnt });
+          console.log(`%c[DEBUG ONLINE] 🎖️ Запрос на понижение -${cnt} ур. отправлен!`, "color: #fbbf24; font-weight: bold;");
+          return Math.max(1, this.level - cnt);
+        }
+        return this.setLevel(Math.max(1, playerLevel - cnt));
+      },
+
+      addExp(amount) {
+        const exp = Math.max(1, parseInt(amount, 10) || 10);
+        if (this.isOnline) {
+          sendNetDebugCommand("add-exp", { amount: exp });
+          console.log(`%c[DEBUG ONLINE] 💎 Запрос на добавление опыта (${exp}) отправлен!`, "color: #60a5fa; font-weight: bold;");
+          return true;
+        }
+
+        addExperience(exp);
+        updateHud();
+        console.log(`%c[DEBUG] 💎 Добавлено опыта: ${exp}`, "color: #60a5fa; font-weight: bold;");
+        this.refreshUi();
+        return experience;
+      },
+
+      addBullet(target = this._target) {
+        if (this.isOnline) {
+          this.giveUpgrade("second-bullet", 1, target);
+          return 2;
+        }
+        if (!stats) return false;
+        stats.magazineSize = (stats.magazineSize || 1) + 1;
+        ensureMagazine();
+        updateHud();
+        console.log(`%c[DEBUG] 🎯 Патронов в обойме: ${stats.magazineSize}`, "color: #38bdf8; font-weight: bold;");
+        return stats.magazineSize;
+      },
+
+      setSpeed(multiplier = 1.5, target = this._target) {
+        if (this.isOnline) {
+          this.giveUpgrade("move-speed", Math.round(multiplier * 2), target);
+          return multiplier;
+        }
+        if (!stats) return false;
+        stats.playerSpeed = BASE_PLAYER_SPEED * multiplier;
+        console.log(`%c[DEBUG] 🏃 Скорость игрока: x${multiplier}`, "color: #34d399; font-weight: bold;");
+        return stats.playerSpeed;
+      },
+
+      help() {
+        const mode = this.isOnline ? "🌐 РЕЖИМ: ОНЛАЙН (КООП)" : "🕹️ РЕЖИМ: СОЛО";
+        console.log(
+          "%c╔══════════════════════════════════════════════════════════════╗\n" +
+          `║     🛠️ ONE BULLET — ДЕБАГ ПАНЕЛЬ (${mode.padEnd(20)})    ║\n` +
+          "╚══════════════════════════════════════════════════════════════╝",
+          "color: #00e5ff; font-weight: bold; font-family: monospace;"
+        );
+        console.log(
+          "%cУправление волнами:\n" +
+          "  debug.setWave(n)             - Установить волну (например: debug.setWave(10))\n" +
+          "  debug.skipWave()             - Пропустить волну (перейти к следующей)\n" +
+          "  debug.restartWave()          - Перезапустить волну\n" +
+          "  debug.prevWave()             - Предыдущая волна\n\n" +
+          "Управление уровнем и опытом:\n" +
+          "  debug.addLevel(n)            - Добавить уровни игрокам (+1 по умолчанию)\n" +
+          "  debug.removeLevel(n)         - Убрать уровни игрокам (-1 по умолчанию)\n" +
+          "  debug.setLevel(n)            - Установить точный уровень (debug.setLevel(15))\n" +
+          "  debug.addExp(n)              - Добавить опыт (debug.addExp(500))\n\n" +
+          "Управление улучшениями:\n" +
+          "  debug.giveUpgrade('name', p) - Выдать конкретное улучшение выбранной цели\n" +
+          "  debug.removeUpgrade('name')  - УБРАТЬ конкретное улучшение у выбранной цели\n" +
+          "  debug.resetUpgrades()        - СБРОСИТЬ ВСЕ улучшения цели к базовым\n" +
+          "  debug.giveAllUpgrades()      - Выдать ВСЕ улучшения цели\n" +
+          "  debug.listUpgrades()         - Показать список всех ID улучшений\n\n" +
+          "Управление НАПАРНИКОМ (Игрок 2 в коопе):\n" +
+          "  debug.teammate.setHp(n)      - Установить HP напарнику (debug.teammate.setHp(100))\n" +
+          "  debug.teammate.giveUpgrade('name', p) - Выдать улучшение напарнику\n" +
+          "  debug.teammate.removeUpgrade('name')  - Убрать улучшение у напарника\n" +
+          "  debug.teammate.resetUpgrades()        - Сбросить улучшения напарника\n" +
+          "  debug.teammate.giveAllUpgrades()      - Выдать ВСЕ улучшения напарнику\n\n" +
+          "Управление ВСЕМИ игроками:\n" +
+          "  debug.all.setHp(n)           - Установить HP обоим игрокам\n" +
+          "  debug.all.giveUpgrade('name', p) - Выдать улучшение обоим\n" +
+          "  debug.all.removeUpgrade('name')  - Убрать улучшение у обоих\n" +
+          "  debug.all.resetUpgrades()        - Сбросить улучшения обоим\n" +
+          "  debug.all.giveAllUpgrades()  - Все улучшения обоим\n" +
+          "  debug.all.revive()           - Воскресить всех\n\n" +
+          "Враги и бой:\n" +
+          "  debug.killAll()              - Уничтожить всех врагов\n" +
+          "  debug.spawnEnemy('boss')     - Заспавнить врага\n\n" +
+          "Горячая клавиша меню: F2 или ~ (Тильда)",
+          "color: #e2e8f0; font-family: monospace; font-size: 12px; line-height: 1.5;"
+        );
+        return "Вводите команды в консоль или используйте экранную панель меню.";
+      },
+
+      toggleUi() {
+        if (!this._uiElement) {
+          this.createUi();
+        } else {
+          const isHidden = this._uiElement.style.display === "none";
+          this._uiElement.style.display = isHidden ? "block" : "none";
+          if (isHidden) this.refreshUi();
+        }
+      },
+
+      showUi() {
+        if (!this._uiElement) {
+          this.createUi();
+        }
+        this._uiElement.style.display = "block";
+        this.refreshUi();
+      },
+
+      hideUi() {
+        if (this._uiElement) {
+          this._uiElement.style.display = "none";
+        }
+      },
+
+      createUi() {
+        if (this._uiElement) return;
+        const el = document.createElement("div");
+        el.id = "debugToolbar";
+        el.style.cssText = `
+          position: fixed;
+          top: 48px;
+          right: 18px;
+          z-index: 99999;
+          background: rgba(8, 16, 30, 0.95);
+          border: 1px solid rgba(0, 229, 255, 0.5);
+          box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 229, 255, 0.25);
+          border-radius: 12px;
+          padding: 12px 14px;
+          width: 330px;
+          max-height: 88vh;
+          overflow-y: auto;
+          color: #f1f5f9;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-size: 13px;
+          backdrop-filter: blur(14px);
+          user-select: none;
+          display: block;
+        `;
+
+        el.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid rgba(0,229,255,0.25); padding-bottom: 6px;">
+            <div style="font-weight: bold; color: #00e5ff; display: flex; align-items: center; gap: 6px;">
+              <span>🛠️</span> DEBUG ADMIN
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button id="dbgMinimizeBtn" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 0 4px;">—</button>
+              <button id="dbgCloseBtn" style="background: transparent; border: none; color: #ff5577; cursor: pointer; font-size: 14px; padding: 0 4px;">✕</button>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; background: rgba(0,229,255,0.08); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(0,229,255,0.2);">
+            <span style="font-size: 11px; color: #94a3b8;">РЕЖИМ:</span>
+            <strong id="dbgModeBadge" style="font-size: 11px; color: #38bdf8;">СОЛО</strong>
+          </div>
+
+          <div id="dbgBody">
+            <!-- Селектор цели команд -->
+            <div style="margin-bottom: 10px; background: rgba(2,132,199,0.12); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(2,132,199,0.3);">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">
+                <span>🎯 Цель команд (кому применять):</span>
+              </div>
+              <select id="dbgTargetSelect" style="width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; border-radius: 6px; padding: 4px 6px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                <option value="self">👤 Себе (Локальный игрок)</option>
+                <option value="teammate">👥 Напарнику (Игрок 2)</option>
+                <option value="all">⭐ Всем игрокам (Обоим)</option>
+              </select>
+              <div id="dbgPlayersSummary" style="margin-top: 4px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between;">
+                <span id="dbgSelfSummary">Вы: ❤️ --</span>
+                <span id="dbgTeammateSummary">Напарник: 💙 --</span>
+              </div>
+            </div>
+
+            <!-- Волна -->
+            <div style="margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
+                <span>Управление волной</span>
+                <span id="dbgWaveDisplay" style="color: #00e5ff; font-weight: bold;">Волна: 1</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 36px 1fr 36px; gap: 4px; margin-bottom: 4px;">
+                <button id="dbgWaveDec" style="background: #1e293b; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">-1</button>
+                <button id="dbgWaveSet" style="background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 12px;">Установить волну...</button>
+                <button id="dbgWaveInc" style="background: #1e293b; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">+1</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <button id="dbgSkipWave" style="background: #14532d; color: #86efac; border: 1px solid #22c55e; border-radius: 6px; padding: 5px; cursor: pointer; font-weight: 500; font-size: 12px;">⏭️ Пропустить</button>
+                <button id="dbgRestartWave" style="background: #713f12; color: #fde047; border: 1px solid #eab308; border-radius: 6px; padding: 5px; cursor: pointer; font-weight: 500; font-size: 12px;">🔄 Рестарт</button>
+              </div>
+            </div>
+
+            <!-- Уровень и опыт -->
+            <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
+                <span>Уровень и опыт</span>
+                <span id="dbgLevelDisplay" style="color: #fbbf24; font-weight: bold;">Ур. 1</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 36px 1fr 36px; gap: 4px; margin-bottom: 4px;">
+                <button id="dbgLvlDec" style="background: #1e293b; color: #fbbf24; border: 1px solid #78350f; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">-1</button>
+                <button id="dbgLvlSet" style="background: #0f172a; color: #fbbf24; border: 1px solid #b45309; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 12px;">Установить ур...</button>
+                <button id="dbgLvlInc" style="background: #1e293b; color: #fbbf24; border: 1px solid #78350f; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">+1</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <button id="dbgAddExp100" style="background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px;">+100 Опыта</button>
+                <button id="dbgAddExp1000" style="background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px;">+1000 Опыта</button>
+              </div>
+            </div>
+
+            <!-- Здоровье -->
+            <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
+                <span>Здоровье цели</span>
+                <span id="dbgHpDisplay" style="color: #ff7992; font-weight: bold;">HP: --</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
+                <button id="dbgFullHp" style="background: #1e293b; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 12px;">❤️ 100% HP</button>
+                <button id="dbgPlusHp" style="background: #1e293b; color: #f43f5e; border: 1px solid #334155; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 12px;">+10 HP</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <button id="dbgGodMode" style="background: #1e293b; color: #f97316; border: 1px solid #ea580c; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">🛡️ Бессмертие: ВЫКЛ</button>
+                <button id="dbgReviveBtn" style="background: #831843; color: #fbcfe8; border: 1px solid #db2777; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">💖 Воскресить всех</button>
+              </div>
+            </div>
+
+            <!-- Улучшения (Выбор, Выдача, Удаление, Сброс) -->
+            <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+              <div style="margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">Улучшения цели</div>
+              <div style="margin-bottom: 4px;">
+                <select id="dbgUpgradeSelect" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid #6366f1; border-radius: 6px; padding: 5px 6px; font-size: 11px;">
+                  <option value="damage">💥 Тяжёлая пуля (урон)</option>
+                  <option value="bounce">🔁 Доп. рикошет (от стен)</option>
+                  <option value="pierce">🏹 Пробитие (насквозь)</option>
+                  <option value="bullet-speed">🚀 Разогнанный ствол (скорость)</option>
+                  <option value="move-speed">👟 Лёгкие ботинки (бег)</option>
+                  <option value="armor">🛡️ Усиленная броня</option>
+                  <option value="repair">🩹 Ремонтный комплект</option>
+                  <option value="pickup">🧲 Магнитное поле</option>
+                  <option value="critical">🎯 Крит. механизм (x2.5)</option>
+                  <option value="caliber">💣 Крупный калибр (размер)</option>
+                  <option value="second-bullet">🔫 Запасной патрон (+1)</option>
+                  <option value="catch-blast">💥 Импульсный захват (волна)</option>
+                  <option value="emergency-repair">❤️ Аварийный ремонт</option>
+                  <option value="explosive">🧨 Разрывной сердечник</option>
+                  <option value="chain-lightning">⚡ Цепной конденсатор (молния)</option>
+                  <option value="homing">🧠 Умная пуля (наведение)</option>
+                  <option value="boomerang">🪃 Эффект бумеранга</option>
+                  <option value="splinter">✨ Осколочный рикошет</option>
+                  <option value="stun">❄️ Кинетический удар (стан)</option>
+                  <option value="reactive-armor">💥 Реактивная броня</option>
+                  <option value="target-mark">🎯 Метка цели (+30% урона)</option>
+                </select>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
+                <button id="dbgGiveSelectedUp" style="background: #4338ca; color: #e0e7ff; border: 1px solid #6366f1; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➕ Выдать +1</button>
+                <button id="dbgRemoveSelectedUp" style="background: #881337; color: #fecdd3; border: 1px solid #f43f5e; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➖ Убрать</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
+                <button id="dbgOpenUpgrades" style="background: #581c87; color: #e9d5ff; border: 1px solid #a855f7; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">🎁 Выбрать</button>
+                <button id="dbgAllUpgrades" style="background: #701a75; color: #f5d0fe; border: 1px solid #d946ef; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">⚡ Все +1</button>
+              </div>
+              <button id="dbgResetAllUpgrades" style="width: 100%; background: #451a03; color: #fed7aa; border: 1px solid #f97316; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">🔄 Сбросить ВСЕ улучшения цели</button>
+            </div>
+
+            <!-- Враги и бой -->
+            <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+              <div style="margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">Враги и бой</div>
+              <button id="dbgKillAll" style="width: 100%; background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 6px;">💀 Убить всех врагов</button>
+              <div style="display: grid; grid-template-columns: 1fr 80px; gap: 4px;">
+                <select id="dbgEnemySelect" style="background: #0f172a; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; font-size: 11px;">
+                  <option value="boss">👑 Босс</option>
+                  <option value="phantom">👻 Фантом</option>
+                  <option value="twin">🔗 Близнецы</option>
+                  <option value="magnetizer">🧲 Магнетизатор</option>
+                  <option value="shooter">🎯 Стрелок</option>
+                  <option value="tank">🛡️ Танк</option>
+                  <option value="charger">⚡ Чарджер</option>
+                  <option value="splitter">💥 Сплиттер</option>
+                  <option value="runner">🏃 Бегун</option>
+                  <option value="normal">👾 Обычный</option>
+                </select>
+                <button id="dbgSpawnEnemyBtn" style="background: #1e293b; color: #c084fc; border: 1px solid #a855f7; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">+ Спавн</button>
+              </div>
+            </div>
+
+            <div style="margin-top: 8px; font-size: 10px; color: #64748b; text-align: center;">
+              Горячая клавиша: <strong style="color: #94a3b8;">F2</strong> или <strong style="color: #94a3b8;">~ (тильда)</strong>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(el);
+        this._uiElement = el;
+
+        // Target dropdown listener
+        const targetSel = el.querySelector("#dbgTargetSelect");
+        if (targetSel) {
+          targetSel.onchange = (e) => {
+            this._target = e.target.value;
+            this.refreshUi();
+          };
+        }
+
+        // Button actions
+        el.querySelector("#dbgCloseBtn").onclick = () => this.hideUi();
+        el.querySelector("#dbgMinimizeBtn").onclick = () => {
+          const body = el.querySelector("#dbgBody");
+          const isMin = body.style.display === "none";
+          body.style.display = isMin ? "block" : "none";
+          el.querySelector("#dbgMinimizeBtn").textContent = isMin ? "—" : "□";
+        };
+
+        // Wave
+        el.querySelector("#dbgWaveDec").onclick = () => this.prevWave();
+        el.querySelector("#dbgWaveInc").onclick = () => this.nextWave();
+        el.querySelector("#dbgWaveSet").onclick = () => {
+          const target = window.prompt("Введите номер волны:", this.wave);
+          if (target !== null) this.setWave(target);
+        };
+        el.querySelector("#dbgSkipWave").onclick = () => this.skipWave();
+        el.querySelector("#dbgRestartWave").onclick = () => this.restartWave();
+
+        // Level & Exp
+        el.querySelector("#dbgLvlDec").onclick = () => this.removeLevel(1);
+        el.querySelector("#dbgLvlInc").onclick = () => this.addLevel(1);
+        el.querySelector("#dbgLvlSet").onclick = () => {
+          const target = window.prompt("Введите уровень:", this.level);
+          if (target !== null) this.setLevel(target);
+        };
+        el.querySelector("#dbgAddExp100").onclick = () => this.addExp(100);
+        el.querySelector("#dbgAddExp1000").onclick = () => this.addExp(1000);
+
+        // HP
+        el.querySelector("#dbgFullHp").onclick = () => this.fullHp(this._target);
+        el.querySelector("#dbgPlusHp").onclick = () => this.setHp(this.hp + 10, this._target);
+        el.querySelector("#dbgGodMode").onclick = () => this.godMode(undefined, this._target);
+        el.querySelector("#dbgReviveBtn").onclick = () => this.reviveAll();
+
+        // Upgrades
+        el.querySelector("#dbgGiveSelectedUp").onclick = () => {
+          const uId = el.querySelector("#dbgUpgradeSelect").value;
+          this.giveUpgrade(uId, 1, this._target);
+        };
+        el.querySelector("#dbgRemoveSelectedUp").onclick = () => {
+          const uId = el.querySelector("#dbgUpgradeSelect").value;
+          this.removeUpgrade(uId, this._target);
+        };
+        el.querySelector("#dbgOpenUpgrades").onclick = () => this.showUpgrades();
+        el.querySelector("#dbgAllUpgrades").onclick = () => this.giveAllUpgrades(1, this._target);
+        el.querySelector("#dbgResetAllUpgrades").onclick = () => this.resetUpgrades(this._target);
+
+        // Combat
+        el.querySelector("#dbgKillAll").onclick = () => this.killAll();
+        el.querySelector("#dbgSpawnEnemyBtn").onclick = () => {
+          const type = el.querySelector("#dbgEnemySelect").value;
+          this.spawnEnemy(type, 1);
+        };
+
+        this.refreshUi();
+      },
+
+      refreshUi() {
+        if (!this._uiElement) return;
+
+        const badge = this._uiElement.querySelector("#dbgModeBadge");
+        if (badge) {
+          badge.textContent = this.isOnline ? "🌐 ОНЛАЙН (КООП)" : "🕹️ СОЛО";
+          badge.style.color = this.isOnline ? "#38bdf8" : "#a3e635";
+        }
+
+        const targetSel = this._uiElement.querySelector("#dbgTargetSelect");
+        if (targetSel && targetSel.value !== this._target) {
+          targetSel.value = this._target;
+        }
+
+        const selfSum = this._uiElement.querySelector("#dbgSelfSummary");
+        if (selfSum) {
+          selfSum.textContent = `Вы: ❤️ ${this.hp}/${this.maxHp} (Ур.${this.level})`;
+        }
+
+        const tmSum = this._uiElement.querySelector("#dbgTeammateSummary");
+        if (tmSum) {
+          if (this.isOnline) {
+            const tm = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
+            tmSum.textContent = tm ? `Напарник: 💙 ${tm.hp}/${tm.maxHp}` : "Напарник: (нет)";
+          } else {
+            tmSum.textContent = "";
+          }
+        }
+
+        const waveDisp = this._uiElement.querySelector("#dbgWaveDisplay");
+        if (waveDisp) waveDisp.textContent = `Волна: ${this.wave}`;
+
+        const lvlDisp = this._uiElement.querySelector("#dbgLevelDisplay");
+        if (lvlDisp) lvlDisp.textContent = `Ур. ${this.level}`;
+
+        const hpDisp = this._uiElement.querySelector("#dbgHpDisplay");
+        if (hpDisp) {
+          if (this._target === "teammate") {
+            const tm = this.isOnline ? [...coopSession.players.values()].find(p => p.id !== window.net?.playerId) : null;
+            hpDisp.textContent = tm ? `HP: ${tm.hp}/${tm.maxHp}` : "HP: --";
+          } else {
+            hpDisp.textContent = `HP: ${this.hp}/${this.maxHp}`;
+          }
+        }
+
+        const godBtn = this._uiElement.querySelector("#dbgGodMode");
+        if (godBtn) {
+          godBtn.textContent = this._godMode ? "🛡️ God: ВКЛ ⚡" : "🛡️ God: ВЫКЛ";
+          godBtn.style.background = this._godMode ? "#15803d" : "#1e293b";
+          godBtn.style.color = this._godMode ? "#bbf7d0" : "#f97316";
+          godBtn.style.borderColor = this._godMode ? "#22c55e" : "#ea580c";
+        }
+      }
+    };
+
+    window.debug = debug;
 
     resize();
     resetEntities();

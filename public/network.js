@@ -244,6 +244,13 @@ class OneBulletNetwork extends EventTarget {
     this.socket.emit("net:toggle-pause");
   }
 
+  sendDebugCommand(action, data = {}) {
+    if (!this.connected || !this.socket) {
+      return;
+    }
+    this.socket.emit("net:debug-command", { action, data });
+  }
+
   sendShoot(aimX, aimY, x, y) {
     if (!this.isMultiplayer) {
       return;
