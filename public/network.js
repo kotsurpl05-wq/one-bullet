@@ -114,29 +114,17 @@ class OneBulletNetwork extends EventTarget {
       this.emit("snapshot", snapshot);
     });
 
-    this.socket.on(
-      "coop:upgrade-offers",
-      payload => {
-        this.emit(
-          "upgrade-offers",
-          payload
-        );
-      }
-    );
+    const handleUpgradeOffers = (payload) => this.emit("upgrade-offers", payload);
+    this.socket.on("net:upgrade-offers", handleUpgradeOffers);
+    this.socket.on("coop:upgrade-offers", handleUpgradeOffers);
 
-    this.socket.on(
-      "coop:upgrade-applied",
-      payload => {
-        this.emit(
-          "upgrade-applied",
-          payload
-        );
-      }
-    );
+    const handleUpgradeApplied = (payload) => this.emit("upgrade-applied", payload);
+    this.socket.on("net:upgrade-applied", handleUpgradeApplied);
+    this.socket.on("coop:upgrade-applied", handleUpgradeApplied);
 
-    this.socket.on("coop:game-event", payload => {
-      this.emit("game-event", payload);
-    });
+    const handleGameEvent = (payload) => this.emit("game-event", payload);
+    this.socket.on("net:game-event", handleGameEvent);
+    this.socket.on("coop:game-event", handleGameEvent);
   }
 
   on(type, listener) {
@@ -365,27 +353,39 @@ class OneBulletNetwork extends EventTarget {
     );
   }
 
-  selectUpgrade(offerId) {
+  sendUpgradeChoice(offerId, index) {
     if (!this.isMultiplayer) {
       return;
     }
 
     this.socket.emit(
-      "coop:select-upgrade",
+      "net:upgrade-choice",
+      {
+        offerId,
+        index
+      }
+    );
+  }
+
+  sendReroll(offerId) {
+    if (!this.isMultiplayer) {
+      return Promise.resolve({ success: false });
+    }
+
+    return this.request(
+      "net:reroll-offers",
       {
         offerId
       }
     );
   }
 
-  rerollUpgrades() {
-    if (!this.isMultiplayer) {
-      return;
-    }
+  selectUpgrade(offerId, index) {
+    return this.sendUpgradeChoice(offerId, index);
+  }
 
-    this.socket.emit(
-      "coop:reroll-upgrades"
-    );
+  rerollUpgrades(offerId) {
+    return this.sendReroll(offerId);
   }
 }
 
