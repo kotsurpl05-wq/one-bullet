@@ -2311,8 +2311,7 @@ const SERVER_UPGRADES = [
   {
     id: "damage",
     title: "Тяжёлая пуля",
-    description:
-      "Увеличивает урон ваших патронов.",
+    description: "Увеличивает урон ваших патронов на +100 за уровень.",
     bonus(player, power) {
       return `+${100 * power} к урону`;
     }
@@ -2321,8 +2320,7 @@ const SERVER_UPGRADES = [
   {
     id: "bounce",
     title: "Дополнительный рикошет",
-    description:
-      "Ваши патроны могут дополнительно отскакивать от стен.",
+    description: "Ваши патроны могут дополнительно отскакивать от стен.",
     bonus(player, power) {
       return `+${power} к количеству рикошетов`;
     }
@@ -2331,8 +2329,7 @@ const SERVER_UPGRADES = [
   {
     id: "pierce",
     title: "Пробитие",
-    description:
-      "Ваши патроны пробивают дополнительные цели.",
+    description: "Ваши патроны пробивают дополнительные цели.",
     available(player) {
       const hasAoe = (player.stats?.explosionRadius || 0) > 0 ||
                      (player.stats?.chainCount || 0) > 0 ||
@@ -2347,8 +2344,7 @@ const SERVER_UPGRADES = [
   {
     id: "bullet-speed",
     title: "Разогнанный ствол",
-    description:
-      "Увеличивает скорость ваших патронов.",
+    description: "Увеличивает скорость ваших патронов.",
     bonus(player, power) {
       return `+${18 * power}% к скорости патрона`;
     }
@@ -2357,8 +2353,7 @@ const SERVER_UPGRADES = [
   {
     id: "move-speed",
     title: "Лёгкие ботинки",
-    description:
-      "Увеличивает скорость передвижения.",
+    description: "Увеличивает скорость передвижения.",
     bonus(player, power) {
       return `+${12 * power}% к скорости движения`;
     }
@@ -2367,46 +2362,32 @@ const SERVER_UPGRADES = [
   {
     id: "armor",
     title: "Усиленная броня",
-    description:
-      "Повышает максимальное и текущее здоровье.",
+    description: "Повышает максимальное и текущее здоровье на +100 за уровень.",
     bonus(player, power) {
-      return (
-        `+${100 * power} к максимальному здоровью ` +
-        `и +${100 * power} к текущему`
-      );
+      return `+${100 * power} к максимальному и текущему здоровью`;
     }
   },
 
   {
     id: "repair",
     title: "Ремонтный комплект",
-    description:
-      "Полностью восстанавливает здоровье.",
+    description: "Полностью восстанавливает текущее здоровье.",
     fixedRarity: "common",
     available(player) {
       return player.hp < player.maxHp;
     },
     bonus(player) {
-      return (
-        `+${Math.max(
-          0,
-          player.maxHp - player.hp
-        )} здоровья`
-      );
+      return `+${Math.max(0, player.maxHp - player.hp)} HP (полное восстановление)`;
     }
   },
 
   {
     id: "pickup",
     title: "Магнитное поле",
-    description:
-      "Притягивает лежащие патроны к игроку со скоростью +110 при приближении ближе 20 клеток.",
+    description: "Притягивает лежащие патроны к игроку со скоростью +110 px/с (радиус 20 клеток).",
     bonus(player, power) {
       const speed = 110 * power;
-
-      return (
-        `+${speed} px/с к скорости притяжения (в радиусе 20 клеток)`
-      );
+      return `+${speed} px/с к скорости притяжения (в радиусе 20 клеток)`;
     }
   },
 
@@ -2427,90 +2408,61 @@ const SERVER_UPGRADES = [
   {
     id: "critical",
     title: "Критический механизм",
-    description:
-      "Повышает шанс нанести критический урон (x2.0).",
+    description: "Повышает шанс нанести критический урон x2.0 (макс. 60%).",
     available(player) {
       return player.stats.critChance < 0.6;
     },
     bonus(player, power) {
-      const current =
-        player.stats.critChance || 0;
-
-      const result = Math.min(
-        0.6,
-        current + 0.10 * power
-      );
-
-      const actual =
-        Math.max(
-          0,
-          result - current
-        );
-
-      return (
-        `+${Math.round(actual * 100)}% ` +
-        `к шансу крита (x2), итог: ` +
-        `${Math.round(result * 100)}%`
-      );
+      const current = player.stats.critChance || 0;
+      const result = Math.min(0.6, current + 0.10 * power);
+      const actual = Math.max(0, result - current);
+      return `+${Math.round(actual * 100)}% к шансу крита (x2.0, итог: ${Math.round(result * 100)}%)`;
     }
   },
 
   {
     id: "caliber",
     title: "Крупный калибр",
-    description:
-      "Увеличивает размер ваших патронов.",
+    description: "Увеличивает размер ваших патронов, облегчая попадание.",
     available(player) {
       return player.stats.bulletRadius < 15;
     },
     bonus(player, power) {
-      const result = Math.min(
-        15,
-        player.stats.bulletRadius +
-          1.5 * power
-      );
-
-      return (
-        `+${(
-          result -
-          player.stats.bulletRadius
-        ).toFixed(1)} к радиусу патрона, ` +
-        `итог: ${result.toFixed(1)}`
-      );
+      const result = Math.min(15, player.stats.bulletRadius + 1.5 * power);
+      return `+${(result - player.stats.bulletRadius).toFixed(1)} px к радиусу патрона (итог: ${result.toFixed(1)} px)`;
     }
   },
 
   {
     id: "second-bullet",
     title: "Запасной патрон",
-    description:
-      "Добавляет второй независимый патрон.",
+    description: "Добавляет второй независимый патрон в магазин.",
     fixedRarity: "rare",
     available(player) {
       return player.stats.magazineSize < 2;
     },
     bonus() {
-      return "+1 независимый патрон";
+      return "+1 независимый патрон (всего 2)";
     }
   },
 
   {
     id: "catch-blast",
     title: "Импульсный захват",
-    description: "Пойманная пуля наносит урон ближайшим врагам.",
+    description: "Пойманная пуля создает импульсную волну, наносящую 75 урона ближайшим врагам.",
     available(player) {
       return (player.stats?.pierce || 0) <= 0;
     },
     bonus(player, power) {
       const result = (player.stats.catchBlast || 0) + 65 * power;
-      return `+${65 * power} к радиусу волны (итог: ${result} px)`;
+      return `+${65 * power} px к радиусу волны (75 урона, итог: ${result} px)`;
     }
   },
 
   {
     id: "emergency-repair",
     title: "Аварийный ремонт",
-    description: "Убийства периодически восстанавливают 1 здоровье (макс. 8 убийств).",
+    description: "Убийства периодически восстанавливают +100 здоровья (макс. каждые 8 убийств).",
     available(player) {
       return (player.stats?.healEvery || 0) === 0 || player.stats.healEvery > 8;
     },
@@ -2522,40 +2474,40 @@ const SERVER_UPGRADES = [
       } else {
         nextVal = Math.max(8, current - (power >= 3 ? 4 : power >= 2 ? 3 : 2));
       }
-      return `Лечение каждые ${nextVal} убийств (макс. 8)`;
+      return `Лечение +100 HP каждые ${nextVal} убийств (макс. 8)`;
     }
   },
 
   {
     id: "explosive",
     title: "Разрывной сердечник",
-    description: "Попадание создаёт взрыв, повреждающий соседних врагов.",
+    description: "Попадание создаёт взрыв, наносящий 50% урона пули соседним врагам.",
     available(player) {
       return (player.stats?.pierce || 0) <= 0;
     },
     bonus(player, power) {
       const result = (player.stats.explosionRadius || 0) + 40 * power;
-      return `+${40 * power} к радиусу взрыва (итог: ${result} px)`;
+      return `+${40 * power} px к радиусу взрыва (50% урона, итог: ${result} px)`;
     }
   },
 
   {
     id: "chain-lightning",
     title: "Цепной конденсатор",
-    description: "Попадание выпускает разряд в ближайшего противника.",
+    description: "Попадание выпускает цепной разряд в ближайших врагов (100 урона за цель).",
     available(player) {
       return (player.stats?.pierce || 0) <= 0;
     },
     bonus(player, power) {
       const count = (player.stats.chainCount || 0) + power;
-      return `+${power} цепных целей (итог: ${count})`;
+      return `+${power} цепных целей по 100 урона (итог: ${count})`;
     }
   },
 
   {
     id: "homing",
     title: "Умная пуля",
-    description: "Пуля корректирует траекторию к ближайшей цели.",
+    description: "Пуля корректирует траекторию в сторону ближайшей цели.",
     bonus(player, power) {
       const current = (player.stats.homing || 0) + power;
       return `+${power} к силе наведения (итог: ${current})`;
@@ -2565,7 +2517,7 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Возвращающаяся пуля наносит 25% урона пули (+25% за уровень, макс. 100%) и пробивает врагов.",
+    description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+25% за уровень, макс. 100%).",
     available(player) {
       return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.boomerangPercent || 0) < 1.0;
     },
@@ -2579,13 +2531,13 @@ const SERVER_UPGRADES = [
   {
     id: "splinter",
     title: "Осколочный Рикошет",
-    description: "При рикошете от стены — 1 самонаводящийся осколок (25% урона пули, 1.5с).",
+    description: "При рикошете от стены выпускает самонаводящийся осколок (25% урона пули, 1.5с).",
     fixedRarity: "rare",
     available(player) {
       return !player.stats?.splinter;
     },
     bonus(player, power) {
-      const dmg = Number(((player.stats?.damage || 1) * 0.25).toFixed(2));
+      const dmg = Math.round((player.stats?.damage || 100) * 0.25);
       return `1 осколок по ${dmg} урона (25%) при рикошете`;
     }
   },
@@ -2621,7 +2573,7 @@ const SERVER_UPGRADES = [
   {
     id: "stun",
     title: "Кинетический Удар",
-    description: "Попадание с шансом 5% оглушает врага на 0.3с (макс. 30%).",
+    description: "Попадание с шансом 5% за уровень оглушает врага на 0.3с (макс. 30%).",
     available(player) {
       return (player.stats?.stunChance || 0) < 0.30;
     },
@@ -2635,7 +2587,7 @@ const SERVER_UPGRADES = [
   {
     id: "reactive-armor",
     title: "Реактивная Броня",
-    description: "При получении урона — взрыв, отбрасывающий врагов в 120px. КД 3с.",
+    description: "При получении урона — импульсный взрыв 120px, отбрасывающий врагов (перезарядка 3с).",
     fixedRarity: "rare",
     available(player) {
       return !player.stats?.reactiveArmor;
@@ -2648,7 +2600,7 @@ const SERVER_UPGRADES = [
   {
     id: "poison",
     title: "Ядовитая пуля",
-    description: "Пуля отравляет врагов (50 урона каждую 1.0с в течение 2с).",
+    description: "Пуля отравляет врагов (50 урона/с в течение 2.0с).",
     fixedRarity: "rare",
     available(player) {
       return !player.stats?.poison;
@@ -2667,8 +2619,8 @@ const SERVER_UPGRADES = [
     },
     bonus(player, power) {
       const current = player.stats?.poisonDamage || 50;
-      const result = Number(Math.min(500, current + 50 * power).toFixed(1));
-      return `+${Number((result - current).toFixed(1))} к урону яда (итог: ${result}/с)`;
+      const result = Number(Math.min(500, current + 50 * power).toFixed(0));
+      return `+${Number((result - current).toFixed(0))} к урону яда (итог: ${result}/с)`;
     }
   },
 
@@ -2689,13 +2641,13 @@ const SERVER_UPGRADES = [
   {
     id: "parasite",
     title: "Пуля с паразитом",
-    description: "Выстрел с шансом 25% заражает врага. При смерти вылетает паразит (75 урона).",
+    description: "Выстрел с шансом 25% заражает врага. При гибели вылетает спора (75 урона).",
     fixedRarity: "rare",
     available(player) {
       return !player.stats?.parasite;
     },
     bonus() {
-      return "25% шанс паразита, 1 паразит по 75 урона";
+      return "25% шанс паразита, 1 спора на 75 урона";
     }
   },
 
@@ -2716,7 +2668,7 @@ const SERVER_UPGRADES = [
   {
     id: "parasite-count",
     title: "Количество паразитов",
-    description: "Увеличивает количество вылетающих паразитов при смерти врага на +1 (макс. 5).",
+    description: "Увеличивает количество вылетающих спор паразита при смерти врага на +1 (макс. 5).",
     available(player) {
       return Boolean(player.stats?.parasite) && (player.stats?.parasiteCount || 1) < 5;
     },
@@ -2730,14 +2682,14 @@ const SERVER_UPGRADES = [
   {
     id: "parasite-damage",
     title: "Урон паразита",
-    description: "Увеличивает урон каждого паразита на +50 (макс. 400).",
+    description: "Увеличивает урон каждой споры паразита на +50 (макс. 400).",
     available(player) {
       return Boolean(player.stats?.parasite) && (player.stats?.parasiteDamage || 75) < 400;
     },
     bonus(player, power) {
       const current = player.stats?.parasiteDamage || 75;
-      const result = Number(Math.min(400, current + 50 * power).toFixed(1));
-      return `+${Number((result - current).toFixed(1))} к урону паразита (итог: ${result})`;
+      const result = Number(Math.min(400, current + 50 * power).toFixed(0));
+      return `+${Number((result - current).toFixed(0))} к урону паразита (итог: ${result})`;
     }
   },
 

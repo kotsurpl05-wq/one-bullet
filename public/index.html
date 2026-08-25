@@ -7446,21 +7446,21 @@
     const upgrades = [
       {
         title: "Тяжёлая пуля",
-        description: "Увеличивает урон пули.",
+        description: "Увеличивает урон ваших патронов на +100 за уровень.",
         applyWithPower(power) {
           stats.damage += 100 * power;
         }
       },
       {
         title: "Дополнительный рикошет",
-        description: "Пуля может дополнительно отскакивать от стен.",
+        description: "Ваши патроны могут дополнительно отскакивать от стен.",
         applyWithPower(power) {
           stats.maxBounces += power;
         }
       },
       {
         title: "Пробитие",
-        description: "Пуля пробивает дополнительных противников.",
+        description: "Ваши патроны пробивают дополнительные цели.",
         available() {
           return !((stats.explosionRadius || 0) > 0 || (stats.chainCount || 0) > 0 || (stats.catchBlast || 0) > 0);
         },
@@ -7486,7 +7486,7 @@
       },
       {
         title: "Усиленная броня",
-        description: "Повышает максимальное и текущее здоровье.",
+        description: "Повышает максимальное и текущее здоровье на +100 за уровень.",
         applyWithPower(power) {
           player.maxHp += 100 * power;
           player.hp += 100 * power;
@@ -7494,7 +7494,7 @@
       },
       {
         title: "Ремонтный комплект",
-        description: "Полностью восстанавливает здоровье.",
+        description: "Полностью восстанавливает текущее здоровье.",
         fixedRarity: "common",
         available() {
           return player.hp < player.maxHp;
@@ -7505,7 +7505,7 @@
       },
       {
         title: "Магнитное поле",
-        description: "Притягивает лежащие патроны к игроку со скоростью +110 при приближении ближе 20 клеток.",
+        description: "Притягивает лежащие патроны к игроку со скоростью +110 px/с (радиус 20 клеток).",
         applyWithPower(power) {
           stats.pickupRadius = 0;
           stats.groundPullSpeed = (stats.groundPullSpeed || 0) + 110 * power;
@@ -7526,7 +7526,7 @@
       },
       {
         title: "Импульсный захват",
-        description: "Пойманная пуля наносит урон ближайшим врагам.",
+        description: "Пойманная пуля создает импульсную волну, наносящую 75 урона ближайшим врагам.",
         available() {
           return (stats.pierce || 0) <= 0;
         },
@@ -7537,7 +7537,7 @@
       {
         title: "Аварийный ремонт",
         description:
-          "Убийства периодически восстанавливают 1 здоровье (макс. 8 убийств).",
+          "Убийства периодически восстанавливают +100 здоровья (макс. каждые 8 убийств).",
         available() {
           return (stats.healEvery || 0) === 0 || stats.healEvery > 8;
         },
@@ -7563,7 +7563,7 @@
       },
       {
         title: "Критический механизм",
-        description: "Шанс критического урона (x2.0) увеличивается на 10% (макс. 60%).",
+        description: "Повышает шанс нанести критический урон x2.0 (макс. 60%).",
         available() {
           return (stats.critChance || 0) < 0.60;
         },
@@ -7576,7 +7576,7 @@
       },
       {
         title: "Разрывной сердечник",
-        description: "Попадание создаёт взрыв, повреждающий соседних врагов.",
+        description: "Попадание создаёт взрыв, наносящий 50% урона пули соседним врагам.",
         applyWithPower(power) {
           stats.explosionRadius =
             getExplosionRadiusResult(
@@ -7587,7 +7587,7 @@
       },
       {
         title: "Цепной конденсатор",
-        description: "Попадание выпускает разряд в ближайшего противника.",
+        description: "Попадание выпускает цепной разряд в ближайших врагов (100 урона за цель).",
         available() {
           return (stats.pierce || 0) <= 0;
         },
@@ -7598,14 +7598,14 @@
       },
       {
         title: "Умная пуля",
-        description: "Пуля корректирует траекторию к ближайшей цели.",
+        description: "Пуля корректирует траекторию в сторону ближайшей цели.",
         applyWithPower(power) {
           stats.homing = (stats.homing || 0) + getHomingBonus(power);
         }
       },
       {
         title: "Крупный калибр",
-        description: "Все патроны становятся крупнее, поэтому ими проще попадать.",
+        description: "Увеличивает размер ваших патронов, облегчая попадание.",
         available() {
           return (stats.bulletRadius || 0) < 15;
         },
@@ -7622,7 +7622,7 @@
       },
       {
         title: "Эффект Бумеранга",
-        description: "Возвращающаяся пуля наносит 25% урона пули (+25% за уровень, макс. 100%) и пробивает врагов.",
+        description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+25% за уровень, макс. 100%).",
         available() {
           return (stats.groundPullSpeed || 0) > 0 && (stats.boomerangPercent || 0) < 1.0;
         },
@@ -7634,7 +7634,7 @@
       },
       {
         title: "Осколочный Рикошет",
-        description: "При рикошете — 1 самонаводящийся осколок (25% урона пули, 1.5с).",
+        description: "При рикошете от стены выпускает самонаводящийся осколок (25% урона пули, 1.5с).",
         fixedRarity: "rare",
         available() {
           return !stats.splinter;
@@ -7667,7 +7667,7 @@
       },
       {
         title: "Кинетический Удар",
-        description: "Попадание с шансом 5% оглушает врага на 0.3с (макс. 30%).",
+        description: "Попадание с шансом 5% за уровень оглушает врага на 0.3с (макс. 30%).",
         available() {
           return (stats.stunChance || 0) < 0.30;
         },
@@ -7677,7 +7677,7 @@
       },
       {
         title: "Реактивная Броня",
-        description: "При получении урона — взрыв 120px, отбрасывающий врагов. КД 3с.",
+        description: "При получении урона — импульсный взрыв 120px, отбрасывающий врагов (перезарядка 3с).",
         fixedRarity: "rare",
         available() {
           return !stats.reactiveArmor;
@@ -7699,25 +7699,25 @@
       },
       {
         title: "Ядовитая пуля",
-        description: "Пуля отравляет врагов (0.5 урона каждую 1.0с в течение 2с).",
+        description: "Пуля отравляет врагов (50 урона/с в течение 2.0с).",
         fixedRarity: "rare",
         available() {
           return !stats.poison;
         },
         apply() {
           stats.poison = true;
-          stats.poisonDamage = 0.5;
+          stats.poisonDamage = 50;
           stats.poisonDuration = 2.0;
         }
       },
       {
         title: "Урон яда",
-        description: "Увеличивает периодический урон яда на +0.5/с (макс. 5.0/с).",
+        description: "Увеличивает периодический урон яда на +50/с (макс. 500/с).",
         available() {
-          return Boolean(stats.poison) && (stats.poisonDamage || 0.5) < 5.0;
+          return Boolean(stats.poison) && (stats.poisonDamage || 50) < 500;
         },
         applyWithPower(power) {
-          stats.poisonDamage = Number(Math.min(5.0, (stats.poisonDamage || 0.5) + 0.5 * power).toFixed(1));
+          stats.poisonDamage = Number(Math.min(500, (stats.poisonDamage || 50) + 50 * power).toFixed(0));
         }
       },
       {
@@ -7732,7 +7732,7 @@
       },
       {
         title: "Пуля с паразитом",
-        description: "Выстрел с шансом 25% заражает врага. При смерти вылетает паразит (1 урон).",
+        description: "Выстрел с шансом 25% заражает врага. При гибели вылетает спора (75 урона).",
         fixedRarity: "rare",
         available() {
           return !stats.parasite;
@@ -7741,7 +7741,7 @@
           stats.parasite = true;
           stats.parasiteChance = 0.25;
           stats.parasiteCount = 1;
-          stats.parasiteDamage = 1.0;
+          stats.parasiteDamage = 75;
         }
       },
       {
@@ -7756,7 +7756,7 @@
       },
       {
         title: "Количество паразитов",
-        description: "Увеличивает количество вылетающих паразитов при смерти врага на +1 (макс. 5).",
+        description: "Увеличивает количество вылетающих спор паразита при смерти врага на +1 (макс. 5).",
         available() {
           return Boolean(stats.parasite) && (stats.parasiteCount || 1) < 5;
         },
@@ -7766,17 +7766,17 @@
       },
       {
         title: "Урон паразита",
-        description: "Увеличивает урон каждого паразита на +0.5 (макс. 4.0).",
+        description: "Увеличивает урон каждой споры паразита на +50 (макс. 400).",
         available() {
-          return Boolean(stats.parasite) && (stats.parasiteDamage || 1.0) < 4.0;
+          return Boolean(stats.parasite) && (stats.parasiteDamage || 75) < 400;
         },
         applyWithPower(power) {
-          stats.parasiteDamage = Number(Math.min(4.0, (stats.parasiteDamage || 1.0) + 0.5 * power).toFixed(1));
+          stats.parasiteDamage = Number(Math.min(400, (stats.parasiteDamage || 75) + 50 * power).toFixed(0));
         }
       },
       {
         title: "Запасной патрон",
-        description: "Добавляет второй независимый патрон.",
+        description: "Добавляет второй независимый патрон в магазин.",
         fixedRarity: "rare",
         available() {
           return stats.magazineSize < 2;
@@ -7855,7 +7855,7 @@
     function getUpgradeBonusText(upgrade, power) {
       switch (upgrade.title) {
         case "Тяжёлая пуля": {
-          return `+${power} к урону`;
+          return `+${100 * power} к урону`;
         }
       
         case "Дополнительный рикошет": {
@@ -7896,8 +7896,8 @@
       
         case "Усиленная броня": {
           return (
-            `+${power} к максимальному здоровью ` +
-            `и +${power} к текущему здоровью`
+            `+${100 * power} к максимальному здоровью ` +
+            `и +${100 * power} к текущему здоровью`
           );
         }
       
@@ -7912,7 +7912,7 @@
           }
         
           return (
-            `+${restoredHealth} здоровья, ` +
+            `+${restoredHealth} HP, ` +
             `полное восстановление`
           );
         }
@@ -7935,7 +7935,7 @@
         
           return (
             `+${formatCells(radiusBonus)} ` +
-            `к радиусу импульса`
+            `к радиусу импульса (75 урона)`
           );
         }
       
@@ -7948,13 +7948,13 @@
         
           if (stats.healEvery === 0) {
             return (
-              `восстановление 1 здоровья каждые ` +
-              `${resultingInterval} убийств`
+              `лечение +100 HP каждые ` +
+              `${resultingInterval} убийств (макс. 8)`
             );
           }
         
           return (
-            `интервал лечения: ` +
+            `лечение +100 HP: ` +
             `${stats.healEvery} → ` +
             `${resultingInterval} убийств`
           );
@@ -7982,7 +7982,7 @@
           ) {
             return (
               `+${formatPercent(actualBonus)} ` +
-              `к шансу крита, итог: ` +
+              `к шансу крита (x2.0), итог: ` +
               `${formatPercent(resultingChance)}, ` +
               `предел 60%`
             );
@@ -7990,7 +7990,7 @@
         
           return (
             `+${formatPercent(actualBonus)} ` +
-            `к шансу крита, итог: ` +
+            `к шансу крита (x2.0), итог: ` +
             `${formatPercent(resultingChance)}`
           );
         }
@@ -8008,7 +8008,7 @@
         
           return (
             `+${formatCells(radiusBonus)} ` +
-            `к радиусу взрыва, итог: ` +
+            `к радиусу взрыва (50% урона), итог: ` +
             `${formatCells(resultingRadius)}`
           );
         }
@@ -8017,9 +8017,9 @@
           const rangeBonus = 12 * power;
         
           return (
-            `+${power} к количеству целей, ` +
+            `+${power} цепных целей по 100 урона, ` +
             `+${formatCells(rangeBonus)} ` +
-            `к дальности разряда`
+            `к дальности`
           );
         }
 
@@ -8051,9 +8051,9 @@
           }
         
           return (
-            `+${formatBonusNumber(radiusBonus, 1)} ` +
+            `+${formatBonusNumber(radiusBonus, 1)} px ` +
             `к радиусу пули, итог: ` +
-            `${formatBonusNumber(resultingRadius, 1)}`
+            `${formatBonusNumber(resultingRadius, 1)} px`
           );
         }
 
@@ -8082,7 +8082,7 @@
         }
 
         case "Осколочный Рикошет": {
-          const dmg = Number(((stats.damage || 1) * 0.25).toFixed(2));
+          const dmg = Math.round((stats.damage || 100) * 0.25);
           return `1 осколок по ${dmg} урона (25%) при рикошете`;
         }
 
@@ -8115,13 +8115,13 @@
         }
 
         case "Ядовитая пуля": {
-          return "Отравление: 0.5 урона/с на 2.0с";
+          return "Отравление: 50 урона/с на 2.0с";
         }
 
         case "Урон яда": {
-          const current = stats.poisonDamage || 0.5;
-          const result = Number(Math.min(5.0, current + 0.5 * power).toFixed(1));
-          return `+${Number((result - current).toFixed(1))} к урону яда (итог: ${result}/с)`;
+          const current = stats.poisonDamage || 50;
+          const result = Number(Math.min(500, current + 50 * power).toFixed(0));
+          return `+${Number((result - current).toFixed(0))} к урону яда (итог: ${result}/с)`;
         }
 
         case "Длительность яда": {
@@ -8131,7 +8131,7 @@
         }
 
         case "Пуля с паразитом": {
-          return "25% шанс паразита, 1 паразит по 1.0 урона";
+          return "25% шанс паразита, 1 спора на 75 урона";
         }
 
         case "Шанс паразита": {
@@ -8147,13 +8147,13 @@
         }
 
         case "Урон паразита": {
-          const current = stats.parasiteDamage || 1.0;
-          const result = Number(Math.min(4.0, current + 0.5 * power).toFixed(1));
-          return `+${Number((result - current).toFixed(1))} к урону паразита (итог: ${result})`;
+          const current = stats.parasiteDamage || 75;
+          const result = Number(Math.min(400, current + 50 * power).toFixed(0));
+          return `+${Number((result - current).toFixed(0))} к урону паразита (итог: ${result})`;
         }
 
         case "Запасной патрон": {
-          return "+1 независимый патрон в обойме";
+          return "+1 независимый патрон (всего 2)";
         }
       }
     }
