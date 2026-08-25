@@ -10279,26 +10279,27 @@
       checkAndRenderFloatingReconnectWidget();
     
       panel.innerHTML = `
-        <div class="cyber-modal-container" style="max-width: 920px;">
-          <div class="cyber-modal-header">
-            <div class="cyber-modal-icon">👥</div>
-            <div>
-              <h2 class="cyber-modal-title">Совместный режим // Онлайн Кооп 2P</h2>
-              <div class="cyber-modal-subtitle">Создайте приватную комнату или присоединитесь к напарнику по 5-значному коду</div>
+        <div class="main-menu-fullscreen" style="max-width: 860px; gap: 16px;">
+          <div class="hero-brand-container">
+            <h1 class="hero-cyber-logo" style="font-size: clamp(24px, 3.8vw, 36px); margin: 0;">
+              👥 СОВМЕСТНЫЙ РЕЖИМ
+            </h1>
+            <div class="hero-cyber-subtitle" style="margin-top: 4px;">
+              <span>ОНЛАЙН КООПЕРАТИВ НА 2 ИГРОКОВ</span>
             </div>
           </div>
 
-          <div class="network-form" style="width: 100%; max-width: 680px; margin: 12px auto 0;">
+          <div class="network-form" style="width: 100%; max-width: 620px; margin: 0 auto; background: rgba(15, 23, 42, 0.8); border: 1.5px solid #283a54; border-radius: 18px; padding: 22px 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
             ${(() => {
               const rec = window.net?.getReconnectData?.();
               if (rec && rec.roomCode && rec.token) {
                 return `
-                  <div class="network-reconnect-quick-box" style="margin-bottom: 18px; padding: 14px 18px; background: rgba(0, 242, 254, 0.12); border: 1px solid rgba(0, 242, 254, 0.45); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+                  <div class="network-reconnect-quick-box" style="margin-bottom: 16px; padding: 12px 16px; background: rgba(0, 242, 254, 0.12); border: 1px solid rgba(0, 242, 254, 0.45); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                     <div>
-                      <div style="font-size: 11.5px; font-weight: 900; color: #00f2fe; letter-spacing: 1px;">⚡ ОБНАРУЖЕН ВАШ АКТИВНЫЙ ЗАБЕГ</div>
-                      <div style="font-size: 13px; color: #cbd5e1; margin-top: 2px;">Комната <strong>[${rec.roomCode}]</strong> на паузе. Напарник ждёт вас!</div>
+                      <div style="font-size: 11px; font-weight: 900; color: #00f2fe; letter-spacing: 1px;">⚡ ОБНАРУЖЕН АКТИВНЫЙ ЗАБЕГ</div>
+                      <div style="font-size: 12.5px; color: #cbd5e1; margin-top: 2px;">Комната <strong>[${rec.roomCode}]</strong> на паузе. Напарник ждёт!</div>
                     </div>
-                    <button type="button" class="action-button" id="menuQuickRejoinBtn" style="margin: 0; padding: 10px 18px; font-size: 13px; white-space: nowrap;">
+                    <button type="button" class="action-button" id="menuQuickRejoinBtn" style="margin: 0; padding: 8px 16px; font-size: 12px; white-space: nowrap;">
                       ⚡ Вернуться в бой
                     </button>
                   </div>
@@ -10338,21 +10339,21 @@
               >
             </div>
           
-            <div class="network-actions" style="margin-top: 28px; gap: 14px;">
+            <div class="network-actions" style="margin-top: 22px; gap: 12px;">
               <button
                 type="button"
                 class="secondary-button"
                 data-network-action="back"
-                style="min-width: 150px;"
+                style="min-width: 140px;"
               >
-                ← Назад в меню
+                ← Назад
               </button>
             
               <button
                 type="button"
                 class="secondary-button"
                 data-network-action="join"
-                style="min-width: 170px;"
+                style="min-width: 160px;"
               >
                 🔑 Войти по коду
               </button>
@@ -10361,17 +10362,17 @@
                 type="button"
                 class="action-button"
                 data-network-action="create"
-                style="min-width: 210px; margin: 0;"
+                style="min-width: 190px; margin: 0;"
               >
                 🚀 Создать комнату
               </button>
             </div>
           
-            <div id="networkMessageContainer" style="margin-top: 18px;">
+            <div id="networkMessageContainer" style="margin-top: 14px;">
               ${getNetworkMessageHtml()}
             </div>
           
-            <div style="margin-top: 14px; text-align: center;">
+            <div style="margin-top: 10px; text-align: center;">
               ${getConnectionIndicatorHtml()}
             </div>
           </div>
@@ -10616,9 +10617,10 @@
         
           if (!roomPlayer) {
             return `
-              <div class="lobby-player waiting">
-                <span>⏳</span>
-                <span>Ожидание игрока…</span>
+              <div class="solo-diff-card" style="border-style: dashed; border-color: rgba(255,255,255,0.18); background: rgba(15, 23, 42, 0.45); cursor: default; justify-content: center; min-height: 136px; padding: 18px;">
+                <div style="font-size: 26px; margin-bottom: 6px;">⏳</div>
+                <div style="font-size: 15px; font-weight: 800; color: #64748b;">Ожидание напарника…</div>
+                <div style="font-size: 11.5px; color: #475569; margin-top: 4px;">Передайте 5-значный код комнаты</div>
               </div>
             `;
           }
@@ -10626,20 +10628,28 @@
           const isReady = Boolean(roomPlayer.ready);
 
           return `
-            <div class="lobby-player connected">
-              <div class="lobby-player-header">
-                <span class="lobby-player-role">
-                  ${roomPlayer.role === "host" ? "👑 ХОЗЯИН" : "👤 ИГРОК 2"}
+            <div class="solo-diff-card ${isReady ? 'selected' : ''}" style="cursor: default; text-align: left; align-items: stretch; min-height: 136px; padding: 16px 20px; justify-content: space-between;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 11px; font-weight: 900; color: ${roomPlayer.role === 'host' ? '#38bdf8' : '#cbd5e1'}; letter-spacing: 1px;">
+                  ${roomPlayer.role === "host" ? "👑 ХОЗЯИН СЕССИИ" : "👤 НАПАРНИК"}
+                </span>
+                <span style="font-size: 10.5px; font-weight: 900; padding: 3px 8px; border-radius: 6px; background: ${isReady ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isReady ? '#4ade80' : '#f87171'}; border: 1px solid ${isReady ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.3)'};">
+                  ${isReady ? '● ГОТОВ' : '○ НЕ ГОТОВ'}
                 </span>
               </div>
             
-              <div class="lobby-player-name">
-                ${escapeHtml(roomPlayer.name)}
+              <div style="margin: 10px 0 6px;">
+                <div style="font-size: 19px; font-weight: 900; color: #f8fafc;">
+                  ${escapeHtml(roomPlayer.name)}
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                  Скин патрона: <strong style="color: #38bdf8;">${escapeHtml(roomPlayer.bulletSkin || 'neon')}</strong>
+                </div>
               </div>
-            
-              <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}">
-                <span class="status-dot"></span>
-                <span>${isReady ? 'ГОТОВ' : 'НЕ ГОТОВ'}</span>
+
+              <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}" style="margin: 0; display: flex; align-items: center; gap: 6px; font-size: 11.5px;">
+                <span class="status-dot ${isReady ? '' : 'not-ready'}"></span>
+                <span>${isReady ? 'Готов к высадке на арену' : 'Ожидание подтверждения…'}</span>
               </div>
             </div>
           `;
@@ -10647,133 +10657,127 @@
         .join("");
       
       panel.innerHTML = `
-        <div class="cyber-modal-container" style="max-width: 920px;">
-          <div class="cyber-modal-header">
-            <div class="cyber-modal-icon">👥</div>
-            <div>
-              <h2 class="cyber-modal-title">Кооперативное лобби // Комната [${networkRoom.code}]</h2>
-              <div class="cyber-modal-subtitle">Передайте 5-значный код напарнику для подключения. Игра начнётся автоматически!</div>
+        <div class="main-menu-fullscreen" style="max-width: 900px; gap: 16px;">
+          <div class="hero-brand-container">
+            <h1 class="hero-cyber-logo" style="font-size: clamp(24px, 3.8vw, 36px); margin: 0;">
+              👥 КООПЕРАТИВНОЕ ЛОББИ
+            </h1>
+            <div class="hero-cyber-subtitle" style="margin-top: 4px;">
+              <span>СОВМЕСТНЫЙ РЕЙД НА 2 ИГРОКОВ</span>
             </div>
           </div>
       
-        <div class="lobby-code">
-          <div class="lobby-code-label">
-            КОД КОМНАТЫ
+          <div style="display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; max-width: 580px; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(0, 242, 254, 0.45); border-radius: 16px; padding: 12px 20px; box-shadow: 0 8px 30px rgba(0, 242, 254, 0.14);">
+            <div style="font-size: 11px; font-weight: 900; color: #94a3b8; letter-spacing: 1.2px; text-transform: uppercase;">КОД:</div>
+            <div style="font-size: 28px; font-weight: 900; letter-spacing: 5px; color: #00f2fe; text-shadow: 0 0 14px rgba(0, 242, 254, 0.6); font-family: monospace;">${escapeHtml(networkRoom.code)}</div>
+            <button
+              type="button"
+              class="copy-code-button"
+              data-lobby-action="copy"
+              style="margin: 0; padding: 8px 16px; font-size: 12px; font-weight: 800;"
+            >
+              📋 Скопировать
+            </button>
           </div>
-        
-          <div class="lobby-code-value">
-            ${escapeHtml(networkRoom.code)}
+      
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; max-width: 780px;">
+            ${playerSlots}
           </div>
-        
-          <button
-            type="button"
-            class="copy-code-button"
-            data-lobby-action="copy"
-          >
-            Копировать код
-          </button>
-        </div>
       
-        <div class="lobby-players">
-          ${playerSlots}
-        </div>
-      
-        ${
-          isHost
-            ? `
-              <div class="menu-section">
-                <div class="menu-label">
-                  СЛОЖНОСТЬ
+          ${
+            isHost
+              ? `
+                <div class="menu-section" style="width: 100%; max-width: 780px; margin: 0;">
+                  <div class="menu-label" style="text-align: center; margin-bottom: 6px; font-size: 11px;">
+                    СЛОЖНОСТЬ РЕЙДА
+                  </div>
+                
+                  <div class="difficulty-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    ${Object.entries(
+                      difficultySettings
+                    )
+                      .map(([key, settings]) => `
+                        <button
+                          type="button"
+                          class="difficulty-button ${
+                            key === (networkRoom.difficulty || difficulty)
+                              ? "selected"
+                              : ""
+                          }"
+                          data-lobby-difficulty="${key}"
+                        >
+                          ${settings.label}
+                        </button>
+                      `)
+                      .join("")}
+                  </div>
                 </div>
+              `
+              : ""
+          }
               
-                <div class="difficulty-grid">
-                  ${Object.entries(
-                    difficultySettings
-                  )
-                    .map(([key, settings]) => `
-                      <button
-                        type="button"
-                        class="difficulty-button ${
-                          key === (networkRoom.difficulty || difficulty)
-                            ? "selected"
-                            : ""
-                        }"
-                        data-lobby-difficulty="${key}"
-                      >
-                        ${settings.label}
-                      </button>
-                    `)
-                    .join("")}
-                </div>
-              </div>
-            `
-            : ""
-        }
-            
-        <div class="lobby-status-container">
-          ${
-            isCountdownActive
-              ? `
-                <div class="lobby-countdown-widget">
-                  <span>🚀 Запуск через</span>
-                  <span class="lobby-countdown-number">${networkRoom.countdown}</span>
-                </div>
-              `
-              : `
-                <div class="lobby-notice-box ${roomIsReady ? 'ready-prompt' : ''}">
-                  ${
-                    roomIsReady
-                      ? "Оба игрока на месте. Нажмите «Я готов» для запуска отсчёта."
-                      : "Для начала совместной игры нужен второй игрок."
-                  }
-                </div>
-              `
-          }
-        </div>
-      
-        ${getNetworkMessageHtml()}
-      
-        <div class="network-actions">
-          <button
-            type="button"
-            class="secondary-button"
-            data-lobby-action="leave"
-          >
-            В главное меню
-          </button>
-
-          <button
-            type="button"
-            class="secondary-button"
-            data-lobby-action="settings"
-          >
-            ⚙️ Настройки
-          </button>
+          <div class="lobby-status-container" style="width: 100%; max-width: 780px; margin: 0;">
+            ${
+              isCountdownActive
+                ? `
+                  <div class="lobby-countdown-widget">
+                    <span>🚀 Запуск через</span>
+                    <span class="lobby-countdown-number">${networkRoom.countdown}</span>
+                  </div>
+                `
+                : `
+                  <div class="lobby-notice-box ${roomIsReady ? 'ready-prompt' : ''}">
+                    ${
+                      roomIsReady
+                        ? "⚡ Оба игрока на месте. Нажмите «Я готов» для запуска отсчёта."
+                        : "⏳ Ожидание подключения напарника по коду комнаты..."
+                    }
+                  </div>
+                `
+            }
+          </div>
         
-          ${
-            isMeReady
-              ? `
-                <button
-                  type="button"
-                  class="secondary-button unready-btn"
-                  data-lobby-action="unready"
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                  <span>Отмена</span>
-                </button>
-              `
-              : `
-                <button
-                  type="button"
-                  class="action-button ready-btn"
-                  data-lobby-action="ready"
-                  ${roomIsReady ? "" : "disabled"}
-                >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="m8.5 12 2.5 2.5 5-5"/></svg>
-                  <span>Я готов</span>
-                </button>
-              `
-          }
+          <div id="networkMessageContainer" style="width: 100%; max-width: 780px;">
+            ${getNetworkMessageHtml()}
+          </div>
+        
+          <div class="network-actions" style="width: 100%; max-width: 780px; gap: 14px; margin-top: 2px;">
+            <button
+              type="button"
+              class="secondary-button"
+              data-lobby-action="leave"
+              style="min-width: 180px;"
+            >
+              ← В главное меню
+            </button>
+          
+            ${
+              isMeReady
+                ? `
+                  <button
+                    type="button"
+                    class="secondary-button unready-btn"
+                    data-lobby-action="unready"
+                    style="min-width: 220px;"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    <span>Отмена готовности</span>
+                  </button>
+                `
+                : `
+                  <button
+                    type="button"
+                    class="action-button ready-btn"
+                    data-lobby-action="ready"
+                    ${roomIsReady ? "" : "disabled"}
+                    style="min-width: 220px; margin: 0;"
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="m8.5 12 2.5 2.5 5-5"/></svg>
+                    <span>⚡ Я готов</span>
+                  </button>
+                `
+            }
+          </div>
         </div>
       `;
       
@@ -11084,23 +11088,31 @@
           const roomPlayer = players[index];
           if (!roomPlayer) {
             return `
-              <div class="lobby-player waiting">
-                Ожидание второго игрока…
+              <div class="solo-diff-card" style="border-style: dashed; border-color: rgba(255,255,255,0.18); background: rgba(15, 23, 42, 0.45); cursor: default; justify-content: center; min-height: 120px; padding: 14px;">
+                <div style="font-size: 22px; margin-bottom: 4px;">⏳</div>
+                <div style="font-size: 14px; font-weight: 800; color: #64748b;">Ожидание напарника…</div>
               </div>
             `;
           }
           const isReady = Boolean(roomPlayer.ready);
           return `
-            <div class="lobby-player connected">
-              <div class="lobby-player-role">
-                ${roomPlayer.role === "host" ? "ХОЗЯИН" : "ИГРОК 2"}
+            <div class="solo-diff-card ${isReady ? 'selected' : ''}" style="cursor: default; text-align: left; align-items: stretch; min-height: 120px; padding: 14px 18px; justify-content: space-between;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 11px; font-weight: 900; color: ${roomPlayer.role === 'host' ? '#38bdf8' : '#cbd5e1'}; letter-spacing: 1px;">
+                  ${roomPlayer.role === "host" ? "👑 ХОЗЯИН" : "👤 НАПАРНИК"}
+                </span>
+                <span style="font-size: 10.5px; font-weight: 900; padding: 2px 7px; border-radius: 6px; background: ${isReady ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isReady ? '#4ade80' : '#f87171'}; border: 1px solid ${isReady ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.3)'};">
+                  ${isReady ? '● ГОТОВ' : '○ НЕ ГОТОВ'}
+                </span>
               </div>
-              <div class="lobby-player-name">
-                ${escapeHtml(roomPlayer.name)}
+              <div style="margin: 6px 0;">
+                <div style="font-size: 17px; font-weight: 900; color: #f8fafc;">
+                  ${escapeHtml(roomPlayer.name)}
+                </div>
               </div>
-              <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}">
+              <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}" style="margin: 0; display: flex; align-items: center; gap: 6px; font-size: 11px;">
                 <span class="status-dot ${isReady ? '' : 'not-ready'}"></span>
-                <span>${isReady ? 'ГОТОВ' : 'НЕ ГОТОВ'}</span>
+                <span>${isReady ? 'Готов к перезапуску' : 'Ожидание выбора…'}</span>
               </div>
             </div>
           `;
@@ -11108,76 +11120,99 @@
         .join("");
 
       panel.innerHTML = `
-        <h1>Поражение</h1>
+        <div class="main-menu-fullscreen" style="max-width: 860px; gap: 16px;">
+          <div class="hero-brand-container">
+            <h1 class="hero-cyber-logo" style="background: linear-gradient(135deg, #ff496c 30%, #ff7992 70%, #ffaa55 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: clamp(28px, 4.5vw, 44px); margin: 0;">
+              💀 ПОРАЖЕНИЕ
+            </h1>
+            <div class="hero-cyber-subtitle" style="margin-top: 4px;">
+              <span>СОВМЕСТНЫЙ РЕЙД ОКОНЧЕН</span>
+            </div>
+          </div>
 
-        <p>
-          Волна: <strong>${coopSession.wave}</strong> · Уничтожено врагов: <strong>${coopSession.kills}</strong> · Очки: <strong>${coopSession.score}</strong>
-        </p>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 680px;">
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #283a54; border-radius: 14px; padding: 12px; text-align: center;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Волна</div>
+              <div style="font-size: 24px; font-weight: 900; color: #38bdf8; margin-top: 2px;">${coopSession.wave}</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #283a54; border-radius: 14px; padding: 12px; text-align: center;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Уничтожено</div>
+              <div style="font-size: 24px; font-weight: 900; color: #4ade80; margin-top: 2px;">${coopSession.kills}</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #283a54; border-radius: 14px; padding: 12px; text-align: center;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Очки</div>
+              <div style="font-size: 24px; font-weight: 900; color: #facc15; margin-top: 2px;">${coopSession.score}</div>
+            </div>
+          </div>
 
-        <div class="lobby-players">
-          ${playerSlots}
-        </div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: 100%; max-width: 680px;">
+            ${playerSlots}
+          </div>
 
-        <div class="lobby-status-container">
-          ${
-            teammateReturnedToLobby
-              ? `
-                <div class="lobby-notice-box" style="color: #ffaa55; border-color: rgba(255, 170, 85, 0.4);">
-                  Напарник вышел в лобби. Нажмите «Вернуться в лобби», чтобы присоединиться к нему.
-                </div>
-              `
-              : isCountdownActive
-              ? `
-                <div class="lobby-countdown-widget">
-                  <span>🚀 Перезапуск через</span>
-                  <span class="lobby-countdown-number">${networkRoom.countdown}</span>
-                </div>
-              `
-              : `
-                <div class="lobby-notice-box ${players.length === 2 ? 'ready-prompt' : ''}">
-                  ${players.length === 2 ? 'Нажмите «Начать заново», чтобы подтвердить готовность.' : 'Ожидание напарника...'}
-                </div>
-              `
-          }
-        </div>
+          <div class="lobby-status-container" style="width: 100%; max-width: 680px; margin: 0;">
+            ${
+              teammateReturnedToLobby
+                ? `
+                  <div class="lobby-notice-box" style="color: #ffaa55; border-color: rgba(255, 170, 85, 0.4);">
+                    Напарник вышел в лобби. Нажмите «Вернуться в лобби», чтобы присоединиться к нему.
+                  </div>
+                `
+                : isCountdownActive
+                ? `
+                  <div class="lobby-countdown-widget">
+                    <span>🚀 Перезапуск через</span>
+                    <span class="lobby-countdown-number">${networkRoom.countdown}</span>
+                  </div>
+                `
+                : `
+                  <div class="lobby-notice-box ${players.length === 2 ? 'ready-prompt' : ''}">
+                    ${players.length === 2 ? 'Нажмите «Начать заново», чтобы подтвердить готовность.' : 'Ожидание напарника...'}
+                  </div>
+                `
+            }
+          </div>
 
-        <div class="menu-actions">
-          ${
-            teammateReturnedToLobby
-              ? `
-                <button
-                  type="button"
-                  class="action-button ready-btn"
-                  disabled
-                >
-                  <span>Начать заново</span>
-                </button>
-              `
-              : isMeReady
-              ? `
-                <button
-                  type="button"
-                  class="secondary-button unready-btn"
-                  data-coop-gameover="unready"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  <span>Отмена</span>
-                </button>
-              `
-              : `
-                <button
-                  type="button"
-                  class="action-button ready-btn"
-                  data-coop-gameover="ready"
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/></svg>
-                  <span>Начать заново</span>
-                </button>
-              `
-          }
-          <button type="button" class="secondary-button" data-coop-gameover="lobby">
-            Вернуться в лобби
-          </button>
+          <div class="network-actions" style="width: 100%; max-width: 680px; gap: 14px; margin-top: 2px;">
+            <button type="button" class="secondary-button" data-coop-gameover="lobby" style="min-width: 180px;">
+              ← Вернуться в лобби
+            </button>
+            ${
+              teammateReturnedToLobby
+                ? `
+                  <button
+                    type="button"
+                    class="action-button ready-btn"
+                    disabled
+                    style="min-width: 220px; margin: 0;"
+                  >
+                    <span>Начать заново</span>
+                  </button>
+                `
+                : isMeReady
+                ? `
+                  <button
+                    type="button"
+                    class="secondary-button unready-btn"
+                    data-coop-gameover="unready"
+                    style="min-width: 220px;"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span>Отмена готовности</span>
+                  </button>
+                `
+                : `
+                  <button
+                    type="button"
+                    class="action-button ready-btn"
+                    data-coop-gameover="ready"
+                    style="min-width: 220px; margin: 0;"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/></svg>
+                    <span>⚡ Начать заново</span>
+                  </button>
+                `
+            }
+          </div>
         </div>
       `;
 
