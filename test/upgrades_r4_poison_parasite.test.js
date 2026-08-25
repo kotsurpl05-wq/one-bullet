@@ -65,19 +65,19 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     // Apply base poison
     ctx.applyServerUpgrade(world, player1, { id: "poison", power: 1 });
     assert.equal(player1.stats.poison, true);
-    assert.equal(player1.stats.poisonDamage, 0.5);
+    assert.equal(player1.stats.poisonDamage, 50);
     assert.equal(player1.stats.poisonDuration, 2.0);
 
     // Upgrade poison damage with power 3 (+1.5 -> 2.0)
     ctx.applyServerUpgrade(world, player1, { id: "poison-damage", power: 3 });
-    assert.equal(player1.stats.poisonDamage, 2.0);
+    assert.equal(player1.stats.poisonDamage, 200);
 
     // Exceed damage cap (5.0 max)
     ctx.applyServerUpgrade(world, player1, { id: "poison-damage", power: 10 });
-    assert.equal(player1.stats.poisonDamage, 5.0, "Poison damage must clamp at 5.0 max");
+    assert.equal(player1.stats.poisonDamage, 500, "Poison damage must clamp at 5.0 max");
 
     const poisonDmgUpg = ctx.SERVER_UPGRADES.find(u => u.id === "poison-damage");
-    assert.equal(poisonDmgUpg.available(player1), false, "Poison damage must become unavailable once capped at 5.0");
+    assert.equal(poisonDmgUpg.available(player1), false, "Poison damage must become unavailable once capped at 500");
 
     // Upgrade poison duration with power 2 (+2.0s -> 4.0s)
     ctx.applyServerUpgrade(world, player1, { id: "poison-duration", power: 2 });
@@ -99,7 +99,7 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     assert.equal(player1.stats.parasite, true);
     assert.equal(player1.stats.parasiteChance, 0.25);
     assert.equal(player1.stats.parasiteCount, 1);
-    assert.equal(player1.stats.parasiteDamage, 1.0);
+    assert.equal(player1.stats.parasiteDamage, 75);
 
     // Upgrade parasite chance with power 2 (+10% -> 35%)
     ctx.applyServerUpgrade(world, player1, { id: "parasite-chance", power: 2 });
@@ -125,14 +125,14 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
 
     // Upgrade parasite damage (+1.0 -> 2.0)
     ctx.applyServerUpgrade(world, player1, { id: "parasite-damage", power: 2 });
-    assert.equal(player1.stats.parasiteDamage, 2.0);
+    assert.equal(player1.stats.parasiteDamage, 175);
 
     // Exceed damage cap (4.0 max)
     ctx.applyServerUpgrade(world, player1, { id: "parasite-damage", power: 10 });
-    assert.equal(player1.stats.parasiteDamage, 4.0, "Parasite damage must clamp at 4.0 max");
+    assert.equal(player1.stats.parasiteDamage, 400, "Parasite damage must clamp at 4.0 max");
 
     const parasiteDmgUpg = ctx.SERVER_UPGRADES.find(u => u.id === "parasite-damage");
-    assert.equal(parasiteDmgUpg.available(player1), false, "Parasite damage must become unavailable once capped at 4.0");
+    assert.equal(parasiteDmgUpg.available(player1), false, "Parasite damage must become unavailable once capped at 400");
   });
 
   // =========================================================================
@@ -142,17 +142,17 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
   await t.test("Tier 3.1: Poison Bullet DoT application and 1.0s periodic tick damage", () => {
     const { room, world, player1 } = createTestWorld(ctx);
     player1.stats.poison = true;
-    player1.stats.poisonDamage = 1.5;
+    player1.stats.poisonDamage = 150;
     player1.stats.poisonDuration = 3.0;
 
     const enemy = ctx.createServerEnemy(world, "tank", 400, 400, true);
-    enemy.hp = 20;
-    enemy.maxHp = 20;
+    enemy.hp = 2000;
+    enemy.maxHp = 2000;
     enemy.hasEnteredArena = true;
     enemy.spawnEdge = null;
     world.enemies.set(enemy.id, enemy);
 
-    const bullet = ctx.createServerBullet(world, player1.id, 395, 400, 200, 0);
+    const bullet = ctx.createServerBullet(world, player1, 395, 400, 200, 0);
     bullet.state = "flying";
     bullet.hitsLeft = 1;
     world.bullets.set(bullet.id, bullet);
@@ -161,7 +161,7 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     ctx.updateServerBullet(room, bullet, 0.05);
 
     assert.ok(enemy.poisonTimer >= 2.9, `Poison timer must be initialized to ~3.0s, got ${enemy.poisonTimer}`);
-    assert.equal(enemy.poisonDamage, 1.5);
+    assert.equal(enemy.poisonDamage, 150);
     const hpAfterInitialHit = enemy.hp;
 
     // Advance 0.5s (no tick yet)
@@ -170,11 +170,11 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
 
     // Advance another 0.6s (total > 1.0s, triggering 1 tick of 1.5 damage)
     ctx.updateServerEnemies(world, 0.6);
-    assert.equal(enemy.hp, hpAfterInitialHit - 1.5, "Poison tick must deal 1.5 damage at 1.0s");
+    assert.equal(enemy.hp, hpAfterInitialHit - 150, "Poison tick must deal 1.5 damage at 1.0s");
 
     // Advance another 1.0s (triggering 2nd tick of 1.5 damage)
     ctx.updateServerEnemies(world, 1.0);
-    assert.equal(enemy.hp, hpAfterInitialHit - 3.0, "Second poison tick must deal another 1.5 damage");
+    assert.equal(enemy.hp, hpAfterInitialHit - 300, "Second poison tick must deal another 1.5 damage");
   });
 
   await t.test("Tier 3.2: Parasite death trigger spawns homing spores delivering authoritative damage", () => {
@@ -182,26 +182,26 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     player1.stats.parasite = true;
     player1.stats.parasiteChance = 1.0; // guaranteed for test
     player1.stats.parasiteCount = 2;
-    player1.stats.parasiteDamage = 2.0;
+    player1.stats.parasiteDamage = 200;
 
     const victimEnemy = ctx.createServerEnemy(world, "tank", 300, 300, true);
-    victimEnemy.hp = 1;
-    victimEnemy.maxHp = 10;
+    victimEnemy.hp = 50;
+    victimEnemy.maxHp = 1000;
     victimEnemy.hasEnteredArena = true;
     victimEnemy.spawnEdge = null;
     victimEnemy.parasiteInfested = true;
     victimEnemy.parasiteCount = 2;
-    victimEnemy.parasiteDamage = 2.0;
+    victimEnemy.parasiteDamage = 200;
     world.enemies.set(victimEnemy.id, victimEnemy);
 
     const targetEnemy = ctx.createServerEnemy(world, "tank", 350, 300, true);
-    targetEnemy.hp = 20;
-    targetEnemy.maxHp = 20;
+    targetEnemy.hp = 2000;
+    targetEnemy.maxHp = 2000;
     targetEnemy.hasEnteredArena = true;
     targetEnemy.spawnEdge = null;
     world.enemies.set(targetEnemy.id, targetEnemy);
 
-    const bullet = ctx.createServerBullet(world, player1.id, 295, 300, 200, 0);
+    const bullet = ctx.createServerBullet(world, player1, 295, 300, 200, 0);
     bullet.state = "flying";
     bullet.hitsLeft = 1;
     world.bullets.set(bullet.id, bullet);
@@ -219,7 +219,7 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     }
 
     assert.ok(
-      targetEnemy.hp <= 18,
+      targetEnemy.hp <= 1800,
       `Target enemy must take parasite damage (hp <= 18), got ${targetEnemy.hp}`
     );
   });

@@ -7448,7 +7448,7 @@
         title: "Тяжёлая пуля",
         description: "Увеличивает урон пули.",
         applyWithPower(power) {
-          stats.damage += power;
+          stats.damage += 100 * power;
         }
       },
       {
@@ -7488,8 +7488,8 @@
         title: "Усиленная броня",
         description: "Повышает максимальное и текущее здоровье.",
         applyWithPower(power) {
-          player.maxHp += power;
-          player.hp += power;
+          player.maxHp += 100 * power;
+          player.hp += 100 * power;
         }
       },
       {
