@@ -355,8 +355,12 @@ class OneBulletNetwork extends EventTarget {
 
     try {
       this.socket.emit("net:shoot", {
-        x,
-        y,
+        aimX: x,
+        aimY: y,
+        clientShootX: vx,
+        clientShootY: vy,
+        x: vx,
+        y: vy,
         vx,
         vy
       });

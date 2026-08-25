@@ -296,7 +296,7 @@ const COOP_WORLD_HEIGHT = 1374;
 
 const COOP_PLAYER_SPEED = 300;
 const COOP_SIMULATION_RATE = 60;
-const COOP_SNAPSHOT_RATE = 20;
+const COOP_SNAPSHOT_RATE = 60;
 
 const COOP_INPUT_TIMEOUT = 1200;
 
@@ -1003,7 +1003,7 @@ function updateServerBullet(
 
     const pickupDistance =
       owner.r +
-      bullet.r;
+      bullet.r + 14;
 
 
     if (
@@ -5843,13 +5843,30 @@ io.on("connection", socket => {
     }
     touchRoom(room);
   
+    const aimX = Number.isFinite(Number(payload?.aimX))
+      ? Number(payload.aimX)
+      : Number(payload?.x);
+    const aimY = Number.isFinite(Number(payload?.aimY))
+      ? Number(payload.aimY)
+      : Number(payload?.y);
+    const shootX = Number.isFinite(Number(payload?.clientShootX))
+      ? Number(payload.clientShootX)
+      : Number.isFinite(Number(payload?.vx))
+      ? Number(payload.vx)
+      : undefined;
+    const shootY = Number.isFinite(Number(payload?.clientShootY))
+      ? Number(payload.clientShootY)
+      : Number.isFinite(Number(payload?.vy))
+      ? Number(payload.vy)
+      : undefined;
+
     shootServerBullet(
       room,
       socket.id,
-      Number(payload?.aimX),
-      Number(payload?.aimY),
-      Number(payload?.x),
-      Number(payload?.y)
+      aimX,
+      aimY,
+      shootX,
+      shootY
     );
   });
 

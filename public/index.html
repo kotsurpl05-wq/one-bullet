@@ -13454,20 +13454,20 @@
           coopPlayer.aimX = localInput.aimX;
           coopPlayer.aimY = localInput.aimY;
         } else {
-          // Удалённый напарник интерполируется плавно без рывков
+          // Удалённый напарник интерполируется с высокой частотой без рывков
           coopPlayer.displayX +=
             (
               coopPlayer.targetX -
               coopPlayer.displayX
             ) *
-            Math.min(1, dt * 20);
+            Math.min(1, dt * 30);
         
           coopPlayer.displayY +=
             (
               coopPlayer.targetY -
               coopPlayer.displayY
             ) *
-            Math.min(1, dt * 20);
+            Math.min(1, dt * 30);
         }
       }
       /*
@@ -13708,14 +13708,14 @@
             coopEnemy.targetX -
             coopEnemy.displayX
           ) *
-          Math.min(1, dt * 20);
+          Math.min(1, dt * 30);
       
         coopEnemy.displayY +=
           (
             coopEnemy.targetY -
             coopEnemy.displayY
           ) *
-          Math.min(1, dt * 20);
+          Math.min(1, dt * 30);
       }
       for (
         const crystal of
