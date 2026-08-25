@@ -3189,7 +3189,7 @@ function createServerExperienceCrystal(
   world,
   x,
   y,
-  value = 1
+  value = 1.1
 ) {
   const angle =
     Math.random() * Math.PI * 2;
@@ -3236,7 +3236,7 @@ function dropServerExperience(
       world,
       enemy.x + random(-6, 6),
       enemy.y + random(-6, 6),
-      1
+      1.1
     );
   }
 }

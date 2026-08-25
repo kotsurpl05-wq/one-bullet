@@ -462,9 +462,9 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
         `Tier ${tier} boss kill must drop exactly ${expectedCrystalCount} crystals, got ${world.experienceCrystals.size}`
       );
 
-      // Verify each crystal has value = 1 and valid coordinates
+      // Verify each crystal has value = 1.1 and valid coordinates
       for (const crystal of world.experienceCrystals.values()) {
-        assert.equal(crystal.value, 1, "Experience crystal value must be 1");
+        assert.equal(crystal.value, 1.1, "Experience crystal value must be 1.1 (+10% bonus)");
         assert.ok(Math.abs(crystal.x - 500) <= 10, "Crystal x coordinate within spawn offset");
         assert.ok(Math.abs(crystal.y - 500) <= 10, "Crystal y coordinate within spawn offset");
       }
