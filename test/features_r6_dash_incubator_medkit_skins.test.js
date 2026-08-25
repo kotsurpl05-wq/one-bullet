@@ -368,5 +368,24 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(bullet.x >= bullet.r, "dropServerBullet must clamp x inside arena");
       assert.ok(bullet.y >= bullet.r, "dropServerBullet must clamp y inside arena");
     });
+
+    await t3.test("3.17 Teammate bullet skin is preserved on server, snapshot, and rendered by client", () => {
+      const { world, room, player2 } = createTestWorld(ctx);
+      room.started = true;
+      player2.bulletSkin = "fire";
+
+      const bullet2 = ctx.createServerBullet(world, player2);
+      assert.equal(bullet2.skin, "fire", "Bullet must inherit owner bulletSkin");
+      world.bullets.set(bullet2.id, bullet2);
+
+      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapBullet = snapshot.bullets.find(b => b.id === bullet2.id);
+      assert.equal(snapBullet.skin, "fire", "Snapshot bullet must serialize skin");
+
+      const snapPlayer = snapshot.players.find(p => p.id === player2.id);
+      assert.equal(snapPlayer.bulletSkin, "fire", "Snapshot player must serialize bulletSkin");
+
+      assert.ok(indexHtml.includes("coopBullet.skin || owner?.bulletSkin"), "drawCoopBullet must read remote skin");
+    });
   });
 });

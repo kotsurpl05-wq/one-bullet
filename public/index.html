@@ -9881,6 +9881,9 @@
           btn.style.background = "rgba(56,189,248,0.2)";
           gameSettings.bulletSkin = btn.dataset.skin || "neon";
           saveGameSettings();
+          if (window.net?.isMultiplayer) {
+            net.sendSkin(gameSettings.bulletSkin);
+          }
           soundManager.playUiClick();
         };
       });
@@ -10448,7 +10451,7 @@
       
         if (action === "create") {
           const result =
-            await net.createRoom(playerName);
+            await net.createRoom(playerName, gameSettings.bulletSkin || "neon");
         
           if (!result.success) {
             setNetworkMessage(
@@ -10808,7 +10811,7 @@
           button.disabled = true;
           button.textContent = "Отправка...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(true);
+            await net.sendReady(true, gameSettings.bulletSkin || "neon");
           }
           return;
         }
@@ -10817,7 +10820,7 @@
           button.disabled = true;
           button.textContent = "Отмена...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(false);
+            await net.sendReady(false, gameSettings.bulletSkin || "neon");
           }
           return;
         }
@@ -12274,6 +12277,7 @@
           snapshotPlayer.name ||
           coopPlayer.name ||
           "Игрок";
+        coopPlayer.bulletSkin = snapshotPlayer.bulletSkin || coopPlayer.bulletSkin || "neon";
       
         coopPlayer.serverX = snapshotX;
         coopPlayer.serverY = snapshotY;
@@ -12619,6 +12623,7 @@
           )
             ? snapshotBullet.colorIndex
             : coopBullet.colorIndex;
+        coopBullet.skin = snapshotBullet.skin || coopBullet.skin || "neon";
       
         /*
          * Новый патрон или резкая смена его состояния
@@ -14076,7 +14081,10 @@
         coopBullet.displayY
       );
     
-      const skin = isOwnBullet ? (gameSettings.bulletSkin || "neon") : "neon";
+      const owner = coopSession.players.get(coopBullet.ownerId);
+      const skin = isOwnBullet
+        ? (gameSettings.bulletSkin || "neon")
+        : (coopBullet.skin || owner?.bulletSkin || "neon");
       if (skin === "fire") {
         const rot = performance.now() * 0.005;
         ctx.rotate(rot);

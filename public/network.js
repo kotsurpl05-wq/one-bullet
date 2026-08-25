@@ -289,8 +289,15 @@ class OneBulletNetwork extends EventTarget {
     return this.request("room:return-to-lobby");
   }
 
-  async sendReady(ready) {
-    return this.request("room:ready", { ready: Boolean(ready) });
+  async sendReady(ready, bulletSkin = "neon") {
+    return this.request("room:ready", { ready: Boolean(ready), bulletSkin });
+  }
+
+  sendSkin(bulletSkin) {
+    if (!this.isMultiplayer || this.socket?.connected === false) return;
+    try {
+      this.socket.emit("net:set-skin", { bulletSkin });
+    } catch {}
   }
 
   async setDifficulty(difficulty) {

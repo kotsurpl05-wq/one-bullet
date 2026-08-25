@@ -43,6 +43,12 @@ app.use(
 
 const rooms = new Map();
 
+function sanitizeSkin(value) {
+  const allowed = ["neon", "fire", "quantum", "toxic", "cosmic"];
+  const s = String(value || "").toLowerCase().trim();
+  return allowed.includes(s) ? s : "neon";
+}
+
 function sanitizeName(value) {
   const name = String(value || "")
     .trim()
@@ -440,6 +446,7 @@ function createServerBullet(
 
     ownerId: player.id,
     colorIndex: player.colorIndex,
+    skin: player.bulletSkin || "neon",
 
     x:
       customX !== undefined
@@ -4986,6 +4993,7 @@ function createServerCoopSnapshot(room, options) {
       maxHp: coopPlayer.maxHp,
 
       alive: coopPlayer.alive,
+      bulletSkin: coopPlayer.bulletSkin || "neon",
       invulnerability: coopPlayer.invulnerability > 0 ? Number(coopPlayer.invulnerability.toFixed(2)) : 0,
 
       reviveBeacon: coopPlayer.reviveBeacon
@@ -5008,6 +5016,7 @@ function createServerCoopSnapshot(room, options) {
     ].map(bullet => ({
       id: bullet.id,
       ownerId: bullet.ownerId,
+      skin: bullet.skin || (world.players.get(bullet.ownerId)?.bulletSkin) || "neon",
 
       x: Math.round(bullet.x * 10) / 10,
       y: Math.round(bullet.y * 10) / 10,
@@ -5201,9 +5210,11 @@ io.on("connection", socket => {
 
         const reconnectToken = generateReconnectToken();
 
+        const bulletSkin = sanitizeSkin(payload?.bulletSkin);
         room.players.set(socket.id, {
           id: socket.id,
           name,
+          bulletSkin,
           role: "host",
           ready: false,
           reconnectToken
@@ -5836,6 +5847,22 @@ io.on("connection", socket => {
       "net:snapshot",
       createServerCoopSnapshot(room)
     );
+  });
+
+  socket.on("net:set-skin", payload => {
+    const room = getRoomForSocket(socket);
+    const skin = sanitizeSkin(payload?.bulletSkin);
+    if (room) {
+      const p = room.players.get(socket.id);
+      if (p) p.bulletSkin = skin;
+      if (room.world) {
+        const wp = room.world.players.get(socket.id);
+        if (wp) wp.bulletSkin = skin;
+        for (const b of room.world.bullets.values()) {
+          if (b.ownerId === socket.id) b.skin = skin;
+        }
+      }
+    }
   });
 
   socket.on("net:shoot", payload => {
