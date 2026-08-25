@@ -1,15 +1,32 @@
 app = "one-bullet-coop"
-primary_region = "fra"
+primary_region = "waw"
 
 [build]
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "stop"
+
+  # Кооп держит открытый WebSocket на всю сессию.
+  # Останов машины посреди матча разорвал бы игру,
+  # поэтому автостоп выключен, а одна машина всегда жива.
+  auto_stop_machines = "off"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+# Проверка живости: сервер отдаёт /healthz без авторизации.
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/healthz"
 
 [[vm]]
   memory = "256mb"

@@ -131,7 +131,7 @@ function startRoomCountdown(room) {
 
       io.to(room.code).emit(
         "net:snapshot",
-        createServerCoopSnapshot(room)
+        createServerCoopSnapshot(room, { full: true })
       );
 
       emitRoomState(room);
@@ -4894,8 +4894,19 @@ function updateServerExperienceCrystals(
   }
 }
 
-function createServerCoopSnapshot(room) {
+/*
+ * Собирает снапшот мира для рассылки клиентам.
+ *
+ * options.full — принудительно включает статические
+ * поля сущностей (радиус/цвет/maxHp). Нужен всегда,
+ * когда получатель строит состояние с нуля: старт
+ * матча, переподключение, ручной net:request-snapshot.
+ * Без этого флага статика отправляется один раз на
+ * сущность, чтобы не гнать её 20 раз в секунду.
+ */
+function createServerCoopSnapshot(room, options) {
   const world = room.world;
+  const fullSnapshot = Boolean(options && options.full);
 
   return {
     type: "coop-server-v4",
@@ -5006,52 +5017,70 @@ function createServerCoopSnapshot(room) {
 
     enemies: [
       ...world.enemies.values()
-    ].map(enemy => ({
-      id: enemy.id,
-      type: enemy.type,
+    ].map(enemy => {
+      /*
+       * Компактная сериализация врага.
+       *
+       * Враги — 90% трафика снапшота, поэтому здесь
+       * отправляется только то, что клиент реально
+       * читает в applyCoopSnapshot, и только когда
+       * значение отличается от предполагаемого по
+       * умолчанию. Клиент восстанавливает опущенные
+       * поля из дефолтов, поэтому любое новое поле
+       * обязано иметь дефолт на стороне клиента.
+       */
+      const serialized = {
+        id: enemy.id,
 
-      x: Math.round(enemy.x),
-      y: Math.round(enemy.y),
+        x: Math.round(enemy.x),
+        y: Math.round(enemy.y),
 
-      r: enemy.r,
-      hp: enemy.hp,
-      maxHp: enemy.maxHp,
+        hp: enemy.hp
+      };
 
-      color: enemy.color,
+      /*
+       * Статика врага (тип/радиус/цвет/maxHp) не меняется
+       * после спавна, поэтому отправляется только в
+       * первом снапшоте — клиент кеширует значения.
+       */
+      if (fullSnapshot || !enemy.staticSent) {
+        enemy.staticSent = true;
+        serialized.type = enemy.type;
+        serialized.r = enemy.r;
+        serialized.maxHp = enemy.maxHp;
+        serialized.color = enemy.color;
+      }
 
-      spawnEdge:
-        enemy.spawnEdge,
+      /*
+       * Данные предупреждения о спавне нужны клиенту
+       * только пока враг ещё не вошёл в арену.
+       */
+      if (!enemy.hasEnteredArena) {
+        serialized.spawnEdge = enemy.spawnEdge;
+        serialized.spawnWarningX = Math.round(enemy.spawnWarningX || 0);
+        serialized.spawnWarningY = Math.round(enemy.spawnWarningY || 0);
+        serialized.spawnDelay = Number((enemy.spawnDelay || 0).toFixed(2));
+      } else {
+        serialized.entered = 1;
+      }
 
-      spawnWarningX:
-        Math.round(enemy.spawnWarningX || 0),
+      if (enemy.isCharging) serialized.isCharging = 1;
+      if (enemy.stunTimer > 0) serialized.stunTimer = Number(enemy.stunTimer.toFixed(2));
+      if (enemy.targetMarked) serialized.targetMarked = 1;
+      if (enemy.poisonTimer > 0) serialized.poisoned = 1;
+      if (enemy.parasiteInfested) serialized.parasiteInfested = 1;
 
-      spawnWarningY:
-        Math.round(enemy.spawnWarningY || 0),
+      if (enemy.type === "phantom" && enemy.isPhased) {
+        serialized.isPhased = 1;
+      }
 
-      spawnDelay:
-        enemy.spawnDelay,
+      if (enemy.type === "twin") {
+        if (enemy.twinPartnerId) serialized.twinPartnerId = enemy.twinPartnerId;
+        if (enemy.isEnraged) serialized.isEnraged = 1;
+      }
 
-      hasEnteredArena:
-        enemy.hasEnteredArena,
-
-      isCharging:
-        enemy.isCharging,
-
-      dashState: enemy.dashState || "none",
-      dashTimer: enemy.dashTimer ? Number(enemy.dashTimer.toFixed(2)) : 0,
-      sniperState: enemy.sniperState || "none",
-      sniperTargetX: Math.round(enemy.sniperTargetX || 0),
-      sniperTargetY: Math.round(enemy.sniperTargetY || 0),
-      shieldActive: Boolean(enemy.shieldActive),
-      stunTimer: enemy.stunTimer ? Number(enemy.stunTimer.toFixed(2)) : 0,
-      phase: enemy.phase || 0,
-      isPhased: enemy.type === "phantom" ? Boolean(enemy.isPhased) : undefined,
-      twinPartnerId: enemy.type === "twin" ? (enemy.twinPartnerId || null) : undefined,
-      isEnraged: enemy.type === "twin" ? Boolean(enemy.isEnraged) : undefined,
-      targetMarked: Boolean(enemy.targetMarked),
-      poisoned: Boolean(enemy.poisonTimer && enemy.poisonTimer > 0),
-      parasiteInfested: Boolean(enemy.parasiteInfested)
-    })),
+      return serialized;
+    }),
 
     enemyProjectiles: [
       ...world.enemyProjectiles.values()
@@ -5139,7 +5168,7 @@ io.on("connection", socket => {
   
     socket.emit(
       "net:snapshot",
-      createServerCoopSnapshot(room)
+      createServerCoopSnapshot(room, { full: true })
     );
   });
 
@@ -5303,7 +5332,7 @@ io.on("connection", socket => {
             role: matchedPlayer.role
           };
 
-          const snapshot = createServerCoopSnapshot(room);
+          const snapshot = createServerCoopSnapshot(room, { full: true });
 
           acknowledge?.({
             success: true,
@@ -5401,7 +5430,7 @@ io.on("connection", socket => {
 
     io.to(room.code).emit(
       "net:snapshot",
-      createServerCoopSnapshot(room)
+      createServerCoopSnapshot(room, { full: true })
     );
 
     emitRoomState(room);
@@ -5522,7 +5551,7 @@ io.on("connection", socket => {
       
       io.to(room.code).emit(
         "net:snapshot",
-        createServerCoopSnapshot(room)
+        createServerCoopSnapshot(room, { full: true })
       );
 
       emitRoomState(room);
@@ -6045,7 +6074,7 @@ io.on("connection", socket => {
         role: matchedPlayer.role
       };
 
-      const snapshot = createServerCoopSnapshot(room);
+      const snapshot = createServerCoopSnapshot(room, { full: true });
 
       acknowledge?.({
         success: true,

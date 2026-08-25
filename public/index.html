@@ -12767,9 +12767,10 @@
               )
                 ? snapshotEnemy.spawnDelay
                 : 0,
-          
+
             hasEnteredArena:
               Boolean(
+                snapshotEnemy.entered ||
                 snapshotEnemy.hasEnteredArena
               ),
 
@@ -12802,14 +12803,19 @@
       
         coopEnemy.x = snapshotX;
         coopEnemy.y = snapshotY;
-      
+
         coopEnemy.targetX = snapshotX;
         coopEnemy.targetY = snapshotY;
-      
+
         coopEnemy.type =
           snapshotEnemy.type ||
           coopEnemy.type;
-      
+
+        /*
+         * Статика врага (r/maxHp/color) приходит только
+         * в первом снапшоте этой сущности, поэтому при
+         * отсутствии поля сохраняем кешированное значение.
+         */
         coopEnemy.r =
           Number.isFinite(snapshotEnemy.r)
             ? snapshotEnemy.r
@@ -12882,42 +12888,50 @@
           )
             ? snapshotEnemy.maxHp
             : coopEnemy.maxHp;
-      
+
         coopEnemy.color =
           snapshotEnemy.color ||
           coopEnemy.color ||
           "#ff5577";
       
         coopEnemy.spawnEdge =
-          snapshotEnemy.spawnEdge ||
-          null;
-      
+          snapshotEnemy.spawnEdge !== undefined
+            ? snapshotEnemy.spawnEdge
+            : coopEnemy.spawnEdge;
+
         coopEnemy.spawnWarningX =
           Number.isFinite(
             snapshotEnemy.spawnWarningX
           )
             ? snapshotEnemy.spawnWarningX
             : coopEnemy.spawnWarningX;
-      
+
         coopEnemy.spawnWarningY =
           Number.isFinite(
             snapshotEnemy.spawnWarningY
           )
             ? snapshotEnemy.spawnWarningY
             : coopEnemy.spawnWarningY;
-      
+
         coopEnemy.spawnDelay =
           Number.isFinite(
             snapshotEnemy.spawnDelay
           )
             ? snapshotEnemy.spawnDelay
-            : 0;
-      
+            : coopEnemy.spawnDelay;
+
+        /*
+         * Сервер присылает spawn-поля только пока враг
+         * не вошёл в арену, а после входа — флаг entered.
+         * Поддерживаем и старый hasEnteredArena, чтобы
+         * снапшот прошлой версии не ломал отрисовку.
+         */
         coopEnemy.hasEnteredArena =
           Boolean(
+            snapshotEnemy.entered ||
             snapshotEnemy.hasEnteredArena
           );
-      
+
         coopEnemy.isCharging =
           Boolean(
             snapshotEnemy.isCharging
