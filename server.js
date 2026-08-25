@@ -294,7 +294,7 @@ function sanitizeInput(input) {
 const COOP_WORLD_WIDTH = 2560;
 const COOP_WORLD_HEIGHT = 1374;
 
-const COOP_PLAYER_SPEED = 250;
+const COOP_PLAYER_SPEED = 300;
 const COOP_SIMULATION_RATE = 60;
 const COOP_SNAPSHOT_RATE = 20;
 
