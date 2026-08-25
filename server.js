@@ -2229,7 +2229,7 @@ function spawnServerWave(world) {
       type = "charger";
     } else if (
       world.wave >= 3 &&
-      roll < (world.wave === 3 ? 0.05 : 0.40)
+      roll < (world.wave === 3 ? 0.18 : 0.40)
     ) {
       type = "tank";
     } else if (
