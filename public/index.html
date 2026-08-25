@@ -4420,7 +4420,7 @@
       dropExperienceCrystals(enemy);
       if (enemy.parasiteInfested) {
         const pCount = enemy.parasiteCount || stats.parasiteCount || 1;
-        const pDamage = enemy.parasiteDamage || stats.parasiteDamage || 1.0;
+        const pDamage = enemy.parasiteDamage || stats.parasiteDamage || 75;
         for (let pi = 0; pi < pCount; pi++) {
           const angle = Math.random() * Math.PI * 2;
           const sporeSpeed = 320;
@@ -4979,7 +4979,7 @@
         coopSession.players.values()
       ) {
         const baseDamage =
-          Number(coopPlayer.stats?.damage) || 1;
+          Number(coopPlayer.stats?.damage) || 100;
 
         if (
           Math.abs(
@@ -12771,14 +12771,14 @@
                 snapshotEnemy.hp
               )
                 ? snapshotEnemy.hp
-                : 1,
+                : 100,
           
             maxHp:
               Number.isFinite(
                 snapshotEnemy.maxHp
               )
                 ? snapshotEnemy.maxHp
-                : 1,
+                : 100,
           
             color:
               snapshotEnemy.color ||
@@ -13033,6 +13033,22 @@
         ) {
           const coopEnemy = coopSession.enemies.get(enemyId);
           if (coopEnemy) {
+            if (coopEnemy.hp > 0) {
+              const lethalDamage = coopEnemy.hp;
+              const criticalHit = isLikelyCoopCritical(lethalDamage);
+              addCoopDamageNumber(
+                coopEnemy.displayX,
+                coopEnemy.displayY,
+                lethalDamage,
+                criticalHit
+              );
+              if (criticalHit) {
+                soundManager.playCritHit();
+                triggerHitStop();
+              } else {
+                soundManager.playHit();
+              }
+            }
             createCoopParticles(coopEnemy.displayX, coopEnemy.displayY, coopEnemy.color || "#ff7992", 18, 220);
             createCoopRing(coopEnemy.displayX, coopEnemy.displayY, 45, coopEnemy.color || "#7ee7ff");
             coopScreenShake = Math.max(coopScreenShake, 4);
@@ -16256,7 +16272,7 @@
           damageNumbers.push({
             x: player.x,
             y: player.y - 20,
-            text: "+1 HP",
+            text: "+100 HP",
             color: "#22c55e",
             size: 16,
             life: 0.9,

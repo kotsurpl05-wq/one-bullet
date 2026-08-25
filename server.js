@@ -979,7 +979,7 @@ function updateServerBullet(
           if (segDist <= hitDist) {
             bullet.hitEnemies.add(enemy.id);
             const boomerangDmg = Math.floor(
-              (owner.stats.damage || 1) * 1.5
+              (owner.stats?.damage || 100) * 1.5
             );
 
             bullet.hitsLeft += 1;
@@ -1379,7 +1379,7 @@ function updateServerBullet(
 
         if (!nextTarget) break;
         chainedSet.add(nextTarget.id);
-        damageServerEnemy(world, nextTarget.id, 1, owner);
+        damageServerEnemy(world, nextTarget.id, 100, owner);
         lastX = nextTarget.x;
         lastY = nextTarget.y;
         chained++;
@@ -3234,7 +3234,7 @@ function killServerEnemy(
 
   if (enemy.parasiteInfested && world.parasites) {
     const pCount = enemy.parasiteCount || 1;
-    const pDamage = enemy.parasiteDamage || 1.0;
+    const pDamage = enemy.parasiteDamage || 75;
     for (let pi = 0; pi < pCount; pi++) {
       const angle = Math.random() * Math.PI * 2;
       const sporeSpeed = 320;
@@ -3257,7 +3257,7 @@ function killServerEnemy(
 
   world.kills += 1;
 
-  // 5% шанс выпадения аптечки (+1 HP) только из основных мобов (не из осколков сплиттера или личинок инкубатора)
+  // 5% шанс выпадения аптечки (+100 HP) только из основных мобов (не из осколков сплиттера или личинок инкубатора)
   const isSubEnemy = enemy.type === "shard" || enemy.type === "minion";
   if (!isSubEnemy && Math.random() < 0.05 && world.medkits) {
     const medkitId = world.nextMedkitId++;
@@ -3266,7 +3266,7 @@ function killServerEnemy(
       x: Math.round(enemy.x),
       y: Math.round(enemy.y),
       r: 12,
-      heal: 1,
+      heal: 100,
       life: 35.0
     });
   }
@@ -3797,7 +3797,7 @@ function updateServerEnemies(
       if (enemy.poisonTickTimer <= 0) {
         enemy.poisonTickTimer = 1.0;
         const pOwner = world.players.get(enemy.poisonOwnerId) || null;
-        damageServerEnemy(world, enemy.id, enemy.poisonDamage || 0.5, pOwner);
+        damageServerEnemy(world, enemy.id, enemy.poisonDamage || 50, pOwner);
         if (!world.enemies.has(enemy.id) || enemy.hp <= 0) {
           continue;
         }
@@ -4739,7 +4739,7 @@ function updateServerMedkits(room, dt) {
       if (!player.alive) continue;
       const dist = distance(player.x, player.y, medkit.x, medkit.y);
       if (dist <= player.r + (medkit.r || 12)) {
-        player.hp = Math.min(player.maxHp, player.hp + (medkit.heal || 1));
+        player.hp = Math.min(player.maxHp, player.hp + (medkit.heal || 100));
         world.medkits.delete(mId);
         break;
       }
