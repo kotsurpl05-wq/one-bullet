@@ -70,7 +70,7 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     const shockwaveProjectiles = [...world.enemyProjectiles.values()].slice(-8);
     for (const proj of shockwaveProjectiles) {
       assert.equal(proj.color, "#ff496c");
-      assert.equal(proj.damage, 1);
+      assert.equal(proj.damage, 100);
       assert.equal(proj.r, 6.5);
       const speed = Math.hypot(proj.vx, proj.vy);
       assert.ok(Math.abs(speed - 190) < 1.0, `Expected speed ~190, got ${speed}`);
@@ -126,7 +126,7 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     assert.equal(world.enemyProjectiles.size, initialProjCount + 1);
     const sniperBolt = [...world.enemyProjectiles.values()].pop();
 
-    assert.equal(sniperBolt.damage, 2, "Sniper bolt must deal 2 damage");
+    assert.equal(sniperBolt.damage, 200, "Sniper bolt must deal 2 damage");
     assert.equal(sniperBolt.color, "#ff1744");
     assert.equal(sniperBolt.r, 9);
     const speed = Math.hypot(sniperBolt.vx, sniperBolt.vy);

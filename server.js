@@ -329,19 +329,19 @@ const COOP_CRYSTAL_CLEAR_SPEED = 900;
 
 const COOP_DIFFICULTY = {
   easy: {
-    playerHp: 7,
+    playerHp: 700,
     enemySpeed: 0.86,
     enemyCount: 0.9
   },
 
   normal: {
-    playerHp: 5,
+    playerHp: 500,
     enemySpeed: 1,
     enemyCount: 1
   },
 
   hard: {
-    playerHp: 4,
+    playerHp: 400,
     enemySpeed: 1.16,
     enemyCount: 1.15
   }
@@ -3144,23 +3144,23 @@ function getServerContactDamage(
   enemy
 ) {
   if (enemy.type === "tank") {
-    return 2;
+    return 200;
   }
 
   if (
     enemy.type === "charger" &&
     enemy.isCharging
   ) {
-    return 2;
+    return 200;
   }
 
   if (enemy.type === "boss") {
     return world.wave >= 15
-      ? 2
-      : 1;
+      ? 200
+      : 100;
   }
 
-  return 1;
+  return 100;
 }
 
 function getServerEnemyExperience(enemy) {
@@ -3529,7 +3529,7 @@ function createServerEnemyProjectile(
   speed,
   radius = 5,
   color = "#67ff9a",
-  damage = 1
+  damage = 100
 ) {
   const projectile = {
     id: world.nextProjectileId++,
@@ -3561,7 +3561,7 @@ function shootServerEnemyProjectile(world, enemy, target) {
     projectileSpeed,
     5,
     "#67ff9a",
-    1
+    100
   );
 }
 
@@ -3588,7 +3588,7 @@ function shootServerBossSpread(world, enemy, target, phase) {
       speed,
       7.5,
       "#ff4f91",
-      1
+      100
     );
   }
 
@@ -3608,7 +3608,7 @@ function shootServerBossSpread(world, enemy, target, phase) {
           speed,
           7.5,
           "#ff4f91",
-          1
+          100
         );
       }
     }
@@ -3632,7 +3632,7 @@ function shootServerBossRadial(world, enemy, phase) {
       speed,
       7,
       "#ff9b45",
-      1
+      100
     );
   }
 }
@@ -3650,7 +3650,7 @@ function shootServerBossShockwave(world, enemy) {
       speed,
       6.5,
       "#ff496c",
-      1
+      100
     );
   }
 }
@@ -3665,7 +3665,7 @@ function shootServerBossSniperBolt(world, enemy, targetX, targetY) {
     750,
     9,
     "#ff1744",
-    2
+    200
   );
 }
 
@@ -4172,7 +4172,7 @@ function updateServerEnemies(
       );
 
       if (dist <= player.r + 3) {
-        damageServerPlayer(world, player, 1);
+        damageServerPlayer(world, player, 100);
       }
     }
   }

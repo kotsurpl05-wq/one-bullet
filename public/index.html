@@ -2551,7 +2551,7 @@
 
     <div class="hud-row">
       <span class="hud-label">Здоровье</span>
-      <strong id="healthValue">❤️ 5 / 5</strong>
+      <strong id="healthValue">❤️ 500 / 500</strong>
     </div>
 
     <div id="healthBar">
@@ -2793,7 +2793,7 @@
     const difficultySettings = {
       easy: {
         label: "Легко",
-        playerHp: 7,
+        playerHp: 700,
         enemySpeed: 0.86,
         enemyCount: 0.9,
         scoreMultiplier: 0.8
@@ -2801,7 +2801,7 @@
     
       normal: {
         label: "Нормально",
-        playerHp: 5,
+        playerHp: 500,
         enemySpeed: 1,
         enemyCount: 1,
         scoreMultiplier: 1
@@ -2809,7 +2809,7 @@
     
       hard: {
         label: "Сложно",
-        playerHp: 4,
+        playerHp: 400,
         enemySpeed: 1.16,
         enemyCount: 1.15,
         scoreMultiplier: 1.3
@@ -3684,7 +3684,7 @@
 
       if (isAlive) {
         healthValue.textContent = `❤️ ${hp} / ${maxHp}`;
-        healthValue.style.color = hp <= 2 ? "#ff7992" : "#7ee7ff";
+        healthValue.style.color = hp <= 200 ? "#ff7992" : "#7ee7ff";
         healthFill.style.width = `${clamp(hp / maxHp, 0, 1) * 100}%`;
       } else {
         healthValue.textContent = "💀 ПОГИБ";
@@ -5867,7 +5867,7 @@
       speed,
       radius = 5,
       color = "#67ff9a",
-      damage = 1
+      damage = 100
     ) {
       enemyProjectiles.push({
         x,
@@ -5895,7 +5895,7 @@
         projectileSpeed,
         5,
         "#67ff9a",
-        1
+        100
       );
     
       createParticles(
@@ -5954,7 +5954,7 @@
           speed,
           7,
           "#ff4f91",
-          1
+          100
         );
       }
     
@@ -6013,7 +6013,7 @@
           speed,
           6,
           "#ff9b45",
-          1
+          100
         );
       }
     
@@ -6041,7 +6041,7 @@
           speed,
           6.5,
           "#ff496c",
-          1
+          100
         );
       }
       createRing(enemy.x, enemy.y, 70, "#ff496c");
@@ -6057,7 +6057,7 @@
         750,
         9,
         "#ff1744",
-        2
+        200
       );
       screenShake = Math.max(screenShake, 7);
     }
@@ -6593,25 +6593,25 @@
 
     function getEnemyContactDamage(enemy) {
       if (!enemy) {
-        return 1;
+        return 100;
       }
     
       if (enemy.type === "tank") {
-        return 2;
+        return 200;
       }
     
       if (
         enemy.type === "charger" &&
         enemy.isCharging
       ) {
-        return 2;
+        return 200;
       }
     
       if (enemy.type === "boss") {
-        return wave >= 15 ? 2 : 1;
+        return wave >= 15 ? 200 : 100;
       }
     
-      return 1;
+      return 100;
     }
 
     function isEnemyFullyInsideArena(enemy) {
@@ -7112,7 +7112,7 @@
           );
 
           if (dist <= player.r + 2) {
-            damagePlayer(1);
+            damagePlayer(100);
           }
         }
       }

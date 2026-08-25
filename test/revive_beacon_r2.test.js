@@ -27,10 +27,10 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.x = 240;
     player1.y = 360;
-    player1.hp = 1;
+    player1.hp = 500;
 
     // Fatal damage to player 1
-    ctx.damageServerPlayer(world, player1, 1);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     assert.equal(player1.alive, false, "Player 1 must be dead");
     assert.equal(player1.hp, 0, "Player 1 HP must be 0");
@@ -51,7 +51,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player1.x = 200;
     player1.y = 200;
     player1.hp = 1;
-    ctx.damageServerPlayer(world, player1, 1);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     // Place living player2 within beacon radius (e.g. distance = 20px <= 70px)
     player2.x = 220;
@@ -79,7 +79,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player1.hp = 1;
     player1.x = 300;
     player1.y = 300;
-    ctx.damageServerPlayer(world, player1, 1);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     player2.x = 310;
     player2.y = 300; // Within radius
@@ -110,7 +110,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.x = 450;
     player1.y = 250;
-    ctx.damageServerPlayer(world, player1, 5);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     // Update slightly so beacon has progress
     player2.x = 460;
@@ -140,7 +140,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.maxHp = 10;
     player1.hp = 1;
-    ctx.damageServerPlayer(world, player1, 1);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     assert.equal(player1.alive, false);
 
@@ -183,7 +183,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.x = 500;
     player1.y = 500;
-    ctx.damageServerPlayer(world, player1, 5);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     const radius = player1.reviveBeacon ? player1.reviveBeacon.radius : 70;
 
@@ -217,7 +217,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.x = 300;
     player1.y = 300;
-    ctx.damageServerPlayer(world, player1, 5);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     // Step in for 1.0 second
     player2.x = 320;
@@ -257,12 +257,12 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.hp = 1;
 
     // Player 1 dies
-    ctx.damageServerPlayer(world, player1, 1);
+    ctx.damageServerPlayer(world, player1, player1.hp);
     assert.equal(world.gameOver, false, "Game should not be over when only 1 player dies in co-op");
     assert.ok(player1.reviveBeacon, "Player 1 should have revive beacon");
 
     // Player 2 dies
-    ctx.damageServerPlayer(world, player2, 1);
+    ctx.damageServerPlayer(world, player2, player2.hp);
     assert.equal(world.gameOver, true, "Game must be over when both players die");
 
     // Update world ticks should do nothing when gameOver is true
@@ -276,7 +276,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1 } = createTestWorld(ctx, { guestId: null });
     assert.equal(world.players.size, 1, "Solo world must have exactly 1 player");
 
-    ctx.damageServerPlayer(world, player1, 10);
+    ctx.damageServerPlayer(world, player1, player1.hp);
     assert.equal(player1.alive, false, "Player must be dead");
     assert.equal(world.gameOver, true, "Solo death must immediately cause game over");
     assert.ok(
@@ -332,7 +332,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.x = 400;
     player1.y = 400;
-    ctx.damageServerPlayer(world, player1, 5);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     // Spawn an aggressive enemy on top of the beacon
     const enemy = ctx.createServerEnemy(world, "normal", 400, 400, true);
@@ -353,7 +353,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const hpImmediatelyAfterRevive = player1.hp;
 
     // Enemy touches player1 while invulnerable -> damageServerPlayer should return false
-    const damaged = ctx.damageServerPlayer(world, player1, 1);
+    const damaged = ctx.damageServerPlayer(world, player1, player1.hp);
     assert.equal(damaged, false, "Damage during revival invulnerability must be blocked");
     assert.equal(player1.hp, hpImmediatelyAfterRevive, "HP should remain intact during invulnerability");
   });
@@ -369,7 +369,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     world.bullets.set(bullet.id, bullet);
 
     // Player 1 dies
-    ctx.damageServerPlayer(world, player1, 5);
+    ctx.damageServerPlayer(world, player1, player1.hp);
 
     // Manual revive
     player2.x = 310;
@@ -390,8 +390,8 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const { room: room30, world: world30, player1: p1_30, player2: p2_30 } = createTestWorld(ctx, { code: "FPS30" });
 
     // Both player1s die at (200, 200)
-    p1_60.x = 200; p1_60.y = 200; ctx.damageServerPlayer(world60, p1_60, 5);
-    p1_30.x = 200; p1_30.y = 200; ctx.damageServerPlayer(world30, p1_30, 5);
+    p1_60.x = 200; p1_60.y = 200; ctx.damageServerPlayer(world60, p1_60, p1_60.hp);
+    p1_30.x = 200; p1_30.y = 200; ctx.damageServerPlayer(world30, p1_30, p1_30.hp);
 
     // Teammates stand at (210, 200)
     p2_60.x = 210; p2_60.y = 200;
@@ -435,7 +435,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player1.hp = 1;
     player1.x = 250;
     player1.y = 250;
-    ctx.damageServerPlayer(world, player1, 1);
+    ctx.damageServerPlayer(world, player1, player1.hp);
     assert.equal(player1.alive, false);
     assert.ok(player1.reviveBeacon);
 
@@ -458,7 +458,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     assert.equal(world.wave, 2);
 
     player2.hp = 1;
-    ctx.damageServerPlayer(world, player2, 1);
+    ctx.damageServerPlayer(world, player2, player2.hp);
     assert.equal(player2.alive, false);
 
     // Clear wave 2 enemies without manual revive
