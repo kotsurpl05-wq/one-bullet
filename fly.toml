@@ -1,34 +1,34 @@
-app = "one-bullet-coop"
-primary_region = "waw"
+# fly.toml app configuration file generated for one-bullet-coop on 2026-08-25T07:40:40+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'one-bullet-coop'
+primary_region = 'ams'
 
 [build]
-
 [http_service]
   internal_port = 3000
   force_https = true
-
-  # Кооп держит открытый WebSocket на всю сессию.
-  # Останов машины посреди матча разорвал бы игру,
-  # поэтому автостоп выключен, а одна машина всегда жива.
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
   [http_service.concurrency]
-    type = "connections"
-    soft_limit = 200
+    type = 'connections'
     hard_limit = 250
+    soft_limit = 200
 
-# Проверка живости: сервер отдаёт /healthz без авторизации.
 [[http_service.checks]]
-  interval = "30s"
-  timeout = "5s"
-  grace_period = "10s"
-  method = "GET"
-  path = "/healthz"
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/healthz'
 
 [[vm]]
-  memory = "256mb"
-  cpu_kind = "shared"
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 512

@@ -17,14 +17,22 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e6,
   pingInterval: 10000,
   pingTimeout: 15000,
-  perMessageDeflate: {
-    threshold: 512
-  }
+  perMessageDeflate: false
 });
 
-app.get("/healthz", (req, res) => {
-  res.status(200).send("OK");
+app.get(["/healthz", "/health", "/ping"], (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
 });
+
+if (typeof process !== "undefined" && typeof process.on === "function") {
+  process.on("uncaughtException", err => {
+    console.error("Uncaught exception:", err);
+  });
+
+  process.on("unhandledRejection", (reason, promise) => {
+    console.error("Unhandled rejection at:", promise, "reason:", reason);
+  });
+}
 
 app.use(
   express.static(
@@ -6232,6 +6240,7 @@ setInterval(() => {
       room.world.snapshotAccumulator = 0;
 
       io.to(room.code)
+        .volatile
         .emit(
           "net:snapshot",
           createServerCoopSnapshot(room)
