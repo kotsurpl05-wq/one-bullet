@@ -10403,7 +10403,7 @@
         const joinBtn = panel.querySelector('[data-network-action="join"]');
         if (joinBtn) joinBtn.disabled = true;
 
-        const result = await net.joinRoom(code, playerName);
+        const result = await net.joinRoom(code, playerName, gameSettings.bulletSkin || "neon");
 
         if (!result.success) {
           setNetworkMessage(
@@ -11192,7 +11192,7 @@
           button.disabled = true;
           button.textContent = "Отправка...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(true);
+            await net.sendReady(true, gameSettings.bulletSkin || "neon");
           }
           return;
         }
@@ -11201,7 +11201,7 @@
           button.disabled = true;
           button.textContent = "Отмена...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(false);
+            await net.sendReady(false, gameSettings.bulletSkin || "neon");
           }
           return;
         }

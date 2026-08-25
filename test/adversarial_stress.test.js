@@ -396,7 +396,7 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
     assert.equal(roomB.players.size, 1, "Only host remains in room");
   });
 
-  await t.test("3.3 Empirical Proof: Game Over Restart Deadlock in Current Server Code", () => {
+  await t.test("3.3 Verification: Game Over Restart Flow Succeeds Without Deadlock", () => {
     const host = simulateSocketConnection("host_deadlock");
     const guest = simulateSocketConnection("guest_deadlock");
 
@@ -411,7 +411,6 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
 
     // Simulate Game Over: all players dead
     room.world.gameOver = true;
-    // Current server.js damageServerPlayer logic:
     ctx.cancelRoomCountdown(room);
     for (const p of room.players.values()) {
       p.ready = false;
@@ -423,13 +422,10 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
       readyAck = ack;
     });
 
-    // In current server.js, room.started is still true, so ready request is rejected:
-    assert.equal(readyAck.success, false);
-    assert.equal(
-      readyAck.message,
-      "Комната не найдена или игра уже начата",
-      "CONFIRMED BUG: room:ready rejected on Game Over screen due to room.started sticking at true"
-    );
+    // Server properly allows ready toggle when world.gameOver is true:
+    assert.equal(readyAck.success, true, "Ready toggle must succeed on Game Over screen");
+    assert.equal(readyAck.ready, true);
+    assert.equal(room.players.get("host_deadlock").ready, true);
   });
 
   await t.test("3.4 Malformed Payload Fuzzing & Injection Defense", () => {

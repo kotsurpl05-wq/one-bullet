@@ -201,7 +201,7 @@ class OneBulletNetwork extends EventTarget {
     return result;
   }
 
-  async joinRoom(code, name) {
+  async joinRoom(code, name, bulletSkin = "neon") {
     const saved = this.getReconnectData();
     const token = (saved && saved.roomCode === code) ? saved.token : null;
 
@@ -210,6 +210,7 @@ class OneBulletNetwork extends EventTarget {
       {
         code,
         name,
+        bulletSkin,
         token
       }
     );

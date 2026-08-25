@@ -112,6 +112,7 @@ function getPublicRoomState(room) {
         id: player.id,
         name: player.name,
         role: player.role,
+        bulletSkin: player.bulletSkin || "neon",
         ready: Boolean(player.ready)
       })
     )
@@ -2922,6 +2923,7 @@ function createCoopWorld(room) {
       const coopPlayer = {
         id: roomPlayer.id,
         name: roomPlayer.name,
+        bulletSkin: roomPlayer.bulletSkin || "neon",
       
         x: position.x,
         y: position.y,
@@ -5382,6 +5384,7 @@ io.on("connection", socket => {
       leaveRoom(socket);
 
       const name = sanitizeName(payload?.name);
+      const bulletSkin = sanitizeSkin(payload?.bulletSkin);
 
       const reconnectToken = generateReconnectToken();
 
@@ -5390,6 +5393,7 @@ io.on("connection", socket => {
         name,
         role: "guest",
         ready: false,
+        bulletSkin,
         reconnectToken
       });
 
@@ -5477,7 +5481,7 @@ io.on("connection", socket => {
 
   socket.on("room:ready", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
-    if (!room || room.started) {
+    if (!room || (room.started && (!room.world || !room.world.gameOver))) {
       acknowledge?.({ success: false, message: "Комната не найдена или игра уже начата" });
       return;
     }
@@ -5490,6 +5494,9 @@ io.on("connection", socket => {
     }
 
     player.ready = Boolean(payload?.ready);
+    if (payload?.bulletSkin) {
+      player.bulletSkin = sanitizeSkin(payload.bulletSkin);
+    }
 
     if (room.players.size === 2 && [...room.players.values()].every(p => p.ready)) {
       startRoomCountdown(room);

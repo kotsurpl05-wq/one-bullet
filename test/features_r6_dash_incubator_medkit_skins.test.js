@@ -387,5 +387,50 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
 
       assert.ok(indexHtml.includes("coopBullet.skin || owner?.bulletSkin"), "drawCoopBullet must read remote skin");
     });
+
+    await t3.test("3.18 createCoopWorld preserves room player bulletSkin into coopPlayer and bullet", () => {
+      const room = {
+        code: "TEST18",
+        hostId: "host1",
+        difficulty: "normal",
+        players: new Map([
+          ["host1", { id: "host1", name: "Host", role: "host", bulletSkin: "quantum" }],
+          ["guest1", { id: "guest1", name: "Guest", role: "guest", bulletSkin: "toxic" }]
+        ])
+      };
+
+      const world = ctx.createCoopWorld(room);
+      const hostCoop = world.players.get("host1");
+      const guestCoop = world.players.get("guest1");
+
+      assert.equal(hostCoop.bulletSkin, "quantum", "Host coop player must have quantum skin");
+      assert.equal(guestCoop.bulletSkin, "toxic", "Guest coop player must have toxic skin");
+
+      const bullets = [...world.bullets.values()];
+      const hostBullet = bullets.find(b => b.ownerId === "host1");
+      const guestBullet = bullets.find(b => b.ownerId === "guest1");
+
+      assert.equal(hostBullet.skin, "quantum", "Host bullet must have quantum skin");
+      assert.equal(guestBullet.skin, "toxic", "Guest bullet must have toxic skin");
+    });
+
+    await t3.test("3.19 Game Over allows ready toggle on room and restarts match on mutual ready", () => {
+      const { world, room, player1, player2 } = createTestWorld(ctx);
+      room.started = true;
+      world.gameOver = true;
+
+      // Simulate room.players
+      const rPlayer1 = room.players.get(player1.id);
+      const rPlayer2 = room.players.get(player2.id);
+
+      assert.ok(rPlayer1 && rPlayer2);
+      rPlayer1.ready = true;
+      rPlayer2.ready = true;
+
+      // Start countdown
+      ctx.startRoomCountdown(room);
+      assert.equal(room.countdown, 3, "Countdown must initialize to 3");
+      ctx.cancelRoomCountdown(room);
+    });
   });
 });
