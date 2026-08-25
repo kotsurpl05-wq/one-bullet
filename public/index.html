@@ -3363,7 +3363,7 @@
       }
     
       if (type === "charger") {
-        const hp = 2 + Math.floor(level / 6);
+        const hp = (2 + Math.floor(level / 6)) * 100;
       
         return {
           id: ++enemyId,
@@ -3987,8 +3987,13 @@
           ) {
             type = "magnetizer";
           } else if (
+            wave >= 6 &&
+            roll < 0.20
+          ) {
+            type = "incubator";
+          } else if (
             wave >= 7 &&
-            roll < 0.22
+            roll < 0.28
           ) {
             type = "splitter";
           } else if (

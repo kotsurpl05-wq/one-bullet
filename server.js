@@ -1872,7 +1872,7 @@ function createServerEnemy(
   if (type === "shooter") {
     radius = 14;
     speed = 48 + level * 1.3;
-    baseHp = 2 + Math.floor(level / 6);
+    baseHp = (2 + Math.floor(level / 6)) * 100;
     color = "#50d890";
   }
 
