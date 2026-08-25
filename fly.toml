@@ -30,5 +30,5 @@ primary_region = 'ams'
 [[vm]]
   memory = '512mb'
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 2
   memory_mb = 512
