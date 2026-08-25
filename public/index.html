@@ -3547,8 +3547,24 @@
           r: 7,
           speed: 135 + level * 3.0,
           hp: 100,
-        maxHp: 100,
+          maxHp: 100,
           color: "#34d399"
+        };
+      }
+
+      if (type === "boss_drone" || type === "boss_pylon") {
+        return {
+          id: ++enemyId,
+          type: "boss_drone",
+          x,
+          y,
+          r: 22,
+          speed: 0,
+          hp: 2500,
+          maxHp: 2500,
+          color: "#00f2fe",
+          immobile: true,
+          shootCooldown: 2.5
         };
       }
 
@@ -4300,6 +4316,16 @@
       }
 
       /*
+       * Щит босса: снижает урон на 80% пока активны угловые генераторы щита.
+       * После уничтожения всех 4 генераторов щит спадает и босс получает 100% полный урон!
+       */
+      if (enemy.type === "boss" && enemy.shieldActive) {
+        damage = Math.max(1, Math.floor(damage * 0.2));
+        createParticles(enemy.x, enemy.y, "#00f2fe", 8, 140);
+        createRing(enemy.x, enemy.y, 50, "#00f2fe");
+      }
+
+      /*
        * Метка Цели: помеченный враг получает дополнительный урон (+5% за уровень, до +40%).
        */
       if (enemy.targetMarked) {
@@ -4452,6 +4478,29 @@
       }
 
       enemies.splice(index, 1);
+
+      /*
+       * Угловые генераторы щита босса: при уничтожении последнего
+       * щит босса спадает, босс оглушается на 2 секунды, а блокировка урона снимается!
+       */
+      if ((enemy.type === "boss_drone" || enemy.type === "boss_pylon") && enemy.bossId) {
+        const remainingPylons = enemies.filter(
+          e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.bossId && e.hp > 0
+        );
+        if (remainingPylons.length === 0) {
+          const boss = enemies.find(e => e.id === enemy.bossId && e.hp > 0);
+          if (boss && boss.shieldActive) {
+            boss.shieldActive = false;
+            boss.stunTimer = 2.0;
+            boss.dashState = "none";
+            boss.sniperState = "none";
+            boss.spiralActive = false;
+            createRing(boss.x, boss.y, 80, "#00f2fe");
+            createParticles(boss.x, boss.y, "#00f2fe", 35, 260);
+            screenShake = Math.max(screenShake, 14);
+          }
+        }
+      }
 
       /*
        * Связанные Близнецы: при гибели одного
@@ -6065,14 +6114,27 @@
     function spawnBossDrones(boss) {
       boss.shieldActive = true;
       boss.shieldTriggered = true;
-      const droneCount = 2;
-      for (let i = 0; i < droneCount; i++) {
-        const drone = createEnemy("boss_drone", boss.x, boss.y);
+      const cornerMargin = 160;
+      const corners = [
+        { x: cornerMargin, y: cornerMargin },
+        { x: ARENA_WIDTH - cornerMargin, y: cornerMargin },
+        { x: cornerMargin, y: ARENA_HEIGHT - cornerMargin },
+        { x: ARENA_WIDTH - cornerMargin, y: ARENA_HEIGHT - cornerMargin }
+      ];
+
+      for (let i = 0; i < corners.length; i++) {
+        const drone = createEnemy("boss_drone", corners[i].x, corners[i].y);
         drone.bossId = boss.id;
-        drone.orbitAngle = (Math.PI * 2 * i) / droneCount;
-        drone.orbitRadius = 90;
+        drone.hp = 2500;
+        drone.maxHp = 2500;
+        drone.speed = 0;
+        drone.r = 22;
+        drone.color = "#00f2fe";
         drone.hasEnteredArena = true;
+        drone.immobile = true;
         enemies.push(drone);
+        createRing(corners[i].x, corners[i].y, 50, "#00f2fe");
+        createParticles(corners[i].x, corners[i].y, "#00f2fe", 15, 180);
       }
     }
 
@@ -6397,6 +6459,27 @@
         ctx.fillStyle = "#ff1f4b";
         ctx.beginPath();
         ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // 4. 🛡 ЩИТ БОССА: Мощный вращающийся кибер-барьер цвета циан
+      if (enemy.type === "boss" && enemy.shieldActive) {
+        const sPulse = 0.85 + 0.15 * Math.sin(now * 0.007);
+        ctx.save();
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 24 * sPulse;
+
+        ctx.strokeStyle = `rgba(0, 242, 254, ${0.85 * sPulse})`;
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r + 12 + 4 * sPulse, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(0, 242, 254, ${0.12 * sPulse})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r + 12 + 4 * sPulse, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -6765,17 +6848,13 @@
         dx /= length;
         dy /= length;
       
-        if (enemy.type === "boss_drone") {
+        if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
           const boss = enemies.find(e => e.id === enemy.bossId && e.hp > 0);
           if (boss) {
-            enemy.orbitAngle += dt * 2.3;
-            enemy.x = boss.x + Math.cos(enemy.orbitAngle) * enemy.orbitRadius;
-            enemy.y = boss.y + Math.sin(enemy.orbitAngle) * enemy.orbitRadius;
-
-            enemy.shootCooldown -= dt;
+            enemy.shootCooldown = (enemy.shootCooldown || 2.5) - dt;
             if (enemy.shootCooldown <= 0 && enemyCanAttack) {
               shootEnemyProjectile(enemy);
-              enemy.shootCooldown = random(2.0, 3.2);
+              enemy.shootCooldown = random(2.2, 3.5);
             }
           } else {
             enemy.hp = 0;
@@ -6791,9 +6870,26 @@
           }
           enemy.phase = phase;
 
-          // Щит и дроны при 50% HP (Tier >= 2)
+          // Щит и 4 угловых генератора при 50% HP (Tier >= 2)
           if (!enemy.shieldTriggered && healthRatio <= 0.5 && (enemy.bossTier || 1) >= 2) {
             spawnBossDrones(enemy);
+          }
+
+          // Проверка снятия щита: если все 4 угловых генератора уничтожены, щит спадает и урон проходит на 100%!
+          if (enemy.shieldActive) {
+            const alivePylons = enemies.filter(
+              e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.id && e.hp > 0
+            );
+            if (alivePylons.length === 0) {
+              enemy.shieldActive = false;
+              enemy.stunTimer = 2.0;
+              enemy.dashState = "none";
+              enemy.sniperState = "none";
+              enemy.spiralActive = false;
+              createRing(enemy.x, enemy.y, 80, "#00f2fe");
+              createParticles(enemy.x, enemy.y, "#00f2fe", 35, 260);
+              screenShake = Math.max(screenShake, 14);
+            }
           }
 
           // Оглушение
@@ -16172,7 +16268,37 @@
           ctx.arc(0, 0, enemy.r * 0.22, 0, Math.PI * 2);
           ctx.fillStyle = "#6ee7b7";
           ctx.shadowColor = "#a7f3d0";
-          ctx.shadowBlur = 10;
+        } else if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
+          const now = performance.now();
+          const pylonPulse = 1 + Math.sin(now * 0.008 + (enemy.id || 0)) * 0.15;
+          ctx.save();
+          ctx.rotate(now * 0.002);
+          ctx.strokeStyle = "#00f2fe";
+          ctx.shadowColor = "#00f2fe";
+          ctx.shadowBlur = 14;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          for (let pi = 0; pi < 6; pi++) {
+            const pa = (pi / 6) * Math.PI * 2;
+            const px = Math.cos(pa) * (enemy.r * 0.9 * pylonPulse);
+            const py = Math.sin(pa) * (enemy.r * 0.9 * pylonPulse);
+            if (pi === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#083344";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, enemy.r * 0.28, 0, Math.PI * 2);
+          ctx.fillStyle = "#00f2fe";
+          ctx.shadowColor = "#38bdf8";
+          ctx.shadowBlur = 12;
           ctx.fill();
         } else if (enemy.type === "minion") {
           ctx.beginPath();

@@ -94,12 +94,13 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     assert.equal(boss.shieldActive, true, "Boss shield should become active");
     assert.equal(boss.shieldTriggered, true, "Boss shieldTriggered flag should be true");
 
-    // Verify 2 orbiting drones spawned
-    const drones = [...world.enemies.values()].filter(e => e.type === "boss_drone" && e.bossId === boss.id);
-    assert.equal(drones.length, 2, "Exactly 2 boss drones should spawn");
+    // Verify 4 corner shield pylons spawned
+    const drones = [...world.enemies.values()].filter(e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === boss.id);
+    assert.equal(drones.length, 4, "Exactly 4 corner shield pylons should spawn");
 
     for (const drone of drones) {
-      assert.equal(drone.orbitRadius, 90);
+      assert.equal(drone.hp, 2500);
+      assert.equal(drone.maxHp, 2500);
       assert.equal(drone.hasEnteredArena, true);
     }
 

@@ -461,12 +461,12 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     twin2.speed *= 1.5;
     assert.equal(twin2.isEnraged, true);
 
-    // 3. Boss Tier 5 triggers Shield and 2 Orbiting Drones at 50% HP
+    // 3. Boss Tier 5 triggers Shield and 4 Corner Pylons at 50% HP
     boss.hp = 313;
     ctx.spawnServerBossDrones(world, boss);
     assert.equal(boss.shieldActive, true);
-    const drones = [...world.enemies.values()].filter(e => e.type === "boss_drone");
-    assert.equal(drones.length, 2);
+    const drones = [...world.enemies.values()].filter(e => (e.type === "boss_drone" || e.type === "boss_pylon"));
+    assert.equal(drones.length, 4);
 
     // Destroy drones -> shield deactivates
     for (const drone of drones) {

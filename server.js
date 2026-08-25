@@ -1912,6 +1912,13 @@ function createServerEnemy(
     color = "#34d399";
   }
 
+  if (type === "boss_drone" || type === "boss_pylon") {
+    radius = 24;
+    speed = 0;
+    baseHp = 2500;
+    color = "#00f2fe";
+  }
+
   let bossTier = undefined;
   if (type === "boss") {
     bossTier = Math.max(
@@ -3313,6 +3320,26 @@ function killServerEnemy(
   }
 
   /*
+   * Угловые генераторы щита босса: при уничтожении последнего
+   * щит босса спадает, босс оглушается на 2 секунды, а блокировка урона полностью снимается!
+   */
+  if ((enemy.type === "boss_drone" || enemy.type === "boss_pylon") && enemy.bossId) {
+    const remainingPylons = [...world.enemies.values()].filter(
+      e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.bossId && e.hp > 0
+    );
+    if (remainingPylons.length === 0) {
+      const boss = world.enemies.get(enemy.bossId);
+      if (boss && boss.shieldActive) {
+        boss.shieldActive = false;
+        boss.stunTimer = 2.0;
+        boss.dashState = "none";
+        boss.sniperState = "none";
+        boss.spiralActive = false;
+      }
+    }
+  }
+
+  /*
    * Связанные Близнецы: при гибели одного
    * партнёр впадает в ярость (+50% speed).
    */
@@ -3637,13 +3664,24 @@ function spawnServerBossDrones(world, boss) {
   boss.shieldActive = true;
   boss.shieldTriggered = true;
 
-  const droneCount = 2;
-  for (let i = 0; i < droneCount; i++) {
-    const drone = createServerEnemy(world, "boss_drone", boss.x, boss.y);
+  const cornerMargin = 180;
+  const corners = [
+    { x: cornerMargin, y: cornerMargin },
+    { x: COOP_WORLD_WIDTH - cornerMargin, y: cornerMargin },
+    { x: cornerMargin, y: COOP_WORLD_HEIGHT - cornerMargin },
+    { x: COOP_WORLD_WIDTH - cornerMargin, y: COOP_WORLD_HEIGHT - cornerMargin }
+  ];
+
+  for (let i = 0; i < corners.length; i++) {
+    const drone = createServerEnemy(world, "boss_drone", corners[i].x, corners[i].y, true);
     drone.bossId = boss.id;
-    drone.orbitAngle = (Math.PI * 2 * i) / droneCount;
-    drone.orbitRadius = 90;
+    drone.hp = 2500;
+    drone.maxHp = 2500;
+    drone.speed = 0;
+    drone.r = 24;
+    drone.color = "#00f2fe";
     drone.hasEnteredArena = true;
+    drone.immobile = true;
     world.enemies.set(drone.id, drone);
   }
 }
@@ -3859,20 +3897,16 @@ function updateServerEnemies(
     dx /= targetDistance;
     dy /= targetDistance;
 
-    if (enemy.type === "boss_drone") {
+    if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
       const boss = world.enemies.get(enemy.bossId);
       if (boss && boss.hp > 0) {
-        enemy.orbitAngle += dt * 2.3;
-        enemy.x = boss.x + Math.cos(enemy.orbitAngle) * enemy.orbitRadius;
-        enemy.y = boss.y + Math.sin(enemy.orbitAngle) * enemy.orbitRadius;
-
-        enemy.shootCooldown -= dt;
+        enemy.shootCooldown = (enemy.shootCooldown || 2.5) - dt;
         if (enemy.shootCooldown <= 0) {
           shootServerEnemyProjectile(world, enemy, target);
-          enemy.shootCooldown = random(2.0, 3.2);
+          enemy.shootCooldown = random(2.2, 3.5);
         }
       } else {
-        damageServerEnemy(world, enemy.id, 999);
+        damageServerEnemy(world, enemy.id, 9999);
       }
       continue;
     } else if (enemy.type === "boss") {
@@ -3882,6 +3916,20 @@ function updateServerEnemies(
 
       if (!enemy.shieldTriggered && hpRatio <= 0.5 && (enemy.bossTier || 1) >= 2) {
         spawnServerBossDrones(world, enemy);
+      }
+
+      // Проверка снятия щита: если все 4 угловых генератора уничтожены, щит спадает и урон проходит на 100%!
+      if (enemy.shieldActive) {
+        const alivePylons = [...world.enemies.values()].filter(
+          e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.id && e.hp > 0
+        );
+        if (alivePylons.length === 0) {
+          enemy.shieldActive = false;
+          enemy.stunTimer = 2.0;
+          enemy.dashState = "none";
+          enemy.sniperState = "none";
+          enemy.spiralActive = false;
+        }
       }
 
       if (enemy.stunTimer > 0) {
