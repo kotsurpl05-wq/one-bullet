@@ -17587,10 +17587,18 @@
     }
 
     window.addEventListener("pointermove", handlePointerUpdate, { passive: true, capture: true });
-    window.addEventListener("mousemove", handlePointerUpdate, { passive: true, capture: true });
+    window.addEventListener("contextmenu", event => {
+      event.preventDefault();
+    });
+    window.addEventListener("auxclick", event => {
+      if (event.button !== 0) {
+        event.preventDefault();
+      }
+    });
 
     canvas.addEventListener("pointerdown", event => {
       if (event.button !== 0) {
+        event.preventDefault();
         return;
       }
     
@@ -17778,17 +17786,33 @@
       keys.delete(event.code);
     });
 
-    addEventListener("blur", () => {
+    function handleInactivityPause() {
       keys.clear();
       hideUpgradeTooltip();
-    });
+
+      if (gameState === "playing") {
+        pauseGame();
+        return;
+      }
+
+      if (
+        (coopSession.active || runMode === "coop" || gameState === "coop-playing") &&
+        !coopSession.manualPaused &&
+        !coopSession.gameOver &&
+        !coopUpgradeUiActive &&
+        !coopGameOverUiActive &&
+        window.net?.isMultiplayer
+      ) {
+        net.sendTogglePause();
+      }
+    }
+
+    window.addEventListener("blur", handleInactivityPause);
+    window.addEventListener("pagehide", handleInactivityPause);
 
     document.addEventListener("visibilitychange", () => {
-      if (
-        document.hidden &&
-        gameState === "playing"
-      ) {
-        pauseGame();
+      if (document.hidden) {
+        handleInactivityPause();
       }
     });
 
