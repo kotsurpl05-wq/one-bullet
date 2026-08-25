@@ -16294,7 +16294,7 @@
         }
 
         const dist = Math.hypot(player.x - medkit.x, player.y - medkit.y);
-        if (dist <= player.r + medkit.r) {
+        if (dist <= player.r + medkit.r && player.hp < player.maxHp) {
           player.hp = Math.min(player.maxHp, player.hp + 100);
           soundManager.playHeal();
           createParticles(medkit.x, medkit.y, "#22c55e", 14, 160);

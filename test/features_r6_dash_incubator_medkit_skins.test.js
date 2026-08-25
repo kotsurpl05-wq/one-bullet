@@ -95,10 +95,10 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(player1.hp, 3, "Player HP must increase by +1 (from 2 to 3)");
     });
 
-    await t2.test("2.3 Medkit heal does not exceed player maxHp", () => {
+    await t2.test("2.3 Medkit is NOT collected when player is at full health", () => {
       const { room, world, player1 } = createTestWorld(ctx);
-      player1.maxHp = 5;
-      player1.hp = 5; // Full health
+      player1.maxHp = 500;
+      player1.hp = 500; // Full health
 
       const medkitId = 102;
       world.medkits.set(medkitId, {
@@ -106,14 +106,14 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
         x: player1.x,
         y: player1.y,
         r: 12,
-        heal: 1,
+        heal: 100,
         life: 35.0
       });
 
       ctx.updateServerCoopWorld(room, 0.05, Date.now());
 
-      assert.equal(world.medkits.size, 0, "Medkit should be collected");
-      assert.equal(player1.hp, 5, "Player HP must not exceed maxHp (5)");
+      assert.equal(world.medkits.size, 1, "Medkit should NOT be collected at full health");
+      assert.equal(player1.hp, 500, "Player HP remains 500");
     });
 
     await t2.test("2.4 Medkits are serialized in createServerCoopSnapshot", () => {

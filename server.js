@@ -4737,6 +4737,7 @@ function updateServerMedkits(room, dt) {
 
     for (const player of world.players.values()) {
       if (!player.alive) continue;
+      if (player.hp >= player.maxHp) continue;
       const dist = distance(player.x, player.y, medkit.x, medkit.y);
       if (dist <= player.r + (medkit.r || 12)) {
         player.hp = Math.min(player.maxHp, player.hp + (medkit.heal || 100));
