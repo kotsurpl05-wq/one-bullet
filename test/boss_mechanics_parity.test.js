@@ -17,12 +17,12 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     const { world } = createTestWorld(ctx);
 
     const expectedTiers = [
-      { wave: 5, tier: 1, baseHp: 76, coopHp: 137, speed: 38, radius: 46 },
-      { wave: 10, tier: 2, baseHp: 120, coopHp: 216, speed: 40.86, radius: 46 },
-      { wave: 15, tier: 3, baseHp: 180, coopHp: 324, speed: 43.72, radius: 46 },
-      { wave: 20, tier: 4, baseHp: 256, coopHp: 461, speed: 46.58, radius: 46 },
-      { wave: 25, tier: 5, baseHp: 348, coopHp: 626, speed: 49.44, radius: 46 },
-      { wave: 30, tier: 6, baseHp: 456, coopHp: 821, speed: 52.3, radius: 46 }
+      { wave: 5, tier: 1, baseHp: 7600, coopHp: 13680, speed: 38, radius: 46 },
+      { wave: 10, tier: 2, baseHp: 12000, coopHp: 21600, speed: 40.86, radius: 46 },
+      { wave: 15, tier: 3, baseHp: 18000, coopHp: 32400, speed: 43.72, radius: 46 },
+      { wave: 20, tier: 4, baseHp: 25600, coopHp: 46080, speed: 46.58, radius: 46 },
+      { wave: 25, tier: 5, baseHp: 34800, coopHp: 62640, speed: 49.44, radius: 46 },
+      { wave: 30, tier: 6, baseHp: 45600, coopHp: 82080, speed: 52.3, radius: 46 }
     ];
 
     for (const exp of expectedTiers) {

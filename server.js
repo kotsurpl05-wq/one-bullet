@@ -358,7 +358,7 @@ function getServerExperienceRequirement(level) {
   return Math.floor(
     (10 +
       progression * 4 +
-      Math.floor(progression / 5) * 5) * 0.8
+      Math.floor(progression / 5) * 5) * 80
   );
 }
 
@@ -1831,41 +1831,41 @@ function createServerEnemy(
 
   let radius = 14;
   let speed = 59 + level * 2.5;
-  let baseHp = 1 + Math.floor(level / 5);
+  let baseHp = (1 + Math.floor(level / 5)) * 100;
   let color = "#ff5577";
 
   if (type === "runner") {
     radius = 10;
     speed = 105 + level * 3;
-    baseHp = 1 + Math.floor(level / 7);
+    baseHp = (1 + Math.floor(level / 7)) * 100;
     color = "#ffca55";
   }
 
   if (type === "tank") {
     radius = 21;
     speed = 39 + level * 1.5;
-    baseHp = 3 + Math.floor(level / 3);
+    baseHp = (3 + Math.floor(level / 3)) * 100;
     color = "#b56dff";
   }
 
   if (type === "charger") {
     radius = 13;
     speed = 63 + level * 2;
-    baseHp = 2 + Math.floor(level / 6);
+    baseHp = (2 + Math.floor(level / 6)) * 100;
     color = "#ff814a";
   }
 
   if (type === "splitter") {
     radius = 18;
     speed = 50 + level * 1.7;
-    baseHp = 2 + Math.floor(level / 4);
+    baseHp = (2 + Math.floor(level / 4)) * 100;
     color = "#46b8ff";
   }
 
   if (type === "shard") {
     radius = 8;
     speed = 125 + level * 2.5;
-    baseHp = 1 + Math.floor(level / 9);
+    baseHp = (1 + Math.floor(level / 9)) * 100;
     color = "#79d7ff";
   }
 
@@ -1879,35 +1879,35 @@ function createServerEnemy(
   if (type === "phantom") {
     radius = 12;
     speed = 75 + world.wave * 2;
-    baseHp = 1 + Math.floor(world.wave / 8);
+    baseHp = (1 + Math.floor(world.wave / 8)) * 100;
     color = "#88eedd";
   }
 
   if (type === "magnetizer") {
     radius = 16;
     speed = 40 + world.wave * 1.2;
-    baseHp = 5 + Math.floor(world.wave / 3);
+    baseHp = (5 + Math.floor(world.wave / 3)) * 100;
     color = "#c084fc";
   }
 
   if (type === "twin") {
     radius = 10;
     speed = 90 + world.wave * 2;
-    baseHp = 2 + Math.floor(world.wave / 5);
+    baseHp = (2 + Math.floor(world.wave / 5)) * 100;
     color = "#ff6b9d";
   }
 
   if (type === "incubator") {
     radius = 22;
     speed = 32 + level * 1.0;
-    baseHp = 6 + Math.floor(world.wave / 2);
+    baseHp = (6 + Math.floor(world.wave / 2)) * 100;
     color = "#059669";
   }
 
   if (type === "minion") {
     radius = 7;
     speed = 135 + level * 3.0;
-    baseHp = 1;
+    baseHp = 100;
     color = "#34d399";
   }
 
@@ -1928,9 +1928,9 @@ function createServerEnemy(
       progressionTier * 2.2 * 1.3;
 
     baseHp =
-      48 +
+      (48 +
       bossTier * 20 +
-      bossTier * bossTier * 8;
+      bossTier * bossTier * 8) * 100;
 
     color = "#ff3f8f";
   }
@@ -3189,7 +3189,7 @@ function createServerExperienceCrystal(
   world,
   x,
   y,
-  value = 1.1
+  value = 110
 ) {
   const angle =
     Math.random() * Math.PI * 2;
@@ -3232,12 +3232,7 @@ function dropServerExperience(
     index < amount;
     index++
   ) {
-    createServerExperienceCrystal(
-      world,
-      enemy.x + random(-6, 6),
-      enemy.y + random(-6, 6),
-      1.1
-    );
+    createServerExperienceCrystal(world, enemy.x + random(-6, 6), enemy.y + random(-6, 6), 110);
   }
 }
 
@@ -3254,7 +3249,7 @@ function registerServerRepairKill(player) {
     } else {
       player.stats.repairKillProgress = 0;
       player.repairHealCooldown = COOP_REPAIR_HEAL_COOLDOWN;
-      player.hp = Math.min(player.maxHp, player.hp + 1);
+      player.hp = Math.min(player.maxHp, player.hp + 100);
     }
   }
 }

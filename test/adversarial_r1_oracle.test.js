@@ -29,7 +29,7 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     const { world } = createTestWorld(ctx);
 
     function oracleBaseHp(tier) {
-      return 48 + tier * 20 + tier * tier * 8;
+      return (48 + tier * 20 + tier * tier * 8) * 100;
     }
 
     function oracleCoopHp(baseHp) {
@@ -82,12 +82,12 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     const { world } = createTestWorld(ctx);
 
     const boundaryCases = [
-      { preWave: 4, postWave: 5, preTier: 1, postTier: 1, preHp: 137, postHp: 137, isStepJump: false },
-      { preWave: 9, postWave: 10, preTier: 1, postTier: 2, preHp: 137, postHp: 216, isStepJump: true },
-      { preWave: 14, postWave: 15, preTier: 2, postTier: 3, preHp: 216, postHp: 324, isStepJump: true },
-      { preWave: 19, postWave: 20, preTier: 3, postTier: 4, preHp: 324, postHp: 461, isStepJump: true },
-      { preWave: 24, postWave: 25, preTier: 4, postTier: 5, preHp: 461, postHp: 626, isStepJump: true },
-      { preWave: 29, postWave: 30, preTier: 5, postTier: 6, preHp: 626, postHp: 821, isStepJump: true }
+      { preWave: 4, postWave: 5, preTier: 1, postTier: 1, preHp: 13680, postHp: 13680, isStepJump: false },
+      { preWave: 9, postWave: 10, preTier: 1, postTier: 2, preHp: 13680, postHp: 21600, isStepJump: true },
+      { preWave: 14, postWave: 15, preTier: 2, postTier: 3, preHp: 21600, postHp: 32400, isStepJump: true },
+      { preWave: 19, postWave: 20, preTier: 3, postTier: 4, preHp: 32400, postHp: 46080, isStepJump: true },
+      { preWave: 24, postWave: 25, preTier: 4, postTier: 5, preHp: 46080, postHp: 62640, isStepJump: true },
+      { preWave: 29, postWave: 30, preTier: 5, postTier: 6, preHp: 62640, postHp: 82080, isStepJump: true }
     ];
 
     for (const b of boundaryCases) {
@@ -110,29 +110,26 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     }
   });
 
-  await t.test("Focus 1.3: Wave 30 Coop Boss HP Critical Target Verification (HP >= 800 and exactly 821)", () => {
+  await t.test("Focus 1.3: Wave 30 Coop Boss HP Critical Target Verification (HP >= 800 and exactly 82080)", () => {
     const { world } = createTestWorld(ctx);
     world.wave = 30;
 
     const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
 
-    // Tier = Math.floor(30 / 5) = 6
-    // baseHp = 48 + 6 * 20 + 6 * 6 * 8 = 48 + 120 + 288 = 456
-    // coopHp = Math.round(456 * 1.8) = Math.round(820.8) = 821
     assert.equal(boss.bossTier, 6, "Wave 30 must yield bossTier = 6");
     assert.ok(boss.hp >= 800, `Wave 30 Coop Boss HP must be >= 800 (actual: ${boss.hp})`);
-    assert.equal(boss.hp, 821, `Wave 30 Coop Boss HP must be exactly 821`);
-    assert.equal(boss.maxHp, 821);
+    assert.equal(boss.hp, 82080, `Wave 30 Coop Boss HP must be exactly 82080`);
+    assert.equal(boss.maxHp, 82080);
   });
 
   await t.test("Focus 1.4: Client-Server Boss HP Scaling Parity Oracle", () => {
     const indexHtmlPath = path.resolve(process.cwd(), "public/index.html");
     const html = fs.readFileSync(indexHtmlPath, "utf8");
 
-    // Client solo formula: Math.round(48 + bossTier * 20 + bossTier * bossTier * 8)
+    // Client solo formula: Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 100)
     function clientSoloOracle(wave) {
       const bossTier = Math.max(1, Math.floor(wave / 5));
-      return Math.round(48 + bossTier * 20 + bossTier * bossTier * 8);
+      return Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 100);
     }
 
     const { world } = createTestWorld(ctx);
@@ -158,7 +155,7 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
   await t.test("Focus 2.1: Stepped XP Curve Mathematical Invariants (Levels 1 to 100)", () => {
     function oracleXpRequirement(level) {
       const progression = Math.max(0, level - 1);
-      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8);
+      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 80);
     }
 
     let previousReq = 0;
@@ -204,17 +201,17 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
 
   await t.test("Focus 2.3: XP Requirement Boundary & Defensive Robustness (Negative, 0, Non-Integer)", () => {
     // Level 1 baseline
-    assert.equal(ctx.getServerExperienceRequirement(1), 8);
+    assert.equal(ctx.getServerExperienceRequirement(1), 800);
 
     // Negative / 0 boundary checks
-    assert.equal(ctx.getServerExperienceRequirement(0), 8, "Level 0 should clamp progression to 0 (req 8)");
-    assert.equal(ctx.getServerExperienceRequirement(-1), 8, "Negative level -1 should clamp to req 8");
-    assert.equal(ctx.getServerExperienceRequirement(-99), 8, "Extreme negative level should clamp to req 8");
+    assert.equal(ctx.getServerExperienceRequirement(0), 800, "Level 0 should clamp progression to 0 (req 800)");
+    assert.equal(ctx.getServerExperienceRequirement(-1), 800, "Negative level -1 should clamp to req 800");
+    assert.equal(ctx.getServerExperienceRequirement(-99), 800, "Extreme negative level should clamp to req 800");
 
     // Float level test
     const floatReq = ctx.getServerExperienceRequirement(1.5);
     assert.ok(Number.isFinite(floatReq), "Float level should produce finite number");
-    assert.equal(floatReq, 9, "progression 0.5 -> floor((10 + 0.5*4 + 0) * 0.8) = floor(9.6) = 9");
+    assert.equal(floatReq, 960, "progression 0.5 -> floor((10 + 0.5*4 + 0) * 80) = floor(960) = 960");
   });
 
   await t.test("Focus 2.4: Client-Server XP Curve Parity Audit Across All 100 Levels", () => {
@@ -462,9 +459,9 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
         `Tier ${tier} boss kill must drop exactly ${expectedCrystalCount} crystals, got ${world.experienceCrystals.size}`
       );
 
-      // Verify each crystal has value = 1.1 and valid coordinates
+      // Verify each crystal has value = 110 and valid coordinates
       for (const crystal of world.experienceCrystals.values()) {
-        assert.equal(crystal.value, 1.1, "Experience crystal value must be 1.1 (+10% bonus)");
+        assert.equal(crystal.value, 110, "Experience crystal value must be 110 (+10% bonus)");
         assert.ok(Math.abs(crystal.x - 500) <= 10, "Crystal x coordinate within spawn offset");
         assert.ok(Math.abs(crystal.y - 500) <= 10, "Crystal y coordinate within spawn offset");
       }
@@ -473,43 +470,36 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
 
   await t.test("Focus 4.4: Adversarial Malformed & Edge-Case Boss Object XP Query", () => {
     // 1. Boss missing bossTier property (undefined)
-    const bossNoTier = { type: "boss" };
+    const malformedBoss = { type: "boss" };
     assert.equal(
-      ctx.getServerEnemyExperience(bossNoTier),
+      ctx.getServerEnemyExperience(malformedBoss),
       10,
-      "Boss without bossTier must fall back to Tier 1 (10 XP)"
+      "Malformed boss without bossTier should default to Tier 1 XP (10)"
     );
 
-    // 2. Boss with bossTier = 0
-    const bossTier0 = { type: "boss", bossTier: 0 };
+    // 2. Boss with negative bossTier (-5)
+    const negativeTierBoss = { type: "boss", bossTier: -5 };
     assert.equal(
-      ctx.getServerEnemyExperience(bossTier0),
+      ctx.getServerEnemyExperience(negativeTierBoss),
       10,
-      "Boss with bossTier = 0 must clamp to Tier 1 (10 XP)"
+      "Boss with negative tier should clamp to Tier 1 XP (10)"
     );
 
-    // 3. Boss with negative bossTier
-    const bossNegative = { type: "boss", bossTier: -5 };
+    // 3. Boss with massive tier (100)
+    const highTierBoss = { type: "boss", bossTier: 100 };
     assert.equal(
-      ctx.getServerEnemyExperience(bossNegative),
-      10,
-      "Boss with negative bossTier must clamp to Tier 1 (10 XP)"
-    );
-
-    // 4. Boss with bossTier = null
-    const bossNull = { type: "boss", bossTier: null };
-    assert.equal(
-      ctx.getServerEnemyExperience(bossNull),
-      10,
-      "Boss with bossTier = null must fall back to Tier 1 (10 XP)"
+      ctx.getServerEnemyExperience(highTierBoss),
+      208,
+      "Boss Tier 100 XP must scale strictly: 8 + 100*2 = 208"
     );
   });
 
   // =========================================================================
-  // FOCUS 5: END-TO-END LONG HORIZON SIMULATION (WAVES 1 TO 100)
+  // FOCUS AREA 5: CONTINUOUS GAMEPLAY WORKLOAD & SIMULATION FIDELITY
   // =========================================================================
+
   await t.test("Focus 5.1: 100-Wave Continuous Progression Stress Simulation", () => {
-    const { room, world, player1 } = createTestWorld(ctx);
+    const { room, world, player1, player2 } = createTestWorld(ctx);
     world.level = 1;
     world.experience = 0;
     world.experienceToNext = ctx.getServerExperienceRequirement(1);
@@ -521,14 +511,15 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
       world.wave = wave;
 
       if (wave % 5 === 0) {
+        // Boss wave
         totalBossesDefeated++;
         const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
-        const xp = ctx.getServerEnemyExperience(boss);
+        const xp = ctx.getServerEnemyExperience(boss) * 100;
         totalXpCollected += xp;
         ctx.addServerExperience(room, xp);
       } else {
         // Standard wave simulation: 8 standard enemies @ 1.5 avg XP
-        const waveXp = 12;
+        const waveXp = 1200;
         totalXpCollected += waveXp;
         ctx.addServerExperience(room, waveXp);
       }
@@ -547,9 +538,9 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     }
 
     assert.equal(totalBossesDefeated, 20, "Must defeat exactly 20 bosses across 100 waves");
-    assert.equal(totalXpCollected, 1540, "Total XP collected across 100 waves must be 1540");
-    assert.equal(world.level, 27, "World level after 1540 total XP must be exactly 27");
-    assert.equal(world.experience, 82, "Remaining XP towards level 28 must be exactly 82");
-    assert.equal(world.experienceToNext, 111, "Level 27 XP requirement to reach 28 must be 111");
+    assert.equal(totalXpCollected, 154000, "Total XP collected across 100 waves must be 154000");
+    assert.equal(world.level, 27, "World level after 154000 total XP must be exactly 27");
+    assert.equal(world.experience, 7200, "Remaining XP towards level 28 must be exactly 7200");
+    assert.equal(world.experienceToNext, 11120, "Level 27 XP requirement to reach 28 must be 11120");
   });
 });

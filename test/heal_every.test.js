@@ -1,4 +1,4 @@
-﻿const test = require("node:test");
+const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadServerInstance } = require("./helpers/server_loader.js");
 const { createTestWorld } = require("./helpers/test_utils.js");
@@ -32,8 +32,8 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
     const { world, player1: player } = createTestWorld(ctx);
     player.stats.healEvery = 5;
     player.stats.repairKillProgress = 4;
-    player.hp = 2;
-    player.maxHp = 4;
+    player.hp = 200;
+    player.maxHp = 400;
     player.repairHealCooldown = 0;
 
     const enemy = ctx.createServerEnemy(world, "normal", 100, 100, true);
@@ -42,7 +42,7 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
 
     ctx.killServerEnemy(world, enemy, player);
 
-    assert.equal(player.hp, 3, "Player HP should heal from 2 to 3");
+    assert.equal(player.hp, 300, "Player HP should heal from 200 to 300");
     assert.equal(player.stats.repairKillProgress, 0, "Progress should reset to 0 upon healing");
     assert.equal(player.repairHealCooldown, 1.75, "Cooldown should be set to 1.75 seconds");
   });
@@ -51,8 +51,8 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
     const { room, world, player1: player } = createTestWorld(ctx);
     player.stats.healEvery = 5;
     player.stats.repairKillProgress = 0;
-    player.hp = 2;
-    player.maxHp = 4;
+    player.hp = 200;
+    player.maxHp = 400;
     player.repairHealCooldown = 1.75;
 
     // Kill enemy while cooldown is active
@@ -88,8 +88,8 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
     const { world, player1: player } = createTestWorld(ctx);
     player.stats.healEvery = 5;
     player.stats.repairKillProgress = 4;
-    player.hp = 3;
-    player.maxHp = 3; // Full HP
+    player.hp = 300;
+    player.maxHp = 300; // Full HP
     player.repairHealCooldown = 0;
 
     // 5th kill at full HP
@@ -99,7 +99,7 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
     ctx.killServerEnemy(world, enemy1, player);
 
     assert.equal(player.stats.repairKillProgress, 4, "Progress must clamp at healEvery - 1 (4) when full HP");
-    assert.equal(player.hp, 3, "HP remains at maxHp");
+    assert.equal(player.hp, 300, "HP remains at maxHp");
     assert.equal(player.repairHealCooldown, 0, "No cooldown triggered when full HP");
 
     // 6th kill at full HP
@@ -110,7 +110,7 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
     assert.equal(player.stats.repairKillProgress, 4, "Progress remains clamped at 4 on repeated kills at full HP");
 
     // Player takes damage
-    player.hp = 2;
+    player.hp = 200;
 
     // Next kill should immediately heal player to 3 and reset progress to 0
     const enemy3 = ctx.createServerEnemy(world, "normal", 100, 100, true);
@@ -118,7 +118,7 @@ test("R2.2 Emergency Repair (healEvery & repairKillProgress) Suite", async (t) =
     world.enemies.set(enemy3.id, enemy3);
     ctx.killServerEnemy(world, enemy3, player);
 
-    assert.equal(player.hp, 3, "Player immediately healed to full HP on next kill");
+    assert.equal(player.hp, 300, "Player immediately healed to full HP on next kill");
     assert.equal(player.stats.repairKillProgress, 0, "Progress reset to 0");
     assert.equal(player.repairHealCooldown, 1.75, "Cooldown set to 1.75s");
   });

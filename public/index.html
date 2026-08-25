@@ -2537,7 +2537,7 @@
 
     <div class="hud-row">
       <span class="hud-label">Опыт</span>
-      <strong id="experienceValue">0 / 10</strong>
+      <strong id="experienceValue">0 / 800</strong>
     </div>
 
     <div id="experienceBar">
@@ -3176,7 +3176,7 @@
       return Math.floor(
         (10 +
           progression * 4 +
-          Math.floor(progression / 5) * 5) * 0.8
+          Math.floor(progression / 5) * 5) * 80
       );
     }
 
@@ -3188,7 +3188,7 @@
         magazineSize: 1,
         groundPullSpeed: 0,
 
-        damage: 1,
+        damage: 100,
         maxBounces: 1,
         pierce: 0,
         pickupRadius: 0,
@@ -3297,7 +3297,7 @@
       const level = wave - 1;
     
       if (type === "runner") {
-        const hp = 1 + Math.floor(level / 7);
+        const hp = (1 + Math.floor(level / 7)) * 100;
       
         return {
           id: ++enemyId,
@@ -3313,7 +3313,7 @@
       }
     
       if (type === "tank") {
-        const hp = 3 + Math.floor(level / 3);
+        const hp = (3 + Math.floor(level / 3)) * 100;
       
         return {
           id: ++enemyId,
@@ -3329,7 +3329,7 @@
       }
     
       if (type === "shooter") {
-        const hp = 2 + Math.floor(level / 6);
+        const hp = (2 + Math.floor(level / 6)) * 100;
       
         return {
           id: ++enemyId,
@@ -3347,7 +3347,7 @@
       }
     
       if (type === "splitter") {
-        const hp = 2 + Math.floor(level / 4);
+        const hp = (2 + Math.floor(level / 4)) * 100;
       
         return {
           id: ++enemyId,
@@ -3394,9 +3394,9 @@
         const progressionMultiplier = 1.3;
       
         const hp = Math.round(
-          48 +
+          (48 +
           bossTier * 20 +
-          bossTier * bossTier * 8
+          bossTier * bossTier * 8) * 100
         );
       
         const speed =
@@ -3455,7 +3455,7 @@
 
 
       if (type === "shard") {
-        const hp = 1 + Math.floor(level / 9);
+        const hp = (1 + Math.floor(level / 9)) * 100;
       
         return {
           id: ++enemyId,
@@ -3471,7 +3471,7 @@
       }
 
       if (type === "phantom") {
-        const hp = 1 + Math.floor(wave / 8);
+        const hp = (1 + Math.floor(wave / 8)) * 100;
 
         return {
           id: ++enemyId,
@@ -3489,7 +3489,7 @@
       }
 
       if (type === "magnetizer") {
-        const hp = 5 + Math.floor(wave / 3);
+        const hp = (5 + Math.floor(wave / 3)) * 100;
 
         return {
           id: ++enemyId,
@@ -3505,7 +3505,7 @@
       }
 
       if (type === "twin") {
-        const hp = 2 + Math.floor(wave / 5);
+        const hp = (2 + Math.floor(wave / 5)) * 100;
 
         return {
           id: ++enemyId,
@@ -3523,7 +3523,7 @@
       }
 
       if (type === "incubator") {
-        const hp = 6 + Math.floor(wave / 2);
+        const hp = (6 + Math.floor(wave / 2)) * 100;
         return {
           id: ++enemyId,
           type,
@@ -3546,13 +3546,13 @@
           y,
           r: 7,
           speed: 135 + level * 3.0,
-          hp: 1,
-          maxHp: 1,
+          hp: 100,
+        maxHp: 100,
           color: "#34d399"
         };
       }
 
-      const hp = 1 + Math.floor(level / 5);
+      const hp = (1 + Math.floor(level / 5)) * 100;
     
       return {
         id: ++enemyId,
@@ -4175,7 +4175,7 @@
     function createExperienceCrystal(
       x,
       y,
-      value = 1.1
+      value = 110
     ) {
       const angle =
         Math.random() * Math.PI * 2;
@@ -4264,11 +4264,7 @@
         getEnemyExperienceAmount(enemy);
     
       for (let i = 0; i < amount; i++) {
-        createExperienceCrystal(
-          enemy.x + random(-5, 5),
-          enemy.y + random(-5, 5),
-          1.1
-        );
+        createExperienceCrystal(enemy.x + random(-5, 5), enemy.y + random(-5, 5), 110);
       }
     }
 
@@ -9621,7 +9617,7 @@
           <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
             <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
               <span style="font-size: 15px;">📜</span>
-              <span>История обновлений (v2.3)</span>
+              <span>История обновлений (v2.4)</span>
             </button>
           </div>
         </div>
@@ -10024,21 +10020,36 @@
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
             
-            <!-- v2.3 -->
+            <!-- v2.4 -->
             <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(0, 242, 254, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(0, 242, 254, 0.16);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.3</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Скины пуль в Коопе, Аптечки & Сетевая стабильность</span>
+                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.4</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Глобальный ребаланс чисел x100, Опыт и Волна 3</span>
                 </div>
                 <span style="font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
-                <li>🎨 <strong>Синхронизация скинов пуль напарника:</strong> Скины <em>Адский метеор</em>, <em>Квантовый сюрикен</em>, <em>Био-сгусток</em>, <em>Комета</em> и <em>Плазмоид</em> теперь транслируются через сервер и полностью отрисовываются для всех участников матча.</li>
-                <li>💊 <strong>Аптечки в онлайн-коопе (+1 HP):</strong> Синхронизирован 5% дроп кибер-капсул из основных врагов, сбор ранеными игроками, изумрудная аура и звуковой эффект исцеления.</li>
-                <li>🛡️ <strong>Границы стен и вылет пуль:</strong> Жесткое ограничение координат пули при выстреле и локальной экстраполяции — снаряды больше не могут покинуть пределы карты.</li>
-                <li>⚡ <strong>Оптимизация сетевого сервера:</strong> Отключено тяжелое сжатие <code>perMessageDeflate</code>, включена <code>volatile</code>-трансляция снимков без задержек и накопления очередей.</li>
-                <li>🩺 <strong>Отказоустойчивый Health Check:</strong> Быстрые эндпоинты <code>/healthz</code>, <code>/health</code>, <code>/ping</code> и глобальные перехватчики исключений.</li>
+                <li>💥 <strong>Масштабирование чисел в 100 раз:</strong> Базовый урон теперь <code>100</code> (криты <code>200</code>), базовое здоровье <code>100 HP</code>. Все враги и боссы масштабированы (обычные <code>100 HP</code>, танки <code>300 HP</code>, боссы от <code>7,600+ HP</code>).</li>
+                <li>💎 <strong>Требование 800 XP для 1-го уровня:</strong> Первый уровень в соло требует ровно <code>800 XP</code>. Кристаллы дают по <code>110 XP</code> (+10% бонус).</li>
+                <li>🌊 <strong>Баланс 3-й волны:</strong> Снижена вероятность появления танков с 56% до 18% для устранения затянутости в начале забега.</li>
+                <li>💊 <strong>Улучшения и лечение x100:</strong> Аптечки и прокачка здоровья дают <code>+100 HP</code>, урон <code>+100</code>, осколки <code>25</code>, яд <code>50/с</code>, споры <code>75</code>.</li>
+              </ul>
+            </div>
+
+            <!-- v2.3 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.3</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Скины пуль в Коопе, Аптечки & Сетевая стабильность</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>🎨 <strong>Синхронизация скинов пуль напарника:</strong> Скины транслируются через сервер и отрисовываются для всех участников матча.</li>
+                <li>💊 <strong>Аптечки в онлайн-коопе (+100 HP):</strong> Синхронизирован дроп кибер-капсул из врагов и сбор ранеными игроками.</li>
+                <li>🛡️ <strong>Границы стен и вылет пуль:</strong> Жесткое ограничение координат пули — снаряды больше не могут покинуть карту.</li>
+                <li>⚡ <strong>Оптимизация сетевого сервера:</strong> Отключено тяжелое сжатие <code>perMessageDeflate</code>, включена <code>volatile</code>-трансляция снимков.</li>
               </ul>
             </div>
 
@@ -16227,7 +16238,7 @@
 
         const dist = Math.hypot(player.x - medkit.x, player.y - medkit.y);
         if (dist <= player.r + medkit.r) {
-          player.hp = Math.min(player.maxHp, player.hp + 1);
+          player.hp = Math.min(player.maxHp, player.hp + 100);
           soundManager.playHeal();
           createParticles(medkit.x, medkit.y, "#22c55e", 14, 160);
           createRing(player.x, player.y, 40, "#22c55e");
