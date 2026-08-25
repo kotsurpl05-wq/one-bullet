@@ -17485,6 +17485,10 @@
     }
 
     function togglePause() {
+      if (gameState === "choosing" || coopUpgradeUiActive || coopSession.upgradePaused) {
+        return;
+      }
+
       if (coopSession.active || runMode === "coop") {
         if (window.net?.isMultiplayer) {
           net.sendTogglePause();
@@ -17700,6 +17704,11 @@
         ) &&
         !event.repeat
       ) {
+        if (gameState === "choosing" || coopUpgradeUiActive || coopSession.upgradePaused) {
+          event.preventDefault();
+          return;
+        }
+
         if (currentMenuSubView === "settings" && !overlay.classList.contains("hidden")) {
           event.preventDefault();
           soundManager.playUiClick();
