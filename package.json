@@ -8,7 +8,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test test/*.test.js",
-    "test:empirical": "node test/empirical_stress_runner.js"
+    "test:empirical": "node test/empirical_stress_runner.js",
+    "test:live": "node test/live_coop_smoke.js"
   },
   "dependencies": {
     "express": "^4.21.2",
