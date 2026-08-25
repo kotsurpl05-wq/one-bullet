@@ -3107,7 +3107,7 @@
     const SOLO_WORLD_WIDTH = ARENA_WIDTH;
     const SOLO_WORLD_HEIGHT = ARENA_HEIGHT;
 
-    const COOP_PLAYER_SPEED = 285;
+    const COOP_PLAYER_SPEED = 250;
     const COOP_INPUT_INTERVAL = 1 / 60;
 
     const coopSession = {
@@ -4008,7 +4008,7 @@
             type = "charger";
           } else if (
             wave >= 3 &&
-            roll < (wave === 3 ? 0.18 : 0.52)
+            roll < (wave === 3 ? 0.05 : 0.40)
           ) {
             type = "tank";
           } else if (
@@ -7470,10 +7470,16 @@
       },
       {
         title: "Разогнанный ствол",
-        description: "Увеличивает скорость полёта пули.",
+        description: "Увеличивает скорость полёта пули на +25% за уровень (макс. 250%).",
+        available() {
+          return (stats.bulletSpeed || BASE_BULLET_SPEED) < BASE_BULLET_SPEED * 2.5 - 1;
+        },
         applyWithPower(power) {
-          stats.bulletSpeed +=
-            BASE_BULLET_SPEED * 0.18 * power;
+          stats.bulletSpeed = Math.min(
+            BASE_BULLET_SPEED * 2.5,
+            (stats.bulletSpeed || BASE_BULLET_SPEED) +
+              BASE_BULLET_SPEED * 0.25 * power
+          );
         }
       },
       {

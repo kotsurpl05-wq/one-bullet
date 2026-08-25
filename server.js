@@ -294,7 +294,7 @@ function sanitizeInput(input) {
 const COOP_WORLD_WIDTH = 2560;
 const COOP_WORLD_HEIGHT = 1374;
 
-const COOP_PLAYER_SPEED = 285;
+const COOP_PLAYER_SPEED = 250;
 const COOP_SIMULATION_RATE = 60;
 const COOP_SNAPSHOT_RATE = 20;
 
@@ -311,8 +311,8 @@ const COOP_BULLET_BOUNCES = 1;
 const COOP_BULLET_MAX_AGE = 6;
 const COOP_BULLET_CATCH_DELAY = 0.24;
 
-const COOP_ENEMY_COUNT_MULTIPLIER = 1.55;
-const COOP_ENEMY_HP_MULTIPLIER = 1.35;
+const COOP_ENEMY_COUNT_MULTIPLIER = 2.0;
+const COOP_ENEMY_HP_MULTIPLIER = 1.0;
 const COOP_BOSS_HP_MULTIPLIER = 1.8;
 
 const COOP_WAVE_BREAK = 3.5;
@@ -2229,7 +2229,7 @@ function spawnServerWave(world) {
       type = "charger";
     } else if (
       world.wave >= 3 &&
-      roll < (world.wave === 3 ? 0.18 : 0.52)
+      roll < (world.wave === 3 ? 0.05 : 0.40)
     ) {
       type = "tank";
     } else if (
@@ -2344,9 +2344,19 @@ const SERVER_UPGRADES = [
   {
     id: "bullet-speed",
     title: "Разогнанный ствол",
-    description: "Увеличивает скорость ваших патронов.",
+    description: "Увеличивает скорость ваших патронов на +25% за уровень (макс. 250%).",
+    available(player) {
+      return (player.stats?.bulletSpeed || COOP_BULLET_SPEED) < COOP_BULLET_SPEED * 2.5 - 1;
+    },
     bonus(player, power) {
-      return `+${18 * power}% к скорости патрона`;
+      const current = player.stats?.bulletSpeed || COOP_BULLET_SPEED;
+      const maxSpeed = COOP_BULLET_SPEED * 2.5;
+      const requested = COOP_BULLET_SPEED * 0.25 * power;
+      const result = Math.min(maxSpeed, current + requested);
+      const actual = result - current;
+      const actualPct = Math.round((actual / COOP_BULLET_SPEED) * 100);
+      const totalPct = Math.round((result / COOP_BULLET_SPEED) * 100);
+      return `+${actualPct}% к скорости патрона (итог: ${totalPct}%, макс. 250%)`;
     }
   },
 
@@ -4304,10 +4314,11 @@ function applyServerUpgrade(
       break;
 
     case "bullet-speed":
-      player.stats.bulletSpeed +=
-        COOP_BULLET_SPEED *
-        0.18 *
-        power;
+      player.stats.bulletSpeed = Math.min(
+        COOP_BULLET_SPEED * 2.5,
+        (player.stats.bulletSpeed || COOP_BULLET_SPEED) +
+          COOP_BULLET_SPEED * 0.25 * power
+      );
       break;
 
     case "move-speed":

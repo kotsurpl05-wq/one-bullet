@@ -35,8 +35,8 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(minion, "Minion instance must be created");
       assert.equal(minion.type, "minion");
       assert.equal(minion.r, 7);
-      assert.equal(minion.hp, 135);
-      assert.equal(minion.maxHp, 135);
+      assert.equal(minion.hp, 100);
+      assert.equal(minion.maxHp, 100);
       assert.ok(minion.speed >= 130, `Minion speed should be >= 130, got ${minion.speed}`);
     });
 
