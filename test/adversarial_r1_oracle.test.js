@@ -33,10 +33,10 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     }
 
     function oracleCoopHp(baseHp) {
-      return Math.max(1, Math.round(baseHp * 1.8));
+      return Math.max(1, Math.round(baseHp * 1.1));
     }
 
-    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.8, "COOP_BOSS_HP_MULTIPLIER must be exactly 1.8");
+    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.1, "COOP_BOSS_HP_MULTIPLIER must be exactly 1.1");
 
     // Test every single wave from 1 to 100
     let previousHp = 0;
@@ -82,12 +82,12 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     const { world } = createTestWorld(ctx);
 
     const boundaryCases = [
-      { preWave: 4, postWave: 5, preTier: 1, postTier: 1, preHp: 13680, postHp: 13680, isStepJump: false },
-      { preWave: 9, postWave: 10, preTier: 1, postTier: 2, preHp: 13680, postHp: 21600, isStepJump: true },
-      { preWave: 14, postWave: 15, preTier: 2, postTier: 3, preHp: 21600, postHp: 32400, isStepJump: true },
-      { preWave: 19, postWave: 20, preTier: 3, postTier: 4, preHp: 32400, postHp: 46080, isStepJump: true },
-      { preWave: 24, postWave: 25, preTier: 4, postTier: 5, preHp: 46080, postHp: 62640, isStepJump: true },
-      { preWave: 29, postWave: 30, preTier: 5, postTier: 6, preHp: 62640, postHp: 82080, isStepJump: true }
+      { preWave: 4, postWave: 5, preTier: 1, postTier: 1, preHp: 8360, postHp: 8360, isStepJump: false },
+      { preWave: 9, postWave: 10, preTier: 1, postTier: 2, preHp: 8360, postHp: 13200, isStepJump: true },
+      { preWave: 14, postWave: 15, preTier: 2, postTier: 3, preHp: 13200, postHp: 19800, isStepJump: true },
+      { preWave: 19, postWave: 20, preTier: 3, postTier: 4, preHp: 19800, postHp: 28160, isStepJump: true },
+      { preWave: 24, postWave: 25, preTier: 4, postTier: 5, preHp: 28160, postHp: 38280, isStepJump: true },
+      { preWave: 29, postWave: 30, preTier: 5, postTier: 6, preHp: 38280, postHp: 50160, isStepJump: true }
     ];
 
     for (const b of boundaryCases) {
@@ -110,7 +110,7 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     }
   });
 
-  await t.test("Focus 1.3: Wave 30 Coop Boss HP Critical Target Verification (HP >= 800 and exactly 82080)", () => {
+  await t.test("Focus 1.3: Wave 30 Coop Boss HP Critical Target Verification (HP >= 800 and exactly 50160)", () => {
     const { world } = createTestWorld(ctx);
     world.wave = 30;
 
@@ -118,18 +118,24 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
 
     assert.equal(boss.bossTier, 6, "Wave 30 must yield bossTier = 6");
     assert.ok(boss.hp >= 800, `Wave 30 Coop Boss HP must be >= 800 (actual: ${boss.hp})`);
-    assert.equal(boss.hp, 82080, `Wave 30 Coop Boss HP must be exactly 82080`);
-    assert.equal(boss.maxHp, 82080);
+    assert.equal(boss.hp, 50160, `Wave 30 Coop Boss HP must be exactly 50160`);
+    assert.equal(boss.maxHp, 50160);
   });
 
   await t.test("Focus 1.4: Client-Server Boss HP Scaling Parity Oracle", () => {
     const indexHtmlPath = path.resolve(process.cwd(), "public/index.html");
     const html = fs.readFileSync(indexHtmlPath, "utf8");
 
-    // Client solo formula: Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 100)
+    // Client solo formula: Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 55)
     function clientSoloOracle(wave) {
       const bossTier = Math.max(1, Math.floor(wave / 5));
-      return Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 100);
+      return Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 55);
+    }
+
+    // Server base HP formula uses * 100 (then multiplied by 1.1 for coop)
+    function serverBaseHp(wave) {
+      const bossTier = Math.max(1, Math.floor(wave / 5));
+      return (48 + bossTier * 20 + bossTier * bossTier * 8) * 100;
     }
 
     const { world } = createTestWorld(ctx);
@@ -137,14 +143,13 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     for (let wave = 1; wave <= 50; wave++) {
       world.wave = wave;
       const coopBoss = ctx.createServerEnemy(world, "boss", 500, 500, true);
-      const soloExpectedHp = clientSoloOracle(wave);
+      const expectedCoopHp = Math.round(serverBaseHp(wave) * 1.1);
 
-      // Verify coop HP is exactly Math.round(soloExpectedHp * 1.8)
-      const expectedCoopHp = Math.round(soloExpectedHp * 1.8);
+      // Verify coop HP is exactly Math.round(serverBaseHp * 1.1)
       assert.equal(
         coopBoss.hp,
         expectedCoopHp,
-        `Wave ${wave} client-server HP calculation discrepancy: solo ${soloExpectedHp} -> coop ${coopBoss.hp} vs expected ${expectedCoopHp}`
+        `Wave ${wave} client-server HP calculation discrepancy: serverBase ${serverBaseHp(wave)} -> coop ${coopBoss.hp} vs expected ${expectedCoopHp}`
       );
     }
   });

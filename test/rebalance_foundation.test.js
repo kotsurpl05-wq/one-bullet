@@ -43,16 +43,16 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     }
   });
 
-  await t.test("1.2 COOP_BOSS_HP_MULTIPLIER = 1.8 and Wave 30 HP >= 800 (82080)", () => {
+  await t.test("1.2 COOP_BOSS_HP_MULTIPLIER = 1.1 and Wave 30 HP >= 800 (50160)", () => {
     const { world } = createTestWorld(ctx);
-    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.8, "COOP_BOSS_HP_MULTIPLIER must be 1.8");
+    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.1, "COOP_BOSS_HP_MULTIPLIER must be 1.1");
 
-    // Wave 30 -> tier 6 -> baseHp = 456 -> coopHp = Math.round(456 * 1.8) = 82080
+    // Wave 30 -> tier 6 -> baseHp = 456*100=45600 -> coopHp = Math.round(45600 * 1.1) = 50160
     world.wave = 30;
     const bossWave30 = ctx.createServerEnemy(world, "boss", 400, 300, true);
     assert.ok(bossWave30.hp >= 800, `Wave 30 Boss HP must be >= 800 (got ${bossWave30.hp})`);
-    assert.equal(bossWave30.hp, 82080, "Wave 30 Boss HP should be exactly 82080");
-    assert.equal(bossWave30.maxHp, 82080);
+    assert.equal(bossWave30.hp, 50160, "Wave 30 Boss HP should be exactly 50160");
+    assert.equal(bossWave30.maxHp, 50160);
   });
 
   await t.test("1.3 Client & Server Boss HP parity across waves 5, 10, 15, 20, 25, 30", () => {
@@ -67,12 +67,12 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
 
     const { world } = createTestWorld(ctx);
     const waves = [
-      { wave: 5, tier: 1, baseHp: 7600, coopHp: 13680 },
-      { wave: 10, tier: 2, baseHp: 12000, coopHp: 21600 },
-      { wave: 15, tier: 3, baseHp: 18000, coopHp: 32400 },
-      { wave: 20, tier: 4, baseHp: 25600, coopHp: 46080 },
-      { wave: 25, tier: 5, baseHp: 34800, coopHp: 62640 },
-      { wave: 30, tier: 6, baseHp: 45600, coopHp: 82080 }
+      { wave: 5, tier: 1, baseHp: 7600, coopHp: 8360 },
+      { wave: 10, tier: 2, baseHp: 12000, coopHp: 13200 },
+      { wave: 15, tier: 3, baseHp: 18000, coopHp: 19800 },
+      { wave: 20, tier: 4, baseHp: 25600, coopHp: 28160 },
+      { wave: 25, tier: 5, baseHp: 34800, coopHp: 38280 },
+      { wave: 30, tier: 6, baseHp: 45600, coopHp: 50160 }
     ];
 
     for (const item of waves) {
@@ -280,12 +280,12 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
 
     let totalBossesKilled = 0;
     const bossHpCheck = {
-      5: 13680,
-      10: 21600,
-      15: 32400,
-      20: 46080,
-      25: 62640,
-      30: 82080
+      5: 8360,
+      10: 13200,
+      15: 19800,
+      20: 28160,
+      25: 38280,
+      30: 50160
     };
 
     for (let wave = 1; wave <= 30; wave++) {

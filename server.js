@@ -315,7 +315,7 @@ const COOP_BULLET_CATCH_DELAY = 0.24;
 
 const COOP_ENEMY_COUNT_MULTIPLIER = 2.0;
 const COOP_ENEMY_HP_MULTIPLIER = 1.0;
-const COOP_BOSS_HP_MULTIPLIER = 1.8;
+const COOP_BOSS_HP_MULTIPLIER = 1.1;
 
 const COOP_WAVE_BREAK = 3.5;
 
@@ -1379,7 +1379,8 @@ function updateServerBullet(
 
         if (!nextTarget) break;
         chainedSet.add(nextTarget.id);
-        damageServerEnemy(world, nextTarget.id, 100, owner);
+        const chainDmg = Math.floor((owner.stats?.damage || 100) * (owner.stats?.chainDamageRatio || 0.6));
+        damageServerEnemy(world, nextTarget.id, chainDmg, owner);
         lastX = nextTarget.x;
         lastY = nextTarget.y;
         chained++;
@@ -3149,7 +3150,7 @@ function getServerEnemyExperience(enemy) {
     case "charger":    return 240;
     case "splitter":   return 310;
     case "shooter":    return 255;
-    case "incubator":  return 350;
+    case "incubator":  return 475;
     case "phantom":    return 185;
     case "magnetizer": return 195;
     case "twin":       return 165;
@@ -3547,7 +3548,7 @@ function shootServerEnemyProjectile(world, enemy, target) {
     target.x - enemy.x
   );
 
-  const projectileSpeed = 225 + world.wave * 4;
+  const projectileSpeed = 290 + world.wave * 5;
 
   createServerEnemyProjectile(
     world,
@@ -3658,7 +3659,7 @@ function shootServerBossSniperBolt(world, enemy, targetX, targetY) {
     enemy.x + Math.cos(angle) * (enemy.r + 10),
     enemy.y + Math.sin(angle) * (enemy.r + 10),
     angle,
-    750,
+    900,
     9,
     "#ff1744",
     200
@@ -4004,7 +4005,7 @@ function updateServerEnemies(
           if (enemy.sniperTimer <= 0) {
             shootServerBossSniperBolt(world, enemy, enemy.sniperTargetX, enemy.sniperTargetY);
             enemy.sniperState = "none";
-            enemy.sniperCooldown = random(7.5, 9.5);
+            enemy.sniperCooldown = random(4.0, 6.5);
           }
         }
       }
@@ -4090,7 +4091,7 @@ function updateServerEnemies(
         enemy.shootCooldown -= dt;
         if (enemy.shootCooldown <= 0 && targetDistance < 650) {
           shootServerEnemyProjectile(world, enemy, target);
-          enemy.shootCooldown = Math.max(0.7, 1.7 - world.wave * 0.025);
+          enemy.shootCooldown = Math.max(0.5, 1.3 - world.wave * 0.02);
         }
       }
     } else {
@@ -4196,7 +4197,7 @@ function updateServerEnemies(
       );
 
       if (dist <= player.r + 3) {
-        damageServerPlayer(world, player, 100);
+        damageServerPlayer(world, player, 80 + world.wave * 12);
       }
     }
   }

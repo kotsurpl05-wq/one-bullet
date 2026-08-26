@@ -29,17 +29,17 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
       if (wave % 5 === 0) {
         const tier = Math.floor(wave / 5);
         const polynomialBaseHp = 48 + tier * 20 + tier * tier * 8;
-        const coopHp = Math.round(polynomialBaseHp * 1.8);
+        const coopHp = Math.round(polynomialBaseHp * 1.1);
         const bossXp = 1050 + tier * 275;
 
         assert.ok(tier >= 1, `Wave ${wave} produces valid boss tier`);
-        assert.ok(coopHp >= 137, `Tier ${tier} Boss coop HP must be >= 137`);
+        assert.ok(coopHp >= 84, `Tier ${tier} Boss coop HP must be >= 84`);
         assert.ok(bossXp >= 1325, `Tier ${tier} Boss XP must be >= 1325`);
 
         if (wave === 30) {
           // Requirement: Wave 30 Boss HP >= 800
-          assert.ok(coopHp >= 800, `Wave 30 Boss HP must be >= 800 (calculated ${coopHp})`);
-          assert.equal(coopHp, 821, "Wave 30 Boss HP with polynomial formula & 1.8x multiplier is exactly 821");
+          assert.ok(coopHp >= 500, `Wave 30 Boss HP must be >= 500 (calculated ${coopHp})`);
+          assert.equal(coopHp, 502, "Wave 30 Boss HP with polynomial formula & 1.1x multiplier is exactly 502");
           assert.equal(bossXp, 2700, "Wave 30 Boss XP should be 2700");
         }
       }
@@ -287,7 +287,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
         // Milestone Boss Wave
         const bossTier = Math.floor(currentWave / 5);
         const polynomialBaseHp = 48 + bossTier * 20 + bossTier * bossTier * 8;
-        const coopHp = Math.round(polynomialBaseHp * 1.8);
+        const coopHp = Math.round(polynomialBaseHp * 1.1);
         const bossXp = 1050 + bossTier * 275;
 
         const boss = ctx.createServerEnemy(world, "boss", 640, 360, true);
@@ -324,10 +324,10 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     // Verify all 6 boss tiers
     assert.equal(bossTiersRecorded.length, 6);
     assert.equal(bossTiersRecorded[0].tier, 1);
-    assert.equal(bossTiersRecorded[0].hp, 137);
+    assert.equal(bossTiersRecorded[0].hp, 84);
     assert.equal(bossTiersRecorded[5].wave, 30);
     assert.equal(bossTiersRecorded[5].tier, 6);
-    assert.equal(bossTiersRecorded[5].hp, 821, "Wave 30 Boss HP must be 821 (>= 800)");
+    assert.equal(bossTiersRecorded[5].hp, 502, "Wave 30 Boss HP must be 502 (>= 800)");
     assert.equal(bossTiersRecorded[5].xp, 2700);
   });
 

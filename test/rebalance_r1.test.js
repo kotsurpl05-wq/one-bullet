@@ -44,16 +44,16 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     }
   });
 
-  await t.test("Tier 1 - Unit 2: Co-op Boss HP Multiplier (1.8x) & Wave 30 HP >= 800", () => {
+  await t.test("Tier 1 - Unit 2: Co-op Boss HP Multiplier (1.1x) & Wave 30 HP >= 800", () => {
     const { world } = createTestWorld(ctx);
-    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.8, "COOP_BOSS_HP_MULTIPLIER must be 1.8");
+    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.1, "COOP_BOSS_HP_MULTIPLIER must be 1.1");
 
-    // Wave 30 -> tier 6 -> baseHp = 456 -> coopHp = Math.round(456 * 1.8) = 82080
+    // Wave 30 -> tier 6 -> baseHp = 45600 -> coopHp = Math.round(45600 * 1.1) = 50160
     world.wave = 30;
     const bossWave30 = ctx.createServerEnemy(world, "boss", 400, 300, true);
     assert.ok(bossWave30.hp >= 800, `Wave 30 Boss HP must be >= 800 (got ${bossWave30.hp})`);
-    assert.equal(bossWave30.hp, 82080, "Wave 30 Boss HP should be exactly 82080");
-    assert.equal(bossWave30.maxHp, 82080);
+    assert.equal(bossWave30.hp, 50160, "Wave 30 Boss HP should be exactly 50160");
+    assert.equal(bossWave30.maxHp, 50160);
   });
 
   await t.test("Tier 1 - Unit 3: Wave-Scaled Co-op Boss XP (1050 + bossTier * 275)", () => {
@@ -178,25 +178,25 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
   await t.test("Tier 2 - Boundary 1: Boss HP Scaling Across Wave Boundaries (4 vs 5, 9 vs 10, 29 vs 30)", () => {
     const { world } = createTestWorld(ctx);
 
-    // Wave 5 spawns Tier 1 Boss (base 7600, coop 13680).
+    // Wave 5 spawns Tier 1 Boss (base 7600, coop 8360).
     world.wave = 5;
     const bossTier1 = ctx.createServerEnemy(world, "boss", 500, 500, true);
-    assert.equal(bossTier1.hp, 13680);
+    assert.equal(bossTier1.hp, 8360);
 
-    // Wave 10 (Tier 2: base 12000, coop 21600)
+    // Wave 10 (Tier 2: base 12000, coop 13200)
     world.wave = 10;
     const bossTier2 = ctx.createServerEnemy(world, "boss", 500, 500, true);
-    assert.equal(bossTier2.hp, 21600);
+    assert.equal(bossTier2.hp, 13200);
 
-    // Wave 25 (Tier 5: base 34800, coop 62640)
+    // Wave 25 (Tier 5: base 34800, coop 38280)
     world.wave = 25;
     const bossTier5 = ctx.createServerEnemy(world, "boss", 500, 500, true);
-    assert.equal(bossTier5.hp, 62640);
+    assert.equal(bossTier5.hp, 38280);
 
-    // Wave 30 (Tier 6: base 45600, coop 82080)
+    // Wave 30 (Tier 6: base 45600, coop 50160)
     world.wave = 30;
     const bossTier6 = ctx.createServerEnemy(world, "boss", 500, 500, true);
-    assert.equal(bossTier6.hp, 82080);
+    assert.equal(bossTier6.hp, 50160);
     assert.ok(bossTier6.hp > bossTier5.hp, "Boss HP must strictly increase with tier");
   });
 
@@ -354,12 +354,12 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     let bossesEncountered = 0;
 
     const expectedBossStats = {
-      5:  { tier: 1, baseHp: 7600,  coopHp: 13680, xp: 1325 },
-      10: { tier: 2, baseHp: 12000, coopHp: 21600, xp: 1600 },
-      15: { tier: 3, baseHp: 18000, coopHp: 32400, xp: 1875 },
-      20: { tier: 4, baseHp: 25600, coopHp: 46080, xp: 2150 },
-      25: { tier: 5, baseHp: 34800, coopHp: 62640, xp: 2425 },
-      30: { tier: 6, baseHp: 45600, coopHp: 82080, xp: 2700 }
+      5:  { tier: 1, baseHp: 7600,  coopHp: 8360, xp: 1325 },
+      10: { tier: 2, baseHp: 12000, coopHp: 13200, xp: 1600 },
+      15: { tier: 3, baseHp: 18000, coopHp: 19800, xp: 1875 },
+      20: { tier: 4, baseHp: 25600, coopHp: 28160, xp: 2150 },
+      25: { tier: 5, baseHp: 34800, coopHp: 38280, xp: 2425 },
+      30: { tier: 6, baseHp: 45600, coopHp: 50160, xp: 2700 }
     };
 
     for (let wave = 1; wave <= 30; wave++) {

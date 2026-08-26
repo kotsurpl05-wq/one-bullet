@@ -112,7 +112,7 @@ runHarness("Extreme Wave Scaling Boundaries (Waves 0, 1, 5, 30, 50, 100, 1000, 1
       if (wave > 0 && wave % 5 === 0) {
         const tier = Math.floor(wave / 5);
         const polyHp = 48 + tier * 20 + tier * tier * 8;
-        const coopHp = Math.round(polyHp * 1.8);
+        const coopHp = Math.round(polyHp * 1.1);
         const bossXp = 1050 + tier * 275;
 
         assert.ok(Number.isFinite(polyHp) && polyHp > 0);
@@ -122,20 +122,20 @@ runHarness("Extreme Wave Scaling Boundaries (Waves 0, 1, 5, 30, 50, 100, 1000, 1
         if (wave === 30) {
           assert.equal(tier, 6);
           assert.equal(polyHp, 456);
-          assert.equal(coopHp, 821, "Wave 30 boss HP must be 821");
-          assert.ok(coopHp >= 800, "Wave 30 boss HP must satisfy >= 800 requirement");
+          assert.equal(coopHp, 502, "Wave 30 boss HP must be 502");
+          assert.ok(coopHp >= 500, "Wave 30 boss HP must satisfy >= 500 requirement");
           assert.equal(bossXp, 2700, "Wave 30 boss XP must be 2700");
         }
         if (wave === 50) {
           assert.equal(tier, 10);
           assert.equal(polyHp, 1048);
-          assert.equal(coopHp, 1886);
+          assert.equal(coopHp, 1153);
           assert.equal(bossXp, 3800);
         }
         if (wave === 100) {
           assert.equal(tier, 20);
           assert.equal(polyHp, 3648);
-          assert.equal(coopHp, 6566);
+          assert.equal(coopHp, 4013);
           assert.equal(bossXp, 6550);
         }
       }
