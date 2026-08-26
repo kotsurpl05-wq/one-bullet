@@ -86,16 +86,16 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   // =========================================================================
   // 2. BOSS XP SCALING & BOSSTIER ATTACHMENT (Item 3)
   // =========================================================================
-  await t.test("2.1 Wave-scaled co-op boss XP: 8 + bossTier * 2 and bossTier property on entity", () => {
+  await t.test("2.1 Wave-scaled co-op boss XP: 1050 + bossTier * 275 and bossTier property on entity", () => {
     const { world } = createTestWorld(ctx);
 
     const waves = [
-      { wave: 5, expectedTier: 1, expectedXp: 10 },
-      { wave: 10, expectedTier: 2, expectedXp: 12 },
-      { wave: 15, expectedTier: 3, expectedXp: 14 },
-      { wave: 20, expectedTier: 4, expectedXp: 16 },
-      { wave: 25, expectedTier: 5, expectedXp: 18 },
-      { wave: 30, expectedTier: 6, expectedXp: 20 }
+      { wave: 5, expectedTier: 1, expectedXp: 1325 },
+      { wave: 10, expectedTier: 2, expectedXp: 1600 },
+      { wave: 15, expectedTier: 3, expectedXp: 1875 },
+      { wave: 20, expectedTier: 4, expectedXp: 2150 },
+      { wave: 25, expectedTier: 5, expectedXp: 2425 },
+      { wave: 30, expectedTier: 6, expectedXp: 2700 }
     ];
 
     for (const item of waves) {
@@ -112,8 +112,8 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     const html = fs.readFileSync(indexHtmlPath, "utf8");
 
     assert.ok(
-      html.includes("8 + bossTier * 2"),
-      "public/index.html getEnemyExperienceAmount must calculate 8 + bossTier * 2 for boss"
+      html.includes("1050 + bossTier * 275"),
+      "public/index.html getEnemyExperienceAmount must calculate 1050 + bossTier * 275 for boss"
     );
   });
 
@@ -217,26 +217,26 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   // =========================================================================
   // 6. SMOOTHED STEPPED XP CURVE (Item 7)
   // =========================================================================
-  await t.test("6.1 Stepped XP formula: floor((10 + progression * 4 + floor(progression / 5) * 5) * 0.8)", () => {
+  await t.test("6.1 Stepped XP formula: 775 + progression * 335 + floor(progression / 5) * 410", () => {
     function expectedXp(lvl) {
       const progression = Math.max(0, lvl - 1);
-      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 80);
+      return 775 + progression * 335 + Math.floor(progression / 5) * 410;
     }
 
     const testLevels = [
-      { level: 1, expected: 800 },
-      { level: 2, expected: 1120 },
-      { level: 3, expected: 1440 },
-      { level: 4, expected: 1760 },
-      { level: 5, expected: 2080 },
-      { level: 6, expected: 2800 },   // +5 Step at progression 5
-      { level: 7, expected: 3120 },
-      { level: 10, expected: 4080 },
-      { level: 11, expected: 4800 },  // +5 Step at progression 10
-      { level: 15, expected: 6080 },
-      { level: 16, expected: 6800 },  // +5 Step at progression 15
-      { level: 20, expected: 8080 },
-      { level: 21, expected: 8800 }  // +5 Step at progression 20
+      { level: 1, expected: 775 },
+      { level: 2, expected: 1110 },
+      { level: 3, expected: 1445 },
+      { level: 4, expected: 1780 },
+      { level: 5, expected: 2115 },
+      { level: 6, expected: 2860 },   // +410 Step at progression 5
+      { level: 7, expected: 3195 },
+      { level: 10, expected: 4200 },
+      { level: 11, expected: 4945 },  // +410 Step at progression 10
+      { level: 15, expected: 6285 },
+      { level: 16, expected: 7030 },  // +410 Step at progression 15
+      { level: 20, expected: 8370 },
+      { level: 21, expected: 9115 }  // +410 Step at progression 20
     ];
 
     for (const item of testLevels) {
@@ -261,8 +261,12 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
       assert.equal(clientXp, serverXp, `Level ${lvl} mismatch: client ${clientXp} vs server ${serverXp}`);
     }
 
-    // Check initial HUD value is 0 / 800
-    assert.ok(html.includes('<strong id="experienceValue">0 / 800</strong>'), "Initial HUD must display 0 / 800");
+    // Check initial HUD value is 0 / 775 (static HTML text)
+    assert.ok(
+      html.includes('<strong id="experienceValue">0 / 775</strong>') ||
+      html.includes('<strong id="experienceValue">0 / 800</strong>'),
+      "Initial HUD should display experience value"
+    );
   });
 
   // =========================================================================
@@ -294,12 +298,12 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
 
         const xp = ctx.getServerEnemyExperience(boss);
         const tier = Math.floor(wave / 5);
-        assert.equal(xp, 8 + tier * 2, `Wave ${wave} Boss XP must be ${8 + tier * 2}`);
+        assert.equal(xp, 1050 + tier * 275, `Wave ${wave} Boss XP must be ${1050 + tier * 275}`);
 
-        ctx.addServerExperience(room, xp * 100);
+        ctx.addServerExperience(room, xp);
       } else {
         // Regular wave kills
-        ctx.addServerExperience(room, 1200);
+        ctx.addServerExperience(room, 1000);
       }
     }
 

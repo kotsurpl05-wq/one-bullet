@@ -56,16 +56,16 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     assert.equal(bossWave30.maxHp, 82080);
   });
 
-  await t.test("Tier 1 - Unit 3: Wave-Scaled Co-op Boss XP (8 + bossTier * 2)", () => {
+  await t.test("Tier 1 - Unit 3: Wave-Scaled Co-op Boss XP (1050 + bossTier * 275)", () => {
     const { world } = createTestWorld(ctx);
 
     const wavesToTest = [
-      { wave: 5, expectedTier: 1, expectedXp: 10 },
-      { wave: 10, expectedTier: 2, expectedXp: 12 },
-      { wave: 15, expectedTier: 3, expectedXp: 14 },
-      { wave: 20, expectedTier: 4, expectedXp: 16 },
-      { wave: 25, expectedTier: 5, expectedXp: 18 },
-      { wave: 30, expectedTier: 6, expectedXp: 20 }
+      { wave: 5, expectedTier: 1, expectedXp: 1325 },
+      { wave: 10, expectedTier: 2, expectedXp: 1600 },
+      { wave: 15, expectedTier: 3, expectedXp: 1875 },
+      { wave: 20, expectedTier: 4, expectedXp: 2150 },
+      { wave: 25, expectedTier: 5, expectedXp: 2425 },
+      { wave: 30, expectedTier: 6, expectedXp: 2700 }
     ];
 
     for (const testCase of wavesToTest) {
@@ -142,23 +142,23 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
   });
 
   await t.test("Tier 1 - Unit 7: Smoothed Stepped XP Curve Formula", () => {
-    // Formula: floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8) where progression = level - 1
+    // Formula: 775 + progression * 335 + floor(progression / 5) * 410 where progression = level - 1
     function expectedXp(lvl) {
       const progression = Math.max(0, lvl - 1);
-      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 80);
+      return 775 + progression * 335 + Math.floor(progression / 5) * 410;
     }
 
     const testLevels = [
-      { level: 1, expected: 8 },
-      { level: 2, expected: 11 },
-      { level: 3, expected: 14 },
-      { level: 4, expected: 17 },
-      { level: 5, expected: 20 },
-      { level: 6, expected: 28 },  // Step transition at progression = 5
-      { level: 7, expected: 31 },
-      { level: 11, expected: 48 }, // Step transition at progression = 10
-      { level: 16, expected: 68 }, // Step transition at progression = 15
-      { level: 21, expected: 88 } // Step transition at progression = 20
+      { level: 1, expected: 775 },
+      { level: 2, expected: 1110 },
+      { level: 3, expected: 1445 },
+      { level: 4, expected: 1780 },
+      { level: 5, expected: 2115 },
+      { level: 6, expected: 2860 },  // Step transition at progression = 5
+      { level: 7, expected: 3195 },
+      { level: 11, expected: 4945 }, // Step transition at progression = 10
+      { level: 16, expected: 7030 }, // Step transition at progression = 15
+      { level: 21, expected: 9115 } // Step transition at progression = 20
     ];
 
     for (const testCase of testLevels) {
@@ -220,13 +220,13 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     // Level 0 / 1 edge cases
     const reqLevel0 = ctx.getServerExperienceRequirement(0);
     const reqLevel1 = ctx.getServerExperienceRequirement(1);
-    assert.ok(reqLevel0 >= 800, "Level 0 progression should clamp to 0 progression (req >= 800)");
-    assert.equal(reqLevel1, 800, "Level 1 requirement must be 800");
+    assert.ok(reqLevel0 >= 775, "Level 0 progression should clamp to 0 progression (req >= 775)");
+    assert.equal(reqLevel1, 775, "Level 1 requirement must be 775");
 
     // Extreme level 100
     const reqLevel100 = ctx.getServerExperienceRequirement(100);
-    // progression = 99 -> floor((10 + 99*4 + floor(99/5)*5) * 80) = floor(501 * 80) = 40080
-    assert.equal(reqLevel100, 40080, "Level 100 XP requirement should be 40080");
+    // progression = 99 -> 775 + 99*335 + floor(99/5)*410 = 775 + 33165 + 7790 = 41730
+    assert.equal(reqLevel100, 41730, "Level 100 XP requirement should be 41730");
     assert.ok(Number.isFinite(reqLevel100), "XP requirement at high level must be a finite number");
   });
 
@@ -242,26 +242,26 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     assert.equal(secondBullet.available(player1), false, "Unavailable when magazineSize is >= 2");
   });
 
-  await t.test("Tier 2 - Boundary 5: Non-Boss Enemy XP Parity (normal=1, tank/charger/splitter/shooter=2)", () => {
+  await t.test("Tier 2 - Boundary 5: Non-Boss Enemy XP Parity (type-specific values)", () => {
     const { world } = createTestWorld(ctx);
 
     const normal = ctx.createServerEnemy(world, "normal", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(normal), 1, "Normal enemy XP must be 1");
+    assert.equal(ctx.getServerEnemyExperience(normal), 125, "Normal enemy XP must be 125");
 
     const runner = ctx.createServerEnemy(world, "runner", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(runner), 1, "Runner enemy XP must be 1");
+    assert.equal(ctx.getServerEnemyExperience(runner), 115, "Runner enemy XP must be 115");
 
     const tank = ctx.createServerEnemy(world, "tank", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(tank), 2, "Tank enemy XP must be 2");
+    assert.equal(ctx.getServerEnemyExperience(tank), 275, "Tank enemy XP must be 275");
 
     const charger = ctx.createServerEnemy(world, "charger", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(charger), 2, "Charger enemy XP must be 2");
+    assert.equal(ctx.getServerEnemyExperience(charger), 240, "Charger enemy XP must be 240");
 
     const splitter = ctx.createServerEnemy(world, "splitter", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(splitter), 2, "Splitter enemy XP must be 2");
+    assert.equal(ctx.getServerEnemyExperience(splitter), 310, "Splitter enemy XP must be 310");
 
     const shooter = ctx.createServerEnemy(world, "shooter", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(shooter), 2, "Shooter enemy XP must be 2");
+    assert.equal(ctx.getServerEnemyExperience(shooter), 255, "Shooter enemy XP must be 255");
   });
 
   await t.test("Tier 2 - Boundary 6: Solo Client Code Parity Audit for R1 (public/index.html)", () => {
@@ -270,7 +270,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
 
     // Check solo XP requirement formula in client
     assert.ok(
-      html.includes("progression * 4") || html.includes("Math.floor(progression / 5) * 5") || html.includes("getExperienceRequirement"),
+      html.includes("progression * 335") || html.includes("Math.floor(progression / 5) * 410") || html.includes("getExperienceRequirement"),
       "index.html should have getExperienceRequirement function"
     );
 
@@ -354,12 +354,12 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     let bossesEncountered = 0;
 
     const expectedBossStats = {
-      5:  { tier: 1, baseHp: 7600,  coopHp: 13680, xp: 10 },
-      10: { tier: 2, baseHp: 12000, coopHp: 21600, xp: 12 },
-      15: { tier: 3, baseHp: 18000, coopHp: 32400, xp: 14 },
-      20: { tier: 4, baseHp: 25600, coopHp: 46080, xp: 16 },
-      25: { tier: 5, baseHp: 34800, coopHp: 62640, xp: 18 },
-      30: { tier: 6, baseHp: 45600, coopHp: 82080, xp: 20 }
+      5:  { tier: 1, baseHp: 7600,  coopHp: 13680, xp: 1325 },
+      10: { tier: 2, baseHp: 12000, coopHp: 21600, xp: 1600 },
+      15: { tier: 3, baseHp: 18000, coopHp: 32400, xp: 1875 },
+      20: { tier: 4, baseHp: 25600, coopHp: 46080, xp: 2150 },
+      25: { tier: 5, baseHp: 34800, coopHp: 62640, xp: 2425 },
+      30: { tier: 6, baseHp: 45600, coopHp: 82080, xp: 2700 }
     };
 
     for (let wave = 1; wave <= 30; wave++) {
@@ -375,10 +375,10 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
 
         const xp = ctx.getServerEnemyExperience(boss);
         assert.equal(xp, expected.xp, `Wave ${wave} Boss XP mismatch`);
-        totalXpGained += xp * 100;
+        totalXpGained += xp;
       } else {
-        // Normal wave simulates killing 8 standard enemies (2 XP each avg)
-        totalXpGained += 1600;
+        // Normal wave simulates killing 8 standard enemies (125 XP each avg)
+        totalXpGained += 1000;
       }
 
       // Check stepped XP progression
@@ -392,6 +392,6 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
 
     assert.equal(bossesEncountered, 6, "Must encounter exactly 6 bosses in 30 waves");
     assert.ok(world.level >= 10, "Player should level up significantly over 30 waves");
-    assert.ok(world.experienceToNext >= 60, "XP curve should smoothly scale to high requirements");
+    assert.ok(world.experienceToNext >= 500, "XP curve should smoothly scale to high requirements");
   });
 });

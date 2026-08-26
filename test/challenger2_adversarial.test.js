@@ -379,32 +379,32 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
   // FOCUS AREA 3: Multi-Wave XP Progression & Level-Up Simulations
   // =========================================================================
 
-  await t.test("3.1 Mathematical Stress Test: Stepped XP formula (floor((10 + prog*4 + floor(prog/5)*5) * 0.8))", () => {
+  await t.test("3.1 Mathematical Stress Test: Stepped XP formula (775 + prog*335 + floor(prog/5)*410)", () => {
     // Exact requirement verification up to level 500
     function formula(level) {
       const prog = Math.max(0, level - 1);
-      return Math.floor((10 + prog * 4 + Math.floor(prog / 5) * 5) * 80);
+      return 775 + prog * 335 + Math.floor(prog / 5) * 410;
     }
 
     // Test specific key milestone levels
     const milestones = [
-      { lvl: 0, expected: 800 },
-      { lvl: 1, expected: 800 },
-      { lvl: 2, expected: 1120 },
-      { lvl: 3, expected: 1440 },
-      { lvl: 4, expected: 1760 },
-      { lvl: 5, expected: 2080 },
-      { lvl: 6, expected: 2800 }, // Step 1: prog=5 -> +5 step
-      { lvl: 10, expected: 4080 },
-      { lvl: 11, expected: 4800 }, // Step 2: prog=10 -> +5 step
-      { lvl: 15, expected: 6080 },
-      { lvl: 16, expected: 6800 }, // Step 3: prog=15 -> +5 step
-      { lvl: 20, expected: 8080 },
-      { lvl: 21, expected: 8800 }, // Step 4: prog=20 -> +5 step
-      { lvl: 30, expected: 12080 },
-      { lvl: 31, expected: 12800 },
-      { lvl: 50, expected: 20080 },
-      { lvl: 100, expected: 40080 }
+      { lvl: 0, expected: 775 },
+      { lvl: 1, expected: 775 },
+      { lvl: 2, expected: 1110 },
+      { lvl: 3, expected: 1445 },
+      { lvl: 4, expected: 1780 },
+      { lvl: 5, expected: 2115 },
+      { lvl: 6, expected: 2860 }, // Step 1: prog=5 -> +410 step
+      { lvl: 10, expected: 4200 },
+      { lvl: 11, expected: 4945 }, // Step 2: prog=10 -> +410 step
+      { lvl: 15, expected: 6285 },
+      { lvl: 16, expected: 7030 }, // Step 3: prog=15 -> +410 step
+      { lvl: 20, expected: 8370 },
+      { lvl: 21, expected: 9115 }, // Step 4: prog=20 -> +410 step
+      { lvl: 30, expected: 12540 },
+      { lvl: 31, expected: 13285 },
+      { lvl: 50, expected: 20880 },
+      { lvl: 100, expected: 41730 }
     ];
 
     for (const m of milestones) {
@@ -459,17 +459,17 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       // Kill each enemy and grant XP
       for (const enemy of enemiesInWave) {
         const xpAmount = ctx.getServerEnemyExperience(enemy);
-        assert.ok(xpAmount >= 1, `Enemy XP must be at least 1 (got ${xpAmount} for ${enemy.type})`);
+        assert.ok(xpAmount >= 115, `Enemy XP must be at least 115 (got ${xpAmount} for ${enemy.type})`);
         
         if (enemy.type === "boss") {
-          assert.equal(xpAmount, 8 + bossTier * 2, `Boss Tier ${bossTier} XP mismatch`);
+          assert.equal(xpAmount, 1050 + bossTier * 275, `Boss Tier ${bossTier} XP mismatch`);
         }
 
         totalCrystalsSpawned++;
         totalXpGained += xpAmount;
 
         // Apply XP via server system
-        ctx.addServerExperience(room, xpAmount * 100);
+        ctx.addServerExperience(room, xpAmount);
 
         // Verify Invariants after every single XP drop
         assert.ok(world.experience >= 0, "world.experience must never be negative");
@@ -514,14 +514,14 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
     const { room, world, player1 } = createTestWorld(ctx);
     world.level = 1;
     world.experience = 0;
-    world.experienceToNext = ctx.getServerExperienceRequirement(1); // 800
+    world.experienceToNext = ctx.getServerExperienceRequirement(1); // 775
 
-    // Burst 1: Add 5120 XP in one drop (Reqs: lvl 1->800, lvl 2->1120, lvl 3->1440, lvl 4->1760, lvl 5->2080; Total 800+1120+1440+1760=5120 XP for lvl 5, 0 left)
-    ctx.addServerExperience(room, 5120);
-    assert.equal(world.level, 5, "Should level up from 1 to 5 on 5120 XP drop");
-    assert.equal(world.experience, 0, "Remaining experience should be 0");
-    assert.equal(world.experienceToNext, ctx.getServerExperienceRequirement(5)); // 2080
-    assert.equal(world.pendingLevelUps, 4, "Should have 4 pending level ups");
+    // Burst 1: Add 2000 XP in one drop (Reqs: lvl 1->775, lvl 2->1110; Total 775+1110=1885 XP for lvl 3, 2000-1885=115 left)
+    ctx.addServerExperience(room, 2000);
+    assert.equal(world.level, 3, "Should level up from 1 to 3 on 2000 XP drop");
+    assert.equal(world.experience, 115, "Remaining experience should be 115");
+    assert.equal(world.experienceToNext, ctx.getServerExperienceRequirement(3)); // 1445
+    assert.equal(world.pendingLevelUps, 2, "Should have 2 pending level ups");
 
     // Burst 2: Add 1,000,000 XP in one call (Ultra mega stress)
     const startLevel = world.level;
@@ -553,13 +553,13 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
     // Emulate client addExperience logic
     let clientLevel = 1;
     let clientExp = 0;
-    let clientExpToNext = 800;
+    let clientExpToNext = 775;
     let clientPendingLevelUps = 0;
     let clientRerolls = 0;
 
     function clientGetExpReq(lvl) {
       const prog = Math.max(0, lvl - 1);
-      return Math.floor((10 + prog * 4 + Math.floor(prog / 5) * 5) * 80);
+      return 775 + prog * 335 + Math.floor(prog / 5) * 410;
     }
 
     function clientAddExperience(amount) {

@@ -356,11 +356,9 @@ function getServerExperienceRequirement(level) {
     level - 1
   );
 
-  return Math.floor(
-    (10 +
-      progression * 4 +
-      Math.floor(progression / 5) * 5) * 80
-  );
+  return 775 +
+    progression * 335 +
+    Math.floor(progression / 5) * 410;
 }
 
 
@@ -3141,26 +3139,28 @@ function getServerEnemyExperience(enemy) {
       enemy.bossTier || 1
     );
 
-    return 8 + bossTier * 2;
+    return 1050 + bossTier * 275;
   }
 
-  if (
-    enemy.type === "tank" ||
-    enemy.type === "charger" ||
-    enemy.type === "splitter" ||
-    enemy.type === "shooter"
-  ) {
-    return 2;
+  switch (enemy.type) {
+    case "tank":       return 275;
+    case "charger":    return 240;
+    case "splitter":   return 310;
+    case "shooter":    return 255;
+    case "incubator":  return 350;
+    case "phantom":    return 185;
+    case "magnetizer": return 195;
+    case "twin":       return 165;
+    case "runner":     return 115;
+    default:           return 125;
   }
-
-  return 1;
 }
 
 function createServerExperienceCrystal(
   world,
   x,
   y,
-  value = 132
+  value = 125
 ) {
   const angle =
     Math.random() * Math.PI * 2;
@@ -3200,16 +3200,14 @@ function dropServerExperience(
     return;
   }
 
-  const amount =
-    getServerEnemyExperience(enemy);
+  const xp = getServerEnemyExperience(enemy);
 
-  for (
-    let index = 0;
-    index < amount;
-    index++
-  ) {
-    createServerExperienceCrystal(world, enemy.x + random(-6, 6), enemy.y + random(-6, 6), 132);
-  }
+  createServerExperienceCrystal(
+    world,
+    enemy.x + random(-6, 6),
+    enemy.y + random(-6, 6),
+    xp
+  );
 }
 
 function registerServerRepairKill(player) {

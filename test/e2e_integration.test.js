@@ -30,38 +30,38 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
         const tier = Math.floor(wave / 5);
         const polynomialBaseHp = 48 + tier * 20 + tier * tier * 8;
         const coopHp = Math.round(polynomialBaseHp * 1.8);
-        const bossXp = 8 + tier * 2;
+        const bossXp = 1050 + tier * 275;
 
         assert.ok(tier >= 1, `Wave ${wave} produces valid boss tier`);
         assert.ok(coopHp >= 137, `Tier ${tier} Boss coop HP must be >= 137`);
-        assert.ok(bossXp >= 10, `Tier ${tier} Boss XP must be >= 10`);
+        assert.ok(bossXp >= 1325, `Tier ${tier} Boss XP must be >= 1325`);
 
         if (wave === 30) {
           // Requirement: Wave 30 Boss HP >= 800
           assert.ok(coopHp >= 800, `Wave 30 Boss HP must be >= 800 (calculated ${coopHp})`);
           assert.equal(coopHp, 821, "Wave 30 Boss HP with polynomial formula & 1.8x multiplier is exactly 821");
-          assert.equal(bossXp, 20, "Wave 30 Boss XP should be 20");
+          assert.equal(bossXp, 2700, "Wave 30 Boss XP should be 2700");
         }
       }
     }
   });
 
   await t.test("Tier 1.2: Smoothed stepped XP curve requirement calculation", () => {
-    // Formula: floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8)
+    // Formula: 775 + progression * 335 + Math.floor(progression / 5) * 410
     function getSmoothedXpRequirement(level) {
       const progression = Math.max(0, level - 1);
-      return Math.floor((10 + progression * 4 + Math.floor(progression / 5) * 5) * 0.8);
+      return 775 + progression * 335 + Math.floor(progression / 5) * 410;
     }
 
     const expectedXp = [
-      { level: 1, req: 8 },
-      { level: 2, req: 11 },
-      { level: 5, req: 20 },
-      { level: 6, req: 28 }, // progression = 5 -> floor(5/5)*5 = 5 step
-      { level: 10, req: 40 },
-      { level: 11, req: 48 }, // progression = 10 -> floor(10/5)*5 = 10 step
-      { level: 20, req: 80 },
-      { level: 30, req: 120 }
+      { level: 1, req: 775 },
+      { level: 2, req: 1110 },
+      { level: 5, req: 2115 },
+      { level: 6, req: 2860 }, // progression = 5 -> floor(5/5)*410 = 410 step
+      { level: 10, req: 4200 },
+      { level: 11, req: 4945 }, // progression = 10 -> floor(10/5)*410 = 820 step
+      { level: 20, req: 8370 },
+      { level: 30, req: 12540 }
     ];
 
     for (const exp of expectedXp) {
@@ -288,7 +288,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
         const bossTier = Math.floor(currentWave / 5);
         const polynomialBaseHp = 48 + bossTier * 20 + bossTier * bossTier * 8;
         const coopHp = Math.round(polynomialBaseHp * 1.8);
-        const bossXp = 8 + bossTier * 2;
+        const bossXp = 1050 + bossTier * 275;
 
         const boss = ctx.createServerEnemy(world, "boss", 640, 360, true);
         boss.bossTier = bossTier;
@@ -328,7 +328,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     assert.equal(bossTiersRecorded[5].wave, 30);
     assert.equal(bossTiersRecorded[5].tier, 6);
     assert.equal(bossTiersRecorded[5].hp, 821, "Wave 30 Boss HP must be 821 (>= 800)");
-    assert.equal(bossTiersRecorded[5].xp, 20);
+    assert.equal(bossTiersRecorded[5].xp, 2700);
   });
 
   await t.test("Tier 4: Workload 2 — Synergistic Upgrade Arsenal (Boomerang + Stun + Target Mark + Reactive Armor)", async () => {
@@ -549,18 +549,18 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     const { room, world, player1, player2 } = createTestWorld(ctx);
     world.level = 1;
     world.experience = 0;
-    world.experienceToNext = 8;
+    world.experienceToNext = 775;
     world.pendingLevelUps = 0;
     world.upgradePaused = false;
 
     // 1. Crystal collection -> Level Up
-    world.experience += 12;
+    world.experience += 800;
     if (world.experience >= world.experienceToNext) {
       world.experience -= world.experienceToNext;
       world.level = 2;
       world.pendingLevelUps = 1;
       world.upgradePaused = true;
-      world.experienceToNext = 11;
+      world.experienceToNext = 1110;
     }
 
     assert.equal(world.level, 2);
