@@ -598,10 +598,11 @@ function catchServerBullet(
   );
 
   if (world && (owner?.stats?.catchBlast || 0) > 0) {
+    const blastDmg = Math.max(75, Math.floor((owner.stats?.damage || 100) * (owner.stats?.catchBlastDamageRatio || 0.8)));
     for (const enemy of world.enemies.values()) {
       if (enemy && enemy.hasEnteredArena) {
         if (Math.hypot(owner.x - enemy.x, owner.y - enemy.y) <= owner.stats.catchBlast + enemy.r) {
-          damageServerEnemy(world, enemy.id, 75, owner);
+          damageServerEnemy(world, enemy.id, blastDmg, owner);
         }
       }
     }
@@ -1335,7 +1336,7 @@ function updateServerBullet(
     ) {
       enemy.stunTimer = Math.max(
         enemy.stunTimer || 0,
-        0.3
+        owner.stats?.stunDuration || 0.4
       );
     }
 
@@ -1344,7 +1345,8 @@ function updateServerBullet(
      */
     if ((owner.stats?.explosionRadius || 0) > 0) {
       const expRadius = owner.stats.explosionRadius;
-      const expDmg = Math.max(1, Math.floor((owner.stats?.damage || 100) * 0.5));
+      const expRatio = owner.stats?.explosionDamageRatio || 0.6;
+      const expDmg = Math.max(1, Math.floor((owner.stats?.damage || 100) * expRatio));
       for (const nearby of world.enemies.values()) {
         if (!nearby || nearby.id === enemy.id || !nearby.hasEnteredArena) continue;
         if (distance(enemy.x, enemy.y, nearby.x, nearby.y) <= expRadius + nearby.r) {
@@ -1359,6 +1361,7 @@ function updateServerBullet(
     if ((owner.stats?.chainCount || 0) > 0) {
       const maxChains = owner.stats.chainCount;
       const chainRange = owner.stats.chainRange || 140;
+      const chainRatio = owner.stats?.chainDamageRatio || 0.6;
       let chained = 0;
       let lastX = enemy.x;
       let lastY = enemy.y;
@@ -1379,7 +1382,7 @@ function updateServerBullet(
 
         if (!nextTarget) break;
         chainedSet.add(nextTarget.id);
-        const chainDmg = Math.floor((owner.stats?.damage || 100) * (owner.stats?.chainDamageRatio || 0.6));
+        const chainDmg = Math.max(1, Math.floor((owner.stats?.damage || 100) * chainRatio));
         damageServerEnemy(world, nextTarget.id, chainDmg, owner);
         lastX = nextTarget.x;
         lastY = nextTarget.y;
@@ -2467,13 +2470,42 @@ const SERVER_UPGRADES = [
   {
     id: "catch-blast",
     title: "Импульсный захват",
-    description: "Пойманная пуля создает импульсную волну, наносящую 75 урона ближайшим врагам.",
+    description: "Пойманная пуля создает импульсную волну, наносящую урон ближайшим врагам.",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.pierce || 0) <= 0;
+      return (player.stats?.pierce || 0) <= 0 && (player.stats?.catchBlast || 0) === 0;
     },
     bonus(player, power) {
-      const result = (player.stats.catchBlast || 0) + 65 * power;
-      return `+${65 * power} px к радиусу волны (75 урона, итог: ${result} px)`;
+      const result = 65 * power;
+      return `Волна радиусом ${result}px (80% урона пули)`;
+    }
+  },
+
+  {
+    id: "catch-blast-damage",
+    title: "Сила импульса",
+    description: "Увеличивает урон импульсной волны при ловле пули на +35% (макс. 250% урона пули).",
+    available(player) {
+      return Boolean((player.stats?.catchBlast || 0) > 0) && (player.stats?.catchBlastDamageRatio || 0.8) < 2.5;
+    },
+    bonus(player, power) {
+      const current = player.stats?.catchBlastDamageRatio || 0.8;
+      const result = Math.min(2.5, current + 0.35 * power);
+      return `+${Math.round((result - current) * 100)}% к урону волны (итог: ${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "catch-blast-radius",
+    title: "Радиус импульса",
+    description: "Увеличивает радиус поражения импульсной волны на +30px (макс. 220px).",
+    available(player) {
+      return Boolean((player.stats?.catchBlast || 0) > 0) && (player.stats?.catchBlast || 65) < 220;
+    },
+    bonus(player, power) {
+      const current = player.stats?.catchBlast || 65;
+      const result = Math.min(220, current + 30 * power);
+      return `+${result - current}px к радиусу волны (итог: ${result}px)`;
     }
   },
 
@@ -2485,7 +2517,7 @@ const SERVER_UPGRADES = [
       return (player.stats?.healEvery || 0) === 0 || player.stats.healEvery > 8;
     },
     bonus(player, power) {
-      const current = player.stats.healEvery || 0;
+      const current = player.stats?.healEvery || 0;
       let nextVal = 16;
       if (current === 0) {
         nextVal = power >= 3 ? 12 : power >= 2 ? 14 : 16;
@@ -2499,26 +2531,98 @@ const SERVER_UPGRADES = [
   {
     id: "explosive",
     title: "Разрывной сердечник",
-    description: "Попадание создаёт взрыв, наносящий 50% урона пули соседним врагам.",
+    description: "Попадание создаёт взрыв, наносящий урон соседним врагам.",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.pierce || 0) <= 0;
+      return (player.stats?.pierce || 0) <= 0 && (player.stats?.explosionRadius || 0) === 0;
     },
     bonus(player, power) {
-      const result = (player.stats.explosionRadius || 0) + 40 * power;
-      return `+${40 * power} px к радиусу взрыва (50% урона, итог: ${result} px)`;
+      const result = 40 * power;
+      return `Взрыв радиусом ${result}px (60% урона пули)`;
+    }
+  },
+
+  {
+    id: "explosion-damage",
+    title: "Ударная волна",
+    description: "Увеличивает урон взрыва пули на +25% (макс. 160% урона пули).",
+    available(player) {
+      return Boolean((player.stats?.explosionRadius || 0) > 0) && (player.stats?.explosionDamageRatio || 0.6) < 1.6;
+    },
+    bonus(player, power) {
+      const current = player.stats?.explosionDamageRatio || 0.6;
+      const result = Math.min(1.6, current + 0.25 * power);
+      return `+${Math.round((result - current) * 100)}% к урону взрыва (итог: ${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "explosion-radius",
+    title: "Радиус детонации",
+    description: "Увеличивает радиус взрыва пули на +30px (макс. 180px).",
+    available(player) {
+      return Boolean((player.stats?.explosionRadius || 0) > 0) && (player.stats?.explosionRadius || 40) < 180;
+    },
+    bonus(player, power) {
+      const current = player.stats?.explosionRadius || 40;
+      const result = Math.min(180, current + 30 * power);
+      return `+${result - current}px к радиусу взрыва (итог: ${result}px)`;
     }
   },
 
   {
     id: "chain-lightning",
     title: "Цепной конденсатор",
-    description: "Попадание выпускает цепной разряд в ближайших врагов (100 урона за цель).",
+    description: "Попадание выпускает цепной разряд в ближайших врагов.",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.pierce || 0) <= 0;
+      return (player.stats?.pierce || 0) <= 0 && (player.stats?.chainCount || 0) === 0;
     },
     bonus(player, power) {
-      const count = (player.stats.chainCount || 0) + power;
-      return `+${power} цепных целей по 100 урона (итог: ${count})`;
+      const count = 2 * power;
+      return `Цепь из ${count} дуг (60% урона пули)`;
+    }
+  },
+
+  {
+    id: "lightning-damage",
+    title: "Мощность разряда",
+    description: "Увеличивает урон цепной молнии на +25% (макс. 200% урона пули).",
+    available(player) {
+      return Boolean((player.stats?.chainCount || 0) > 0) && (player.stats?.chainDamageRatio || 0.6) < 2.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.chainDamageRatio || 0.6;
+      const result = Math.min(2.0, current + 0.25 * power);
+      return `+${Math.round((result - current) * 100)}% к урону молнии (итог: ${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "lightning-targets",
+    title: "Проводники цепи",
+    description: "Увеличивает количество поражаемых цепной молнией врагов на +2 (макс. 9).",
+    available(player) {
+      return Boolean((player.stats?.chainCount || 0) > 0) && (player.stats?.chainCount || 2) < 9;
+    },
+    bonus(player, power) {
+      const current = player.stats?.chainCount || 2;
+      const result = Math.min(9, current + 2 * power);
+      return `+${result - current} цели для молнии (итог: ${result})`;
+    }
+  },
+
+  {
+    id: "lightning-range",
+    title: "Радиус дуги",
+    description: "Увеличивает максимальную дистанцию перескока цепной молнии на +30px (макс. 260px).",
+    available(player) {
+      return Boolean((player.stats?.chainCount || 0) > 0) && (player.stats?.chainRange || 140) < 260;
+    },
+    bonus(player, power) {
+      const current = player.stats?.chainRange || 140;
+      const result = Math.min(260, current + 30 * power);
+      return `+${result - current}px к радиусу перескока (итог: ${result}px)`;
     }
   },
 
@@ -2535,14 +2639,41 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+25% за уровень, макс. 100%).",
+    description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+50% за уровень, макс. 150%).",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.boomerangPercent || 0) < 1.0;
+      return (player.stats?.groundPullSpeed || 0) > 0 && !player.stats?.boomerang;
     },
     bonus(player, power) {
-      const current = player.stats?.boomerangPercent || 0;
-      const result = current === 0 ? Math.min(1.0, 0.25 * power) : Math.min(1.0, current + 0.25 * power);
-      return `Урон при возврате: ${Math.round(result * 100)}% урона пули (макс. 100%)`;
+      return `Урон при возврате: 50% урона пули (пробивает врагов)`;
+    }
+  },
+
+  {
+    id: "boomerang-damage",
+    title: "Тяжёлый бумеранг",
+    description: "Увеличивает урон возвращающейся пули на +25% (макс. 150% урона пули).",
+    available(player) {
+      return Boolean(player.stats?.boomerang) && (player.stats?.boomerangPercent || 0.5) < 1.5;
+    },
+    bonus(player, power) {
+      const current = player.stats?.boomerangPercent || 0.5;
+      const result = Math.min(1.5, current + 0.25 * power);
+      return `+${Math.round((result - current) * 100)}% к урону бумеранга (итог: ${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "boomerang-speed",
+    title: "Турбо-магнит",
+    description: "Увеличивает скорость притягивания патронов бумерангом на +120 px/с.",
+    available(player) {
+      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 0) < 600;
+    },
+    bonus(player, power) {
+      const current = player.stats?.groundPullSpeed || 0;
+      const result = Math.min(600, current + 120 * power);
+      return `+${result - current} px/с к скорости возврата (итог: ${result} px/с)`;
     }
   },
 
@@ -2591,14 +2722,41 @@ const SERVER_UPGRADES = [
   {
     id: "stun",
     title: "Кинетический Удар",
-    description: "Попадание с шансом 5% за уровень оглушает врага на 0.3с (макс. 30%).",
+    description: "Попадание с шансом 10% оглушает врага на 0.4с.",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.stunChance || 0) < 0.30;
+      return !player.stats?.stun && (player.stats?.stunChance || 0) === 0;
     },
     bonus(player, power) {
-      const current = player.stats?.stunChance || 0;
-      const result = Math.min(0.30, current + 0.05 * power);
-      return `+${Math.round((result - current) * 100)}% шанс оглушения на 0.3с (итог: ${Math.round(result * 100)}%)`;
+      return `10% шанс оглушения на 0.4с (прерывает атаки)`;
+    }
+  },
+
+  {
+    id: "stun-chance",
+    title: "Частота оглушения",
+    description: "Увеличивает шанс оглушения врагов на +8% (макс. 45%).",
+    available(player) {
+      return Boolean(player.stats?.stun) && (player.stats?.stunChance || 0.10) < 0.45;
+    },
+    bonus(player, power) {
+      const current = player.stats?.stunChance || 0.10;
+      const result = Math.min(0.45, current + 0.08 * power);
+      return `+${Math.round((result - current) * 100)}% к шансу оглушения (итог: ${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "stun-duration",
+    title: "Глубокий шок",
+    description: "Увеличивает длительность оглушения на +0.3с (макс. 1.5с).",
+    available(player) {
+      return Boolean(player.stats?.stun) && (player.stats?.stunDuration || 0.4) < 1.5;
+    },
+    bonus(player, power) {
+      const current = player.stats?.stunDuration || 0.4;
+      const result = Number(Math.min(1.5, current + 0.3 * power).toFixed(1));
+      return `+${Number((result - current).toFixed(1))}с к длительности стана (итог: ${result}с)`;
     }
   },
 
@@ -2612,6 +2770,34 @@ const SERVER_UPGRADES = [
     },
     bonus(player, power) {
       return `Взрыв 120px при уроне, кулдаун 3с`;
+    }
+  },
+
+  {
+    id: "reactive-armor-radius",
+    title: "Область отражения",
+    description: "Увеличивает радиус защитного импульса брони на +30px (макс. 210px).",
+    available(player) {
+      return Boolean(player.stats?.reactiveArmor) && (player.stats?.reactiveArmorRadius || 120) < 210;
+    },
+    bonus(player, power) {
+      const current = player.stats?.reactiveArmorRadius || 120;
+      const result = Math.min(210, current + 30 * power);
+      return `+${result - current}px к радиусу импульса (итог: ${result}px)`;
+    }
+  },
+
+  {
+    id: "reactive-armor-cooldown",
+    title: "Быстрая перезарядка",
+    description: "Уменьшает время перезарядки реактивной брони на -0.5с (мин. 1.5с).",
+    available(player) {
+      return Boolean(player.stats?.reactiveArmor) && (player.stats?.reactiveArmorCooldownBase || 3.0) > 1.5;
+    },
+    bonus(player, power) {
+      const current = player.stats?.reactiveArmorCooldownBase || 3.0;
+      const result = Number(Math.max(1.5, current - 0.5 * power).toFixed(1));
+      return `-${Number((current - result).toFixed(1))}с перезарядки (итог: ${result}с)`;
     }
   },
 
@@ -2714,14 +2900,41 @@ const SERVER_UPGRADES = [
   {
     id: "target-mark",
     title: "Метка Цели",
-    description: "Первое попадание помечает врага на 4с (+5% урона за уровень, макс. +40%).",
+    description: "Первое попадание помечает врага на 4с (+40% входящего урона).",
+    fixedRarity: "rare",
     available(player) {
-      return (player.stats?.markBonus || 0) < 0.40;
+      return !player.stats?.targetMark && (player.stats?.markBonus || 0) === 0;
     },
     bonus(player, power) {
-      const current = player.stats?.markBonus || 0;
-      const result = Math.min(0.40, current + 0.05 * power);
-      return `+${Math.round((result - current) * 100)}% к урону по метке (итог: +${Math.round(result * 100)}%)`;
+      return `+40% урона по помеченному врагу на 4с`;
+    }
+  },
+
+  {
+    id: "mark-amplification",
+    title: "Уязвимость",
+    description: "Увеличивает бонус урона по помеченной цели на +15% (макс. +80%).",
+    available(player) {
+      return Boolean(player.stats?.targetMark) && (player.stats?.markBonus || 0.40) < 0.80;
+    },
+    bonus(player, power) {
+      const current = player.stats?.markBonus || 0.40;
+      const result = Math.min(0.80, current + 0.15 * power);
+      return `+${Math.round((result - current) * 100)}% к бонусу метки (итог: +${Math.round(result * 100)}%)`;
+    }
+  },
+
+  {
+    id: "mark-duration",
+    title: "Глубокая метка",
+    description: "Увеличивает длительность метки цели на +2.0с (макс. 10.0с).",
+    available(player) {
+      return Boolean(player.stats?.targetMark) && (player.stats?.markDuration || 4.0) < 10.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.markDuration || 4.0;
+      const result = Number(Math.min(10.0, current + 2.0 * power).toFixed(1));
+      return `+${Number((result - current).toFixed(1))}с к длительности метки (итог: ${result}с)`;
     }
   }
 ];
@@ -3038,13 +3251,14 @@ function damageServerPlayer(
 
   /*
    * Реактивная Броня: взрыв, отбрасывающий врагов
-   * в радиусе 120px. Кулдаун 3 секунды.
+   * в радиусе reactiveArmorRadius (базово 120px). Кулдаун 3 секунды.
    */
   if (
     coopPlayer.stats?.reactiveArmor &&
     (coopPlayer.reactiveArmorCooldown || 0) <= 0
   ) {
-    coopPlayer.reactiveArmorCooldown = 3.0;
+    coopPlayer.reactiveArmorCooldown = coopPlayer.stats?.reactiveArmorCooldownBase || 3.0;
+    const armorRadius = coopPlayer.stats?.reactiveArmorRadius || 120;
 
     for (const enemy of world.enemies.values()) {
       if (!enemy.hasEnteredArena) continue;
@@ -3054,7 +3268,7 @@ function damageServerPlayer(
         enemy.x, enemy.y
       );
 
-      if (dist <= 120 && dist > 0) {
+      if (dist <= armorRadius && dist > 0) {
         const pushForce = 180;
         const dx = enemy.x - coopPlayer.x;
         const dy = enemy.y - coopPlayer.y;
@@ -4443,6 +4657,15 @@ function applyServerUpgrade(
 
     case "catch-blast":
       player.stats.catchBlast = (player.stats.catchBlast || 0) + 65 * power;
+      player.stats.catchBlastDamageRatio = player.stats.catchBlastDamageRatio || 0.8;
+      break;
+
+    case "catch-blast-damage":
+      player.stats.catchBlastDamageRatio = Math.min(2.5, (player.stats.catchBlastDamageRatio || 0.8) + 0.35 * power);
+      break;
+
+    case "catch-blast-radius":
+      player.stats.catchBlast = Math.min(220, (player.stats.catchBlast || 65) + 30 * power);
       break;
 
     case "emergency-repair": {
@@ -4461,11 +4684,33 @@ function applyServerUpgrade(
 
     case "explosive":
       player.stats.explosionRadius = (player.stats.explosionRadius || 0) + 40 * power;
+      player.stats.explosionDamageRatio = player.stats.explosionDamageRatio || 0.6;
+      break;
+
+    case "explosion-damage":
+      player.stats.explosionDamageRatio = Math.min(1.6, (player.stats.explosionDamageRatio || 0.6) + 0.25 * power);
+      break;
+
+    case "explosion-radius":
+      player.stats.explosionRadius = Math.min(180, (player.stats.explosionRadius || 40) + 30 * power);
       break;
 
     case "chain-lightning":
-      player.stats.chainCount = (player.stats.chainCount || 0) + power;
-      player.stats.chainRange = (player.stats.chainRange || 140) + 15 * power;
+      player.stats.chainCount = (player.stats.chainCount || 0) + 2 * power;
+      player.stats.chainRange = player.stats.chainRange || 140;
+      player.stats.chainDamageRatio = player.stats.chainDamageRatio || 0.6;
+      break;
+
+    case "lightning-damage":
+      player.stats.chainDamageRatio = Math.min(2.0, (player.stats.chainDamageRatio || 0.6) + 0.25 * power);
+      break;
+
+    case "lightning-targets":
+      player.stats.chainCount = Math.min(9, (player.stats.chainCount || 2) + 2 * power);
+      break;
+
+    case "lightning-range":
+      player.stats.chainRange = Math.min(260, (player.stats.chainRange || 140) + 30 * power);
       break;
 
     case "pickup":
@@ -4480,9 +4725,17 @@ function applyServerUpgrade(
     case "boomerang": {
       player.stats.boomerang = true;
       const cur = player.stats.boomerangPercent || 0;
-      player.stats.boomerangPercent = cur === 0 ? Math.min(1.0, 0.25 * power) : Math.min(1.0, cur + 0.25 * power);
+      player.stats.boomerangPercent = cur === 0 ? Math.min(1.5, 0.50 * power) : Math.min(1.5, cur + 0.25 * power);
       break;
     }
+
+    case "boomerang-damage":
+      player.stats.boomerangPercent = Math.min(1.5, (player.stats.boomerangPercent || 0.50) + 0.25 * power);
+      break;
+
+    case "boomerang-speed":
+      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 0) + 120 * power);
+      break;
 
     case "splinter":
       player.stats.splinter = true;
@@ -4499,12 +4752,31 @@ function applyServerUpgrade(
       break;
 
     case "stun":
-      player.stats.stunChance = Math.min(0.30, (player.stats.stunChance || 0) + 0.05 * power);
-      player.stats.stun = player.stats.stunChance;
+      player.stats.stun = true;
+      player.stats.stunChance = Math.min(0.45, (player.stats.stunChance || 0) + (power >= 2 ? 0.15 : 0.10));
+      player.stats.stunDuration = player.stats.stunDuration || 0.4;
+      break;
+
+    case "stun-chance":
+      player.stats.stunChance = Math.min(0.45, (player.stats.stunChance || 0.10) + 0.08 * power);
+      break;
+
+    case "stun-duration":
+      player.stats.stunDuration = Number(Math.min(1.5, (player.stats.stunDuration || 0.4) + 0.3 * power).toFixed(1));
       break;
 
     case "reactive-armor":
       player.stats.reactiveArmor = true;
+      player.stats.reactiveArmorRadius = player.stats.reactiveArmorRadius || 120;
+      player.stats.reactiveArmorCooldownBase = player.stats.reactiveArmorCooldownBase || 3.0;
+      break;
+
+    case "reactive-armor-radius":
+      player.stats.reactiveArmorRadius = Math.min(210, (player.stats.reactiveArmorRadius || 120) + 30 * power);
+      break;
+
+    case "reactive-armor-cooldown":
+      player.stats.reactiveArmorCooldownBase = Number(Math.max(1.5, (player.stats.reactiveArmorCooldownBase || 3.0) - 0.5 * power).toFixed(1));
       break;
 
     case "poison":
@@ -4541,8 +4813,17 @@ function applyServerUpgrade(
       break;
 
     case "target-mark":
-      player.stats.markBonus = Math.min(0.40, (player.stats.markBonus || 0) + 0.05 * power);
       player.stats.targetMark = true;
+      player.stats.markBonus = Math.min(0.80, (player.stats.markBonus || 0) + (power >= 2 ? 0.40 : 0.40));
+      player.stats.markDuration = player.stats.markDuration || 4.0;
+      break;
+
+    case "mark-amplification":
+      player.stats.markBonus = Math.min(0.80, (player.stats.markBonus || 0.40) + 0.15 * power);
+      break;
+
+    case "mark-duration":
+      player.stats.markDuration = Number(Math.min(10.0, (player.stats.markDuration || 4.0) + 2.0 * power).toFixed(1));
       break;
 
     default:
@@ -4925,7 +5206,7 @@ function updateServerExperienceCrystals(
 
       addServerExperience(
         room,
-        Math.round(crystal.value * 1.2)
+        crystal.value
       );
     }
   }

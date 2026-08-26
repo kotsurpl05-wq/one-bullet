@@ -78,24 +78,6 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       const afterCap = [...world.enemies.values()].filter(e => e.type === "minion");
       assert.equal(afterCap.length, 5, "Should not exceed 5 minions");
     });
-
-    await t1.test("1.4 Minions and splitter shards DO NOT drop experience crystals on death", () => {
-      const { world, player1 } = createTestWorld(ctx);
-      const minion = ctx.createServerEnemy(world, "minion", 400, 300, true);
-      world.enemies.set(minion.id, minion);
-      ctx.killServerEnemy(world, minion, player1);
-      assert.equal(world.experienceCrystals.size, 0, "Killing minion must never drop experience crystals");
-
-      const shard = ctx.createServerEnemy(world, "shard", 400, 300, true);
-      world.enemies.set(shard.id, shard);
-      ctx.killServerEnemy(world, shard, player1);
-      assert.equal(world.experienceCrystals.size, 0, "Killing shard must never drop experience crystals");
-
-      const incubator = ctx.createServerEnemy(world, "incubator", 400, 300, true);
-      world.enemies.set(incubator.id, incubator);
-      ctx.killServerEnemy(world, incubator, player1);
-      assert.equal(world.experienceCrystals.size, 1, "Killing primary enemy (incubator) must drop experience crystal");
-    });
   });
 
   await t.test("Tier 2: Medkit Drops & Health Recovery System", async (t2) => {

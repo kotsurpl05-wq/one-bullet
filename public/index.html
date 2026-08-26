@@ -1615,9 +1615,76 @@
       border-radius: 5px;
     }
 
+    .pause-upgrade-card.family-card {
+      height: 62px;
+      min-width: 64px;
+      border-width: 1.5px;
+    }
+
+    .pause-corner-badge {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 2px;
+      box-sizing: border-box;
+      font-size: 8.5px;
+      font-weight: 900;
+      line-height: 1;
+      border-radius: 4px;
+      background: rgba(8, 14, 24, 0.94);
+      border: 1px solid rgba(126, 231, 255, 0.4);
+      color: #7ee7ff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .pause-corner-badge.tl { top: 3px; left: 3px; border-color: rgba(255, 202, 40, 0.7); color: #ffca28; }
+    .pause-corner-badge.tr { top: 3px; right: 3px; border-color: rgba(56, 189, 248, 0.7); color: #38bdf8; }
+    .pause-corner-badge.bl { bottom: 3px; left: 3px; border-color: rgba(189, 0, 255, 0.7); color: #bd00ff; }
+    .pause-corner-badge.br { bottom: 3px; right: 3px; border-color: rgba(74, 222, 128, 0.7); color: #4ade80; }
+
+    .tooltip-branch-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(126, 231, 255, 0.25);
+    }
+
+    .tooltip-branch-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      font-size: 11px;
+      line-height: 1.3;
+      color: #cbd5e1;
+    }
+
+    .tooltip-branch-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 3px;
+      font-size: 8.5px;
+      font-weight: 800;
+      border-radius: 3px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid currentColor;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
     .pause-upgrade-icon,
     .pause-rarity-mark,
-    .pause-upgrade-number {
+    .pause-upgrade-number,
+    .pause-corner-badge {
       pointer-events: none;
     }
 
@@ -4163,6 +4230,7 @@
       );
 
       if (stats.catchBlast > 0) {
+        const blastDmg = Math.max(75, Math.floor((stats.damage || 100) * (stats.catchBlastDamageRatio || 0.8)));
         for (let i = enemies.length - 1; i >= 0; i--) {
           const enemy = enemies[i];
         
@@ -4177,7 +4245,7 @@
             targetDistance <=
             stats.catchBlast + enemy.r
           ) {
-            damageEnemy(i, 1);
+            damageEnemy(i, blastDmg);
           }
         }
       
@@ -4605,13 +4673,14 @@
         PLAYER_HIT_INVULNERABILITY;
 
       /*
-       * Реактивная Броня: отбрасывает врагов в радиусе 120px.
+       * Реактивная Броня: отбрасывает врагов в радиусе reactiveArmorRadius (базово 120px).
        */
       if (
         stats.reactiveArmor &&
         (player.reactiveArmorCooldown || 0) <= 0
       ) {
-        player.reactiveArmorCooldown = 3.0;
+        player.reactiveArmorCooldown = stats.reactiveArmorCooldownBase || 3.0;
+        const armorRadius = stats.reactiveArmorRadius || 120;
 
         for (const nearby of enemies) {
           const dist = Math.hypot(
@@ -4619,7 +4688,7 @@
             nearby.y - player.y
           );
 
-          if (dist <= 120 && dist > 0.01) {
+          if (dist <= armorRadius && dist > 0.01) {
             const pushDx = (nearby.x - player.x) / dist;
             const pushDy = (nearby.y - player.y) / dist;
             const pushForce = 80;
@@ -4628,7 +4697,7 @@
           }
         }
 
-        createRing(player.x, player.y, 120, "#ff496c");
+        createRing(player.x, player.y, armorRadius, "#ff496c");
       }
     
       screenShake = Math.max(
@@ -7385,7 +7454,7 @@
         
           experienceCrystals.splice(i, 1);
         
-          addExperience(Math.round(crystalValue * 1.2));
+          addExperience(crystalValue);
         }
       }
     }
@@ -7661,12 +7730,34 @@
       },
       {
         title: "Импульсный захват",
-        description: "Пойманная пуля создает импульсную волну, наносящую 75 урона ближайшим врагам.",
+        description: "Пойманная пуля создает импульсную волну, наносящую урон ближайшим врагам.",
+        fixedRarity: "rare",
         available() {
-          return (stats.pierce || 0) <= 0;
+          return (stats.pierce || 0) <= 0 && (stats.catchBlast || 0) === 0;
         },
         applyWithPower(power) {
-          stats.catchBlast = (stats.catchBlast || 0) + 65 * power;
+          stats.catchBlast = 65 * power;
+          stats.catchBlastDamageRatio = 0.8;
+        }
+      },
+      {
+        title: "Сила импульса",
+        description: "Увеличивает урон импульсной волны при ловле пули на +35% (макс. 250% урона пули).",
+        available() {
+          return (stats.catchBlast || 0) > 0 && (stats.catchBlastDamageRatio || 0.8) < 2.5;
+        },
+        applyWithPower(power) {
+          stats.catchBlastDamageRatio = Math.min(2.5, (stats.catchBlastDamageRatio || 0.8) + 0.35 * power);
+        }
+      },
+      {
+        title: "Радиус импульса",
+        description: "Увеличивает радиус поражения импульсной волны на +30px (макс. 220px).",
+        available() {
+          return (stats.catchBlast || 0) > 0 && (stats.catchBlast || 65) < 220;
+        },
+        applyWithPower(power) {
+          stats.catchBlast = Math.min(220, (stats.catchBlast || 65) + 30 * power);
         }
       },
       {
@@ -7711,24 +7802,77 @@
       },
       {
         title: "Разрывной сердечник",
-        description: "Попадание создаёт взрыв, наносящий 50% урона пули соседним врагам.",
+        description: "Попадание создаёт взрыв, наносящий урон соседним врагам.",
+        fixedRarity: "rare",
+        available() {
+          return (stats.pierce || 0) <= 0 && (stats.explosionRadius || 0) === 0;
+        },
         applyWithPower(power) {
-          stats.explosionRadius =
-            getExplosionRadiusResult(
-              stats.explosionRadius,
-              power
-            );
+          stats.explosionRadius = 40 * power;
+          stats.explosionDamageRatio = 0.6;
+        }
+      },
+      {
+        title: "Ударная волна",
+        description: "Увеличивает урон взрыва пули на +25% (макс. 160% урона пули).",
+        available() {
+          return (stats.explosionRadius || 0) > 0 && (stats.explosionDamageRatio || 0.6) < 1.6;
+        },
+        applyWithPower(power) {
+          stats.explosionDamageRatio = Math.min(1.6, (stats.explosionDamageRatio || 0.6) + 0.25 * power);
+        }
+      },
+      {
+        title: "Радиус детонации",
+        description: "Увеличивает радиус взрыва пули на +30px (макс. 180px).",
+        available() {
+          return (stats.explosionRadius || 0) > 0 && (stats.explosionRadius || 40) < 180;
+        },
+        applyWithPower(power) {
+          stats.explosionRadius = Math.min(180, (stats.explosionRadius || 40) + 30 * power);
         }
       },
       {
         title: "Цепной конденсатор",
-        description: "Попадание выпускает цепной разряд в ближайших врагов (100 урона за цель).",
+        description: "Попадание выпускает цепной разряд в ближайших врагов.",
+        fixedRarity: "rare",
         available() {
-          return (stats.pierce || 0) <= 0;
+          return (stats.pierce || 0) <= 0 && (stats.chainCount || 0) === 0;
         },
         applyWithPower(power) {
-          stats.chainCount = (stats.chainCount || 0) + power;
-          stats.chainRange = (stats.chainRange || 0) + 12 * power;
+          stats.chainCount = 2 * power;
+          stats.chainRange = 140;
+          stats.chainDamageRatio = 0.6;
+        }
+      },
+      {
+        title: "Мощность разряда",
+        description: "Увеличивает урон цепной молнии на +25% (макс. 200% урона пули).",
+        available() {
+          return (stats.chainCount || 0) > 0 && (stats.chainDamageRatio || 0.6) < 2.0;
+        },
+        applyWithPower(power) {
+          stats.chainDamageRatio = Math.min(2.0, (stats.chainDamageRatio || 0.6) + 0.25 * power);
+        }
+      },
+      {
+        title: "Проводники цепи",
+        description: "Увеличивает количество поражаемых цепной молнией врагов на +2 (макс. 9).",
+        available() {
+          return (stats.chainCount || 0) > 0 && (stats.chainCount || 2) < 9;
+        },
+        applyWithPower(power) {
+          stats.chainCount = Math.min(9, (stats.chainCount || 2) + 2 * power);
+        }
+      },
+      {
+        title: "Радиус дуги",
+        description: "Увеличивает максимальную дистанцию перескока цепной молнии на +30px (макс. 260px).",
+        available() {
+          return (stats.chainCount || 0) > 0 && (stats.chainRange || 140) < 260;
+        },
+        applyWithPower(power) {
+          stats.chainRange = Math.min(260, (stats.chainRange || 140) + 30 * power);
         }
       },
       {
@@ -7757,14 +7901,35 @@
       },
       {
         title: "Эффект Бумеранга",
-        description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+25% за уровень, макс. 100%).",
+        description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+50% за уровень, макс. 150%).",
+        fixedRarity: "rare",
         available() {
-          return (stats.groundPullSpeed || 0) > 0 && (stats.boomerangPercent || 0) < 1.0;
+          return (stats.groundPullSpeed || 0) > 0 && !stats.boomerang;
         },
         applyWithPower(power) {
           stats.boomerang = true;
           const cur = stats.boomerangPercent || 0;
-          stats.boomerangPercent = cur === 0 ? Math.min(1.0, 0.25 * power) : Math.min(1.0, cur + 0.25 * power);
+          stats.boomerangPercent = cur === 0 ? Math.min(1.5, 0.50 * power) : Math.min(1.5, cur + 0.25 * power);
+        }
+      },
+      {
+        title: "Тяжёлый бумеранг",
+        description: "Увеличивает урон возвращающейся пули на +25% (макс. 150% урона пули).",
+        available() {
+          return Boolean(stats.boomerang) && (stats.boomerangPercent || 0.50) < 1.5;
+        },
+        applyWithPower(power) {
+          stats.boomerangPercent = Math.min(1.5, (stats.boomerangPercent || 0.50) + 0.25 * power);
+        }
+      },
+      {
+        title: "Турбо-магнит",
+        description: "Увеличивает скорость притягивания патронов бумерангом на +120 px/с.",
+        available() {
+          return Boolean(stats.boomerang) && (stats.groundPullSpeed || 0) < 600;
+        },
+        applyWithPower(power) {
+          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 0) + 120 * power);
         }
       },
       {
@@ -7802,12 +7967,35 @@
       },
       {
         title: "Кинетический Удар",
-        description: "Попадание с шансом 5% за уровень оглушает врага на 0.3с (макс. 30%).",
+        description: "Попадание с шансом 10% оглушает врага на 0.4с.",
+        fixedRarity: "rare",
         available() {
-          return (stats.stunChance || 0) < 0.30;
+          return !stats.stun && (stats.stunChance || 0) === 0;
         },
         applyWithPower(power) {
-          stats.stunChance = Math.min(0.30, (stats.stunChance || 0) + 0.05 * power);
+          stats.stun = true;
+          stats.stunChance = Math.min(0.45, (stats.stunChance || 0) + (power >= 2 ? 0.15 : 0.10));
+          stats.stunDuration = 0.4;
+        }
+      },
+      {
+        title: "Частота оглушения",
+        description: "Увеличивает шанс оглушения врагов на +8% (макс. 45%).",
+        available() {
+          return Boolean(stats.stun) && (stats.stunChance || 0.10) < 0.45;
+        },
+        applyWithPower(power) {
+          stats.stunChance = Math.min(0.45, (stats.stunChance || 0.10) + 0.08 * power);
+        }
+      },
+      {
+        title: "Глубокий шок",
+        description: "Увеличивает длительность оглушения на +0.3с (макс. 1.5с).",
+        available() {
+          return Boolean(stats.stun) && (stats.stunDuration || 0.4) < 1.5;
+        },
+        applyWithPower(power) {
+          stats.stunDuration = Number(Math.min(1.5, (stats.stunDuration || 0.4) + 0.3 * power).toFixed(1));
         }
       },
       {
@@ -7819,17 +8007,61 @@
         },
         apply() {
           stats.reactiveArmor = true;
+          stats.reactiveArmorRadius = 120;
+          stats.reactiveArmorCooldownBase = 3.0;
+        }
+      },
+      {
+        title: "Область отражения",
+        description: "Увеличивает радиус защитного импульса брони на +30px (макс. 210px).",
+        available() {
+          return Boolean(stats.reactiveArmor) && (stats.reactiveArmorRadius || 120) < 210;
+        },
+        applyWithPower(power) {
+          stats.reactiveArmorRadius = Math.min(210, (stats.reactiveArmorRadius || 120) + 30 * power);
+        }
+      },
+      {
+        title: "Быстрая перезарядка",
+        description: "Уменьшает время перезарядки реактивной брони на -0.5с (мин. 1.5с).",
+        available() {
+          return Boolean(stats.reactiveArmor) && (stats.reactiveArmorCooldownBase || 3.0) > 1.5;
+        },
+        applyWithPower(power) {
+          stats.reactiveArmorCooldownBase = Number(Math.max(1.5, (stats.reactiveArmorCooldownBase || 3.0) - 0.5 * power).toFixed(1));
         }
       },
       {
         title: "Метка Цели",
-        description: "Первое попадание помечает врага на 4с (+5% урона за уровень, макс. +40%).",
+        description: "Первое попадание помечает врага на 4с (+40% входящего урона).",
+        fixedRarity: "rare",
         available() {
-          return (stats.markBonus || 0) < 0.40;
+          return !stats.targetMark && (stats.markBonus || 0) === 0;
         },
         applyWithPower(power) {
-          stats.markBonus = Math.min(0.40, (stats.markBonus || 0) + 0.05 * power);
           stats.targetMark = true;
+          stats.markBonus = Math.min(0.80, (stats.markBonus || 0) + (power >= 2 ? 0.40 : 0.40));
+          stats.markDuration = 4.0;
+        }
+      },
+      {
+        title: "Уязвимость",
+        description: "Увеличивает бонус урона по помеченной цели на +15% (макс. +80%).",
+        available() {
+          return Boolean(stats.targetMark) && (stats.markBonus || 0.40) < 0.80;
+        },
+        applyWithPower(power) {
+          stats.markBonus = Math.min(0.80, (stats.markBonus || 0.40) + 0.15 * power);
+        }
+      },
+      {
+        title: "Глубокая метка",
+        description: "Увеличивает длительность метки цели на +2.0с (макс. 10.0с).",
+        available() {
+          return Boolean(stats.targetMark) && (stats.markDuration || 4.0) < 10.0;
+        },
+        applyWithPower(power) {
+          stats.markDuration = Number(Math.min(10.0, (stats.markDuration || 4.0) + 2.0 * power).toFixed(1));
         }
       },
       {
@@ -8584,7 +8816,22 @@
       "Шанс паразита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8" stroke="#bd00ff"/><path d="M9 12l2 2 4-4" stroke="#bd00ff"/></svg>`,
       "Количество паразитов": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3" fill="#bd00ff"/><circle cx="17" cy="8" r="2.5" fill="#bd00ff"/><circle cx="16" cy="17" r="2.5" fill="#bd00ff"/></svg>`,
       "Урон паразита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#bd00ff"/></svg>`,
-      "Запасной патрон": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><rect x="13.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><line x1="4.5" y1="12.5" x2="10.5" y2="12.5"/><line x1="13.5" y1="12.5" x2="19.5" y2="12.5"/></svg>`
+      "Запасной патрон": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><rect x="13.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><line x1="4.5" y1="12.5" x2="10.5" y2="12.5"/><line x1="13.5" y1="12.5" x2="19.5" y2="12.5"/></svg>`,
+      "Мощность разряда": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#ffca28" fill-opacity="0.3"/></svg>`,
+      "Проводники цепи": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="12" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="16"/></svg>`,
+      "Радиус дуги": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5" stroke-dasharray="2 2"/></svg>`,
+      "Ударная волна": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff5722" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="#ff5722"/></svg>`,
+      "Радиус детонации": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff5722" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+      "Сила импульса": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7" fill="#00f2fe" fill-opacity="0.3"/><polygon points="12 2 15 8 21 9 17 14 18 20 12 17 6 20 7 14 3 9 9 8 12 2"/></svg>`,
+      "Радиус импульса": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"/></svg>`,
+      "Тяжёлый бумеранг": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"><path d="M12 2a10 10 0 0 0-7 17l5-5a3 3 0 0 1 2-2z" fill="#38bdf8" fill-opacity="0.3"/></svg>`,
+      "Турбо-магнит": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><polyline points="13 14 16 11 13 8"/></svg>`,
+      "Частота оглушения": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
+      "Глубокий шок": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9 12h6M12 9v6"/></svg>`,
+      "Область отражения": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="4"/></svg>`,
+      "Быстрая перезарядка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
+      "Уязвимость": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>`,
+      "Глубокая метка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#ff1f4b"/></svg>`
     };
 
     function getUpgradeIcon(title) {
@@ -17244,34 +17491,239 @@
       });
     }
 
+    const ABILITY_FAMILIES_DEF = {
+      "chain-lightning": {
+        id: "chain-lightning",
+        title: "Цепной конденсатор",
+        baseIds: ["chain-lightning", "Цепной конденсатор"],
+        branches: [
+          { id: "lightning-damage", title: "Мощность разряда", slot: "tl", icon: "💥", color: "#ffca28" },
+          { id: "lightning-targets", title: "Проводники цепи", slot: "tr", icon: "🔗", color: "#ffca28" },
+          { id: "lightning-range", title: "Радиус дуги", slot: "bl", icon: "📡", color: "#ffca28" }
+        ]
+      },
+      "explosive": {
+        id: "explosive",
+        title: "Разрывной сердечник",
+        baseIds: ["explosive", "Разрывной сердечник"],
+        branches: [
+          { id: "explosion-damage", title: "Ударная волна", slot: "tl", icon: "💥", color: "#ff5722" },
+          { id: "explosion-radius", title: "Радиус детонации", slot: "tr", icon: "⭕", color: "#ff5722" }
+        ]
+      },
+      "catch-blast": {
+        id: "catch-blast",
+        title: "Импульсный захват",
+        baseIds: ["catch-blast", "Импульсный захват"],
+        branches: [
+          { id: "catch-blast-damage", title: "Сила импульса", slot: "tl", icon: "💥", color: "#00f2fe" },
+          { id: "catch-blast-radius", title: "Радиус импульса", slot: "tr", icon: "⭕", color: "#00f2fe" }
+        ]
+      },
+      "poison": {
+        id: "poison",
+        title: "Ядовитая пуля",
+        baseIds: ["poison", "Ядовитая пуля"],
+        branches: [
+          { id: "poison-damage", title: "Урон яда", slot: "tl", icon: "☠️", color: "#39ff14" },
+          { id: "poison-duration", title: "Длительность яда", slot: "tr", icon: "⏱️", color: "#39ff14" }
+        ]
+      },
+      "parasite": {
+        id: "parasite",
+        title: "Пуля с паразитом",
+        baseIds: ["parasite", "Пуля с паразитом"],
+        branches: [
+          { id: "parasite-chance", title: "Шанс паразита", slot: "tl", icon: "🎲", color: "#bd00ff" },
+          { id: "parasite-count", title: "Количество паразитов", slot: "tr", icon: "🐛", color: "#bd00ff" },
+          { id: "parasite-damage", title: "Урон паразита", slot: "bl", icon: "💥", color: "#bd00ff" }
+        ]
+      },
+      "boomerang": {
+        id: "boomerang",
+        title: "Эффект Бумеранга",
+        baseIds: ["boomerang", "Эффект Бумеранга"],
+        branches: [
+          { id: "boomerang-damage", title: "Тяжёлый бумеранг", slot: "tl", icon: "💥", color: "#38bdf8" },
+          { id: "boomerang-speed", title: "Турбо-магнит", slot: "tr", icon: "⚡", color: "#38bdf8" }
+        ]
+      },
+      "splinter": {
+        id: "splinter",
+        title: "Осколочный Рикошет",
+        baseIds: ["splinter", "Осколочный Рикошет"],
+        branches: [
+          { id: "splinter-count", title: "Количество осколков", slot: "tl", icon: "🔢", color: "#00f2fe" },
+          { id: "splinter-damage", title: "Урон осколков", slot: "tr", icon: "💥", color: "#00f2fe" }
+        ]
+      },
+      "stun": {
+        id: "stun",
+        title: "Кинетический Удар",
+        baseIds: ["stun", "Кинетический Удар"],
+        branches: [
+          { id: "stun-chance", title: "Частота оглушения", slot: "tl", icon: "🎲", color: "#facc15" },
+          { id: "stun-duration", title: "Глубокий шок", slot: "tr", icon: "⏱️", color: "#facc15" }
+        ]
+      },
+      "reactive-armor": {
+        id: "reactive-armor",
+        title: "Реактивная Броня",
+        baseIds: ["reactive-armor", "Реактивная Броня"],
+        branches: [
+          { id: "reactive-armor-radius", title: "Область отражения", slot: "tl", icon: "⭕", color: "#4ade80" },
+          { id: "reactive-armor-cooldown", title: "Быстрая перезарядка", slot: "tr", icon: "⚡", color: "#4ade80" }
+        ]
+      },
+      "target-mark": {
+        id: "target-mark",
+        title: "Метка Цели",
+        baseIds: ["target-mark", "Метка Цели"],
+        branches: [
+          { id: "mark-amplification", title: "Уязвимость", slot: "tl", icon: "📈", color: "#ff1f4b" },
+          { id: "mark-duration", title: "Глубокая метка", slot: "tr", icon: "⏱️", color: "#ff1f4b" }
+        ]
+      }
+    };
+
+    function findFamilyForUpgrade(idOrTitle) {
+      if (!idOrTitle) return null;
+      for (const [famKey, fam] of Object.entries(ABILITY_FAMILIES_DEF)) {
+        if (fam.baseIds.includes(idOrTitle)) {
+          return { famKey, fam, isBase: true };
+        }
+        const branch = fam.branches.find(b => b.id === idOrTitle || b.title === idOrTitle);
+        if (branch) {
+          return { famKey, fam, isBase: false, branch };
+        }
+      }
+      return null;
+    }
+
     function groupUpgradesList(list) {
       if (!Array.isArray(list) || list.length === 0) return [];
-      const map = new Map();
+      const familyMap = new Map();
+      const nonFamilyMap = new Map();
+
       for (const item of list) {
-        const key = item.upgradeId || item.id || item.title;
-        if (!map.has(key)) {
-          map.set(key, {
-            id: key,
-            title: item.title,
-            description: item.description,
-            icon: getUpgradeIcon(item.title),
-            rarityKey: item.rarityKey || item.rarity?.key || "common",
-            rarityLabel: item.rarityLabel || item.rarity?.label || "ОБЫЧНОЕ",
-            bonusText: item.bonusText,
-            totalPower: item.power || 1,
-            count: 1
-          });
+        const rawKey = item.upgradeId || item.id || item.title;
+        const match = findFamilyForUpgrade(rawKey);
+
+        if (match) {
+          const { famKey, fam, isBase, branch } = match;
+          if (!familyMap.has(famKey)) {
+            familyMap.set(famKey, {
+              isFamily: true,
+              familyId: famKey,
+              title: fam.title,
+              description: isBase ? (item.description || fam.title) : "",
+              icon: getUpgradeIcon(fam.title),
+              rarityKey: "rare",
+              rarityLabel: "РЕДКОЕ",
+              baseActive: isBase,
+              basePower: isBase ? (item.power || 1) : 1,
+              totalPower: item.power || 1,
+              branchLevels: { tl: 0, tr: 0, bl: 0, br: 0 },
+              branchDetails: []
+            });
+          }
+          const fObj = familyMap.get(famKey);
+          if (isBase) {
+            fObj.baseActive = true;
+            fObj.basePower = item.power || 1;
+            if (item.description) fObj.description = item.description;
+            if (item.rarityKey) {
+              fObj.rarityKey = item.rarityKey;
+              fObj.rarityLabel = item.rarityLabel || "РЕДКОЕ";
+            }
+          } else if (branch) {
+            const p = item.power || 1;
+            fObj.branchLevels[branch.slot] = (fObj.branchLevels[branch.slot] || 0) + p;
+            const existingBranch = fObj.branchDetails.find(b => b.id === branch.id);
+            if (existingBranch) {
+              existingBranch.level += p;
+              if (item.bonusText) existingBranch.bonusText = item.bonusText;
+            } else {
+              fObj.branchDetails.push({
+                id: branch.id,
+                title: branch.title,
+                slot: branch.slot,
+                icon: branch.icon,
+                color: branch.color,
+                level: p,
+                bonusText: item.bonusText || item.description || `Ур. ${p}`
+              });
+            }
+          }
         } else {
-          const ex = map.get(key);
-          ex.totalPower += (item.power || 1);
-          ex.count += 1;
-          if (item.rarityKey === "legendary" || (item.rarityKey === "rare" && ex.rarityKey === "common")) {
-            ex.rarityKey = item.rarityKey;
-            ex.rarityLabel = item.rarityLabel;
+          if (!nonFamilyMap.has(rawKey)) {
+            nonFamilyMap.set(rawKey, {
+              isFamily: false,
+              id: rawKey,
+              title: item.title,
+              description: item.description,
+              icon: getUpgradeIcon(item.title),
+              rarityKey: item.rarityKey || item.rarity?.key || "common",
+              rarityLabel: item.rarityLabel || item.rarity?.label || "ОБЫЧНОЕ",
+              bonusText: item.bonusText,
+              totalPower: item.power || 1,
+              count: 1
+            });
+          } else {
+            const ex = nonFamilyMap.get(rawKey);
+            ex.totalPower += (item.power || 1);
+            ex.count += 1;
+            if (item.rarityKey === "legendary" || (item.rarityKey === "rare" && ex.rarityKey === "common")) {
+              ex.rarityKey = item.rarityKey;
+              ex.rarityLabel = item.rarityLabel;
+            }
           }
         }
       }
-      return Array.from(map.values());
+
+      return [...familyMap.values(), ...nonFamilyMap.values()];
+    }
+
+    function renderPauseUpgradeCardHtml(entry, group, index) {
+      const rarityKey = entry.rarityKey || "common";
+      const iconHtml = entry.icon || getUpgradeIcon(entry.title);
+
+      if (entry.isFamily) {
+        const badgesHtml = [
+          entry.branchLevels.tl > 0 ? `<span class="pause-corner-badge tl">${entry.branchLevels.tl}</span>` : "",
+          entry.branchLevels.tr > 0 ? `<span class="pause-corner-badge tr">${entry.branchLevels.tr}</span>` : "",
+          entry.branchLevels.bl > 0 ? `<span class="pause-corner-badge bl">${entry.branchLevels.bl}</span>` : "",
+          entry.branchLevels.br > 0 ? `<span class="pause-corner-badge br">${entry.branchLevels.br}</span>` : ""
+        ].join("");
+
+        return `
+          <button
+            type="button"
+            class="pause-upgrade-card family-card ${escapeHtml(rarityKey)}"
+            data-coop-history-group="${group}"
+            data-history-index="${index}"
+            aria-label="${escapeHtml(entry.title)}"
+          >
+            <span class="pause-rarity-mark"></span>
+            ${badgesHtml}
+            <span class="pause-upgrade-icon">${iconHtml}</span>
+          </button>
+        `;
+      }
+
+      return `
+        <button
+          type="button"
+          class="pause-upgrade-card ${escapeHtml(rarityKey)}"
+          data-coop-history-group="${group}"
+          data-history-index="${index}"
+          aria-label="${escapeHtml(entry.title)}"
+        >
+          <span class="pause-rarity-mark"></span>
+          <span class="pause-upgrade-icon">${iconHtml}</span>
+          ${entry.totalPower > 1 ? `<span class="pause-upgrade-number">×${entry.totalPower}</span>` : ""}
+        </button>
+      `;
     }
 
     function renderPauseUpgradeCards() {
@@ -17321,21 +17773,7 @@
               pauseTeammateUpgradeGrid.innerHTML = `<div class="pause-empty-upgrades" style="font-size: 12px; margin: 4px 0; opacity: 0.6; grid-column: 1 / -1;">Улучшений нет</div>`;
             } else {
               pauseTeammateUpgradeGrid.innerHTML = mateGrouped.map((entry, idx) => {
-                const rarityKey = entry.rarityKey || "common";
-                const iconHtml = getUpgradeIcon(entry.title);
-                return `
-                  <button
-                    type="button"
-                    class="pause-upgrade-card ${escapeHtml(rarityKey)}"
-                    data-coop-history-group="teammate"
-                    data-history-index="${idx}"
-                    aria-label="${escapeHtml(entry.title || '')}"
-                  >
-                    <span class="pause-rarity-mark"></span>
-                    <span class="pause-upgrade-icon">${iconHtml}</span>
-                    ${entry.totalPower > 1 ? `<span class="pause-upgrade-number">×${entry.totalPower}</span>` : ""}
-                  </button>
-                `;
+                return renderPauseUpgradeCardHtml(entry, "teammate", idx);
               }).join("");
             }
           }
@@ -17359,22 +17797,7 @@
 
       pauseUpgradeCards.innerHTML = myGrouped
         .map((entry, index) => {
-          const rarityKey = entry.rarityKey || "common";
-          const iconHtml = getUpgradeIcon(entry.title);
-
-          return `
-            <button
-              type="button"
-              class="pause-upgrade-card ${escapeHtml(rarityKey)}"
-              data-coop-history-group="me"
-              data-history-index="${index}"
-              aria-label="${escapeHtml(entry.title)}"
-            >
-              <span class="pause-rarity-mark"></span>
-              <span class="pause-upgrade-icon">${iconHtml}</span>
-              ${entry.totalPower > 1 ? `<span class="pause-upgrade-number">×${entry.totalPower}</span>` : ""}
-            </button>
-          `;
+          return renderPauseUpgradeCardHtml(entry, "me", index);
         })
         .join("");
 
@@ -17515,21 +17938,6 @@
         const localPlayer = coopSession.players.get(localId);
         const teammate = [...coopSession.players.values()].find(p => p.id !== localId);
 
-        function groupUpgradesList(list) {
-          if (!Array.isArray(list) || list.length === 0) return [];
-          const map = new Map();
-          for (const item of list) {
-            const key = item.upgradeId || item.id || item.title;
-            if (!map.has(key)) {
-              map.set(key, { ...item, totalPower: item.power || 1 });
-            } else {
-              const ex = map.get(key);
-              ex.totalPower = (ex.totalPower || 1) + (item.power || 1);
-            }
-          }
-          return Array.from(map.values());
-        }
-
         if (group === "me") {
           const raw = (localPlayer?.selectedUpgrades && localPlayer.selectedUpgrades.length > 0)
             ? localPlayer.selectedUpgrades
@@ -17538,10 +17946,10 @@
         } else if (group === "teammate") {
           entry = groupUpgradesList(teammate?.selectedUpgrades || [])[index];
         } else {
-          entry = selectedUpgradeHistory[index];
+          entry = groupUpgradesList(selectedUpgradeHistory)[index];
         }
       } else {
-        entry = selectedUpgradeHistory[index];
+        entry = groupUpgradesList(selectedUpgradeHistory)[index];
       }
     
       if (!entry) {
@@ -17559,29 +17967,62 @@
         "Описание отсутствует.";
     
       const bonusText =
-        entry.bonusText ||
-        "Точное значение бонуса не сохранено.";
+        entry.bonusText || "";
     
-      upgradeTooltip.className =
-        `upgrade-tooltip ${rarityKey}`;
-    
-      upgradeTooltip.innerHTML = `
-        <div class="tooltip-rarity">
-          ${escapeHtml(rarityLabel)}
-        </div>
-      
-        <div class="tooltip-title">
-          ${escapeHtml(entry.title)}
-        </div>
-      
-        <div class="tooltip-description">
-          ${escapeHtml(description)}
-        </div>
-      
-        <div class="tooltip-bonus">
-          (${escapeHtml(bonusText)})
-        </div>
-      `;
+      if (entry.isFamily) {
+        upgradeTooltip.className = `upgrade-tooltip ${rarityKey}`;
+        upgradeTooltip.innerHTML = `
+          <div class="tooltip-rarity">
+            ${escapeHtml(rarityLabel)} • СПОСОБНОСТЬ
+          </div>
+        
+          <div class="tooltip-title" style="display:flex; align-items:center; gap:8px;">
+            <span>${escapeHtml(entry.title)}</span>
+          </div>
+        
+          <div class="tooltip-description">
+            ${escapeHtml(entry.description || "Основная способность активирована.")}
+          </div>
+
+          ${entry.branchDetails.length > 0 ? `
+            <div class="tooltip-branch-list">
+              <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #7ee7ff; margin-bottom: 2px;">
+                Ветки прокачки:
+              </div>
+              ${entry.branchDetails.map(b => `
+                <div class="tooltip-branch-row">
+                  <span class="tooltip-branch-badge" style="color: ${b.color || '#7ee7ff'};">${b.slot.toUpperCase()}:${b.level}</span>
+                  <div>
+                    <b style="color: #f1f5f9;">${escapeHtml(b.title)}:</b>
+                    <span style="color: #94a3b8;">${escapeHtml(b.bonusText || `Ур. ${b.level}`)}</span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          ` : `
+            <div style="font-size: 11px; color: #64748b; margin-top: 6px; font-style: italic;">
+              Ветки прокачки ещё не открыты
+            </div>
+          `}
+        `;
+      } else {
+        upgradeTooltip.className = `upgrade-tooltip ${rarityKey}`;
+        upgradeTooltip.innerHTML = `
+          <div class="tooltip-rarity">
+            ${escapeHtml(rarityLabel)}
+          </div>
+        
+          <div class="tooltip-title">
+            ${escapeHtml(entry.title)}
+          </div>
+        
+          <div class="tooltip-description">
+            ${escapeHtml(description)}
+          </div>
+        
+          ${bonusText ? `<div class="tooltip-bonus">(${escapeHtml(bonusText)})</div>` : ""}
+        `;
+      }
       
       upgradeTooltip.classList.remove("hidden");
       

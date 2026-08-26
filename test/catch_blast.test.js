@@ -1,4 +1,4 @@
-﻿const test = require("node:test");
+const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadServerInstance } = require("./helpers/server_loader.js");
 const { createTestWorld } = require("./helpers/test_utils.js");
@@ -26,7 +26,7 @@ test("R2.1 catchBlast Upgrade Suite", async (t) => {
 
     ctx.catchServerBullet(bullet, player, world);
 
-    assert.equal(enemy.hp, 225, "Enemy hp should decrease by 1");
+    assert.equal(enemy.hp, 220, "Enemy hp should decrease by 80 (80% ratio)");
     assert.equal(bullet.state, "held", "Bullet state should transition to held");
   });
 
@@ -53,7 +53,7 @@ test("R2.1 catchBlast Upgrade Suite", async (t) => {
     ctx.catchServerBullet(bullet, player, world);
 
     for (let i = 0; i < enemies.length; i++) {
-      assert.equal(enemies[i].hp, 225, `Enemy ${i} should have taken 1 damage`);
+      assert.equal(enemies[i].hp, 220, `Enemy ${i} should have taken 80 damage`);
     }
   });
 
@@ -100,7 +100,7 @@ test("R2.1 catchBlast Upgrade Suite", async (t) => {
 
     ctx.catchServerBullet(bullet, player, world);
 
-    assert.equal(edgeEnemy.hp, 225, "Edge enemy exactly at boundary <= blast+r should take 1 damage");
+    assert.equal(edgeEnemy.hp, 220, "Edge enemy exactly at boundary <= blast+r should take 80 damage");
     assert.equal(outsideEnemy.hp, 300, "Outside enemy > blast+r should take 0 damage");
   });
 
