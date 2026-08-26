@@ -40,7 +40,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(minion.speed >= 130, `Minion speed should be >= 130, got ${minion.speed}`);
     });
 
-    await t1.test("1.3 Incubator periodically spawns 2-3 minions after 4.5s countdown", () => {
+    await t1.test("1.3 Incubator spawns 1 minion after 4.5s countdown (max 5 alive)", () => {
       const { world } = createTestWorld(ctx);
       world.wave = 6;
       const incubator = ctx.createServerEnemy(world, "incubator", 400, 300, true);
@@ -53,14 +53,30 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       // Advance by 0.2s -> triggers minion spawn
       ctx.updateServerEnemies(world, 0.2);
 
-      assert.ok(
-        world.enemies.size >= 3,
-        `World enemies count must be >= 3 (1 incubator + 2-3 minions), got ${world.enemies.size}`
+      assert.equal(
+        world.enemies.size,
+        2,
+        `World enemies count must be 2 (1 incubator + 1 minion), got ${world.enemies.size}`
       );
 
       const minions = [...world.enemies.values()].filter(e => e.type === "minion");
-      assert.ok(minions.length >= 2, `Must have spawned at least 2 minions, got ${minions.length}`);
+      assert.equal(minions.length, 1, `Must have spawned exactly 1 minion, got ${minions.length}`);
+      assert.equal(minions[0].parentId, incubator.id, "Minion must track parent incubator id");
       assert.equal(incubator.spawnTimer, 4.5, "spawnTimer should reset back to 4.5s");
+
+      // Spawn 4 more minions (total 5) then verify cap
+      for (let i = 0; i < 4; i++) {
+        incubator.spawnTimer = 0.01;
+        ctx.updateServerEnemies(world, 0.1);
+      }
+      const allMinions = [...world.enemies.values()].filter(e => e.type === "minion");
+      assert.equal(allMinions.length, 5, "Should cap at 5 living minions");
+
+      // Try to spawn another — count stays at 5
+      incubator.spawnTimer = 0.01;
+      ctx.updateServerEnemies(world, 0.1);
+      const afterCap = [...world.enemies.values()].filter(e => e.type === "minion");
+      assert.equal(afterCap.length, 5, "Should not exceed 5 minions");
     });
   });
 

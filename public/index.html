@@ -4196,7 +4196,7 @@
     function createExperienceCrystal(
       x,
       y,
-      value = 110
+      value = 132
     ) {
       const angle =
         Math.random() * Math.PI * 2;
@@ -4281,11 +4281,16 @@
     }
 
     function dropExperienceCrystals(enemy) {
+      // Миньоны (от инкубатора) и осколки (от сплитера) не дропают опыт
+      if (enemy.type === "shard" || enemy.type === "minion") {
+        return;
+      }
+
       const amount =
         getEnemyExperienceAmount(enemy);
-    
+
       for (let i = 0; i < amount; i++) {
-        createExperienceCrystal(enemy.x + random(-5, 5), enemy.y + random(-5, 5), 110);
+        createExperienceCrystal(enemy.x + random(-5, 5), enemy.y + random(-5, 5), 132);
       }
     }
 

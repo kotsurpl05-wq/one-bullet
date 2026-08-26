@@ -3160,7 +3160,7 @@ function createServerExperienceCrystal(
   world,
   x,
   y,
-  value = 110
+  value = 132
 ) {
   const angle =
     Math.random() * Math.PI * 2;
@@ -3195,6 +3195,11 @@ function dropServerExperience(
   world,
   enemy
 ) {
+  // Миньоны (от инкубатора) и осколки (от сплитера) не дропают опыт
+  if (enemy.type === "shard" || enemy.type === "minion") {
+    return;
+  }
+
   const amount =
     getServerEnemyExperience(enemy);
 
@@ -3203,7 +3208,7 @@ function dropServerExperience(
     index < amount;
     index++
   ) {
-    createServerExperienceCrystal(world, enemy.x + random(-6, 6), enemy.y + random(-6, 6), 110);
+    createServerExperienceCrystal(world, enemy.x + random(-6, 6), enemy.y + random(-6, 6), 132);
   }
 }
 
@@ -3843,14 +3848,20 @@ function updateServerEnemies(
     }
 
     /*
-     * Инкубатор: каждые 4.5 секунды порождает рой из 2-3 быстрых личинок (minion).
+     * Инкубатор: каждые 4.5 секунды порождает 1 личинку (minion), максимум 5 живых.
      */
     if (enemy.type === "incubator" && enemy.hasEnteredArena && enemy.hp > 0 && (enemy.stunTimer || 0) <= 0) {
       enemy.spawnTimer = (enemy.spawnTimer || 4.5) - dt;
       if (enemy.spawnTimer <= 0) {
         enemy.spawnTimer = 4.5;
-        const spawnCount = 2 + Math.floor(Math.random() * 2); // 2-3 личинки
-        for (let m = 0; m < spawnCount; m++) {
+        // Считаем живых миньонов этого инкубатора
+        let livingMinions = 0;
+        for (const e of world.enemies.values()) {
+          if (e.type === "minion" && e.parentId === enemy.id && e.hp > 0) {
+            livingMinions++;
+          }
+        }
+        if (livingMinions < 5) {
           const angle = Math.random() * Math.PI * 2;
           const dist = 28 + Math.random() * 16;
           const mx = clamp(enemy.x + Math.cos(angle) * dist, 20, COOP_WORLD_WIDTH - 20);
@@ -3858,6 +3869,7 @@ function updateServerEnemies(
           const minion = createServerEnemy(world, "minion", mx, my, true);
           minion.hasEnteredArena = true;
           minion.spawnDelay = 0;
+          minion.parentId = enemy.id;
           world.enemies.set(minion.id, minion);
         }
       }
