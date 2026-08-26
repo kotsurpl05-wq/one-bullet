@@ -12454,6 +12454,8 @@
         if (snapshotPlayer.id !== window.net?.playerId) {
           coopPlayer.x = snapshotX;
           coopPlayer.y = snapshotY;
+          coopPlayer.prevTargetX = coopPlayer.targetX;
+          coopPlayer.prevTargetY = coopPlayer.targetY;
           coopPlayer.targetX = snapshotX;
           coopPlayer.targetY = snapshotY;
           coopPlayer.aimX = snapshotAimX;
@@ -13537,12 +13539,12 @@
               coopPlayer.serverX - coopPlayer.x,
               coopPlayer.serverY - coopPlayer.y
             );
-            if (desyncDist > 50) {
-              if (desyncDist > 300) {
+            if (desyncDist > 30) {
+              if (desyncDist > 200) {
                 coopPlayer.x = coopPlayer.serverX;
                 coopPlayer.y = coopPlayer.serverY;
               } else {
-                const lerpFactor = Math.min(1, dt * 6.0);
+                const lerpFactor = Math.min(1, dt * 10.0);
                 coopPlayer.x +=
                   (coopPlayer.serverX - coopPlayer.x) * lerpFactor;
                 coopPlayer.y +=
@@ -13556,20 +13558,29 @@
           coopPlayer.aimX = localInput.aimX;
           coopPlayer.aimY = localInput.aimY;
         } else {
-          // Удалённый напарник интерполируется с высокой частотой без рывков
+          /*
+           * Удалённый напарник: экстраполяция по вектору между
+           * двумя последними серверными позициями, затем мягкая
+           * коррекция к цели. Это убирает рывки на LAN при 60 Hz.
+           */
+          const prevX = coopPlayer.prevTargetX;
+          const prevY = coopPlayer.prevTargetY;
+          if (
+            Number.isFinite(prevX) &&
+            Number.isFinite(prevY) &&
+            Number.isFinite(coopPlayer.targetX) &&
+            Number.isFinite(coopPlayer.targetY)
+          ) {
+            const velX = (coopPlayer.targetX - prevX) * 60;
+            const velY = (coopPlayer.targetY - prevY) * 60;
+            coopPlayer.displayX += velX * dt;
+            coopPlayer.displayY += velY * dt;
+          }
+          const correctionFactor = Math.min(1, dt * 25);
           coopPlayer.displayX +=
-            (
-              coopPlayer.targetX -
-              coopPlayer.displayX
-            ) *
-            Math.min(1, dt * 30);
-        
+            (coopPlayer.targetX - coopPlayer.displayX) * correctionFactor;
           coopPlayer.displayY +=
-            (
-              coopPlayer.targetY -
-              coopPlayer.displayY
-            ) *
-            Math.min(1, dt * 30);
+            (coopPlayer.targetY - coopPlayer.displayY) * correctionFactor;
         }
       }
       /*

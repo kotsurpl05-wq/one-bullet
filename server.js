@@ -15,9 +15,11 @@ const io = new Server(server, {
   cors: { origin: "*" },
   transports: ["websocket", "polling"],
   maxHttpBufferSize: 1e6,
-  pingInterval: 10000,
-  pingTimeout: 15000,
-  perMessageDeflate: false
+  pingInterval: 3000,
+  pingTimeout: 8000,
+  perMessageDeflate: {
+    threshold: 256
+  }
 });
 
 app.get(["/healthz", "/health", "/ping"], (req, res) => {
@@ -300,7 +302,7 @@ const COOP_SNAPSHOT_RATE = 60;
 
 const COOP_INPUT_TIMEOUT = 1200;
 
-const COOP_SHOOT_MAX_POSITION_DRIFT = 60;
+const COOP_SHOOT_MAX_POSITION_DRIFT = 45;
 const COOP_REPAIR_HEAL_COOLDOWN = 1.75;
 const ROOM_INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
 const ROOM_CLEANUP_INTERVAL_MS = 60 * 1000;

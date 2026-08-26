@@ -36,31 +36,31 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
     assert.equal(bullet.vy, 0);
   });
 
-  await t.test("2. Client position drift tolerance (COOP_SHOOT_MAX_POSITION_DRIFT = 60px)", () => {
-    // 2a. Drift within tolerance (<=60px, e.g. 30px) updates server player pos
+  await t.test("2. Client position drift tolerance (COOP_SHOOT_MAX_POSITION_DRIFT = 45px)", () => {
+    // 2a. Drift within tolerance (<=45px, e.g. 30px) updates server player pos
     {
       const { room, world, player1: player } = createTestWorld(ctx);
       player.x = 200;
       player.y = 200;
 
-      const clientShootX = 230; // dist = 30px <= 60px
+      const clientShootX = 230; // dist = 30px <= 45px
       const clientShootY = 200;
 
       ctx.shootServerBullet(room, player.id, 400, 200, clientShootX, clientShootY);
       assert.equal(player.x, 230, "Player x should be updated to client shoot position within tolerance");
     }
 
-    // 2b. Drift exceeding tolerance (>60px, e.g. 150px) is rejected; server player pos is retained
+    // 2b. Drift exceeding tolerance (>45px, e.g. 150px) is rejected; server player pos is retained
     {
       const { room, world, player1: player } = createTestWorld(ctx);
       player.x = 200;
       player.y = 200;
 
-      const clientShootX = 350; // dist = 150px > 60px
+      const clientShootX = 350; // dist = 150px > 45px
       const clientShootY = 200;
 
       ctx.shootServerBullet(room, player.id, 400, 200, clientShootX, clientShootY);
-      assert.equal(player.x, 200, "Server player position must be preserved when drift exceeds 60px");
+      assert.equal(player.x, 200, "Server player position must be preserved when drift exceeds 45px");
     }
   });
 

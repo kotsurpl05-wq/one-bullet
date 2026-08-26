@@ -130,11 +130,11 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
     const bullet = [...world.bullets.values()].find(b => b.ownerId === player1.id);
     assert.ok(bullet, "Held bullet must exist for player1");
 
-    // Shot 1: client reports position within 60px drift (e.g. 1040, 530 -> dist = 50px)
-    const success1 = ctx.shootServerBullet(room, player1.id, 1200, 500, 1040, 530);
+    // Shot 1: client reports position within 45px drift (e.g. 1030, 525 -> dist ~39px)
+    const success1 = ctx.shootServerBullet(room, player1.id, 1200, 500, 1030, 525);
     assert.equal(success1, true, "shootServerBullet executed successfully");
     assert.equal(bullet.state, "flying");
-    assert.equal(player1.x, 1040, "Drift <= 60px updates player position for seamless lag compensation");
+    assert.equal(player1.x, 1030, "Drift <= 45px updates player position for seamless lag compensation");
 
     // Reset bullet to held
     bullet.state = "held";
@@ -143,8 +143,8 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
     ctx.shootServerBullet(room, player1.id, 1300, 500, 1190, 530);
     assert.equal(
       player1.x,
-      1040,
-      "Drift > 60px MUST BE REJECTED (anti-teleportation defense)"
+      1030,
+      "Drift > 45px MUST BE REJECTED (anti-teleportation defense)"
     );
   });
 
