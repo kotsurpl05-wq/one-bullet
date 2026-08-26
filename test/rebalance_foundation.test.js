@@ -86,16 +86,16 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   // =========================================================================
   // 2. BOSS XP SCALING & BOSSTIER ATTACHMENT (Item 3)
   // =========================================================================
-  await t.test("2.1 Wave-scaled co-op boss XP: 1260 + bossTier * 330 and bossTier property on entity", () => {
+  await t.test("2.1 Wave-scaled co-op boss XP: 1050 + bossTier * 275 and bossTier property on entity", () => {
     const { world } = createTestWorld(ctx);
 
     const waves = [
-      { wave: 5, expectedTier: 1, expectedXp: 1590 },
-      { wave: 10, expectedTier: 2, expectedXp: 1920 },
-      { wave: 15, expectedTier: 3, expectedXp: 2250 },
-      { wave: 20, expectedTier: 4, expectedXp: 2580 },
-      { wave: 25, expectedTier: 5, expectedXp: 2910 },
-      { wave: 30, expectedTier: 6, expectedXp: 3240 }
+      { wave: 5, expectedTier: 1, expectedXp: 1325 },
+      { wave: 10, expectedTier: 2, expectedXp: 1600 },
+      { wave: 15, expectedTier: 3, expectedXp: 1875 },
+      { wave: 20, expectedTier: 4, expectedXp: 2150 },
+      { wave: 25, expectedTier: 5, expectedXp: 2425 },
+      { wave: 30, expectedTier: 6, expectedXp: 2700 }
     ];
 
     for (const item of waves) {
@@ -112,8 +112,8 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     const html = fs.readFileSync(indexHtmlPath, "utf8");
 
     assert.ok(
-      html.includes("1260 + bossTier * 330"),
-      "public/index.html getEnemyExperienceAmount must calculate 1260 + bossTier * 330 for boss"
+      html.includes("1050 + bossTier * 275"),
+      "public/index.html getEnemyExperienceAmount must calculate 1050 + bossTier * 275 for boss"
     );
   });
 
@@ -298,7 +298,7 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
 
         const xp = ctx.getServerEnemyExperience(boss);
         const tier = Math.floor(wave / 5);
-        assert.equal(xp, 1260 + tier * 330, `Wave ${wave} Boss XP must be ${1260 + tier * 330}`);
+        assert.equal(xp, 1050 + tier * 275, `Wave ${wave} Boss XP must be ${1050 + tier * 275}`);
 
         ctx.addServerExperience(room, xp);
       } else {

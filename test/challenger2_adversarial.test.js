@@ -459,10 +459,10 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       // Kill each enemy and grant XP
       for (const enemy of enemiesInWave) {
         const xpAmount = ctx.getServerEnemyExperience(enemy);
-        assert.ok(xpAmount >= 138, `Enemy XP must be at least 138 (got ${xpAmount} for ${enemy.type})`);
+        assert.ok(xpAmount >= 115, `Enemy XP must be at least 115 (got ${xpAmount} for ${enemy.type})`);
         
         if (enemy.type === "boss") {
-          assert.equal(xpAmount, 1260 + bossTier * 330, `Boss Tier ${bossTier} XP mismatch`);
+          assert.equal(xpAmount, 1050 + bossTier * 275, `Boss Tier ${bossTier} XP mismatch`);
         }
 
         totalCrystalsSpawned++;

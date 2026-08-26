@@ -40,7 +40,7 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
 
       // Verify wave-scaled boss XP
       const xp = ctx.getServerEnemyExperience(boss);
-      assert.equal(xp, 1260 + exp.tier * 330, `Tier ${exp.tier} boss XP should be ${1260 + exp.tier * 330} (got ${xp})`);
+      assert.equal(xp, 1050 + exp.tier * 275, `Tier ${exp.tier} boss XP should be ${1050 + exp.tier * 275} (got ${xp})`);
     }
   });
 

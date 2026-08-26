@@ -3142,24 +3142,20 @@ function getServerEnemyExperience(enemy) {
       enemy.bossTier || 1
     );
 
-    return 1260 + bossTier * 330;
+    return 1050 + bossTier * 275;
   }
 
   switch (enemy.type) {
-    case "shard":
-    case "minion":
-    case "boss_drone":
-    case "boss_pylon": return 0;
-    case "tank":       return 330;
-    case "charger":    return 288;
-    case "splitter":   return 372;
-    case "shooter":    return 306;
-    case "incubator":  return 570;
-    case "phantom":    return 222;
-    case "magnetizer": return 234;
-    case "twin":       return 198;
-    case "runner":     return 138;
-    default:           return 150;
+    case "tank":       return 275;
+    case "charger":    return 240;
+    case "splitter":   return 310;
+    case "shooter":    return 255;
+    case "incubator":  return 475;
+    case "phantom":    return 185;
+    case "magnetizer": return 195;
+    case "twin":       return 165;
+    case "runner":     return 115;
+    default:           return 125;
   }
 }
 
@@ -3167,7 +3163,7 @@ function createServerExperienceCrystal(
   world,
   x,
   y,
-  value = 150
+  value = 125
 ) {
   const angle =
     Math.random() * Math.PI * 2;
@@ -3202,15 +3198,12 @@ function dropServerExperience(
   world,
   enemy
 ) {
-  // Миньоны (от инкубатора), осколки (от сплитера) и пилоны босса не дропают опыт
-  if (enemy.type === "shard" || enemy.type === "minion" || enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
+  // Миньоны (от инкубатора) и осколки (от сплитера) не дропают опыт
+  if (enemy.type === "shard" || enemy.type === "minion") {
     return;
   }
 
   const xp = getServerEnemyExperience(enemy);
-  if (xp <= 0) {
-    return;
-  }
 
   createServerExperienceCrystal(
     world,
@@ -4932,7 +4925,7 @@ function updateServerExperienceCrystals(
 
       addServerExperience(
         room,
-        crystal.value
+        Math.round(crystal.value * 1.2)
       );
     }
   }

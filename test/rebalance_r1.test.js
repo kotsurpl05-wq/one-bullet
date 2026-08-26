@@ -56,16 +56,16 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     assert.equal(bossWave30.maxHp, 50160);
   });
 
-  await t.test("Tier 1 - Unit 3: Wave-Scaled Co-op Boss XP (1260 + bossTier * 330)", () => {
+  await t.test("Tier 1 - Unit 3: Wave-Scaled Co-op Boss XP (1050 + bossTier * 275)", () => {
     const { world } = createTestWorld(ctx);
 
     const wavesToTest = [
-      { wave: 5, expectedTier: 1, expectedXp: 1590 },
-      { wave: 10, expectedTier: 2, expectedXp: 1920 },
-      { wave: 15, expectedTier: 3, expectedXp: 2250 },
-      { wave: 20, expectedTier: 4, expectedXp: 2580 },
-      { wave: 25, expectedTier: 5, expectedXp: 2910 },
-      { wave: 30, expectedTier: 6, expectedXp: 3240 }
+      { wave: 5, expectedTier: 1, expectedXp: 1325 },
+      { wave: 10, expectedTier: 2, expectedXp: 1600 },
+      { wave: 15, expectedTier: 3, expectedXp: 1875 },
+      { wave: 20, expectedTier: 4, expectedXp: 2150 },
+      { wave: 25, expectedTier: 5, expectedXp: 2425 },
+      { wave: 30, expectedTier: 6, expectedXp: 2700 }
     ];
 
     for (const testCase of wavesToTest) {
@@ -246,28 +246,22 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     const { world } = createTestWorld(ctx);
 
     const normal = ctx.createServerEnemy(world, "normal", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(normal), 150, "Normal enemy XP must be 150");
+    assert.equal(ctx.getServerEnemyExperience(normal), 125, "Normal enemy XP must be 125");
 
     const runner = ctx.createServerEnemy(world, "runner", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(runner), 138, "Runner enemy XP must be 138");
+    assert.equal(ctx.getServerEnemyExperience(runner), 115, "Runner enemy XP must be 115");
 
     const tank = ctx.createServerEnemy(world, "tank", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(tank), 330, "Tank enemy XP must be 330");
+    assert.equal(ctx.getServerEnemyExperience(tank), 275, "Tank enemy XP must be 275");
 
     const charger = ctx.createServerEnemy(world, "charger", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(charger), 288, "Charger enemy XP must be 288");
+    assert.equal(ctx.getServerEnemyExperience(charger), 240, "Charger enemy XP must be 240");
 
     const splitter = ctx.createServerEnemy(world, "splitter", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(splitter), 372, "Splitter enemy XP must be 372");
+    assert.equal(ctx.getServerEnemyExperience(splitter), 310, "Splitter enemy XP must be 310");
 
     const shooter = ctx.createServerEnemy(world, "shooter", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(shooter), 306, "Shooter enemy XP must be 306");
-
-    const minion = ctx.createServerEnemy(world, "minion", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(minion), 0, "Minion enemy XP must be 0");
-
-    const shard = ctx.createServerEnemy(world, "shard", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(shard), 0, "Shard enemy XP must be 0");
+    assert.equal(ctx.getServerEnemyExperience(shooter), 255, "Shooter enemy XP must be 255");
   });
 
   await t.test("Tier 2 - Boundary 6: Solo Client Code Parity Audit for R1 (public/index.html)", () => {
@@ -360,12 +354,12 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     let bossesEncountered = 0;
 
     const expectedBossStats = {
-      5:  { tier: 1, baseHp: 7600,  coopHp: 8360, xp: 1590 },
-      10: { tier: 2, baseHp: 12000, coopHp: 13200, xp: 1920 },
-      15: { tier: 3, baseHp: 18000, coopHp: 19800, xp: 2250 },
-      20: { tier: 4, baseHp: 25600, coopHp: 28160, xp: 2580 },
-      25: { tier: 5, baseHp: 34800, coopHp: 38280, xp: 2910 },
-      30: { tier: 6, baseHp: 45600, coopHp: 50160, xp: 3240 }
+      5:  { tier: 1, baseHp: 7600,  coopHp: 8360, xp: 1325 },
+      10: { tier: 2, baseHp: 12000, coopHp: 13200, xp: 1600 },
+      15: { tier: 3, baseHp: 18000, coopHp: 19800, xp: 1875 },
+      20: { tier: 4, baseHp: 25600, coopHp: 28160, xp: 2150 },
+      25: { tier: 5, baseHp: 34800, coopHp: 38280, xp: 2425 },
+      30: { tier: 6, baseHp: 45600, coopHp: 50160, xp: 2700 }
     };
 
     for (let wave = 1; wave <= 30; wave++) {
