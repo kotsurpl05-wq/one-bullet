@@ -6842,6 +6842,32 @@
           enemy.isPhased = enemy.phaseTimer < 2.0;
         }
 
+        /*
+         * Инкубатор: каждые 4.5с порождает 1 личинку (макс 5 живых).
+         */
+        if (enemy.type === "incubator" && enemy.hasEnteredArena && enemy.hp > 0 && (enemy.stunTimer || 0) <= 0) {
+          enemy.spawnTimer = (enemy.spawnTimer || 4.5) - dt;
+          if (enemy.spawnTimer <= 0) {
+            enemy.spawnTimer = 4.5;
+            let livingMinions = 0;
+            for (const e of enemies) {
+              if (e.type === "minion" && e.parentId === enemy.id && e.hp > 0) {
+                livingMinions++;
+              }
+            }
+            if (livingMinions < 5) {
+              const angle = Math.random() * Math.PI * 2;
+              const dist = 28 + Math.random() * 16;
+              const mx = clamp(enemy.x + Math.cos(angle) * dist, 20, SOLO_WORLD_WIDTH - 20);
+              const my = clamp(enemy.y + Math.sin(angle) * dist, 20, SOLO_WORLD_HEIGHT - 20);
+              const minion = createEnemy("minion", mx, my);
+              minion.hasEnteredArena = true;
+              minion.parentId = enemy.id;
+              enemies.push(minion);
+            }
+          }
+        }
+
         enemy.isCharging = false;
       
         let dx = player.x - enemy.x;
