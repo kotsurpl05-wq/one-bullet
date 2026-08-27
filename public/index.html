@@ -12210,17 +12210,6 @@ osc.stop(now + 0.05);
               bCtx.lineTo(p2.x, p2.y);
               bCtx.stroke();
               bCtx.setLineDash([]);
-
-              // Travelling energy pulse along the tether
-              const pulseProg = (now * 0.002) % 1;
-              const sparkX = p1.x + (p2.x - p1.x) * pulseProg;
-              const sparkY = p1.y + (p2.y - p1.y) * pulseProg;
-              bCtx.beginPath();
-              bCtx.arc(sparkX, sparkY, 3, 0, Math.PI * 2);
-              bCtx.fillStyle = "#ffffff";
-              bCtx.shadowColor = "#f472b6";
-              bCtx.shadowBlur = 8;
-              bCtx.fill();
               bCtx.restore();
 
               [p1, p2].forEach((p, pIdx) => {
@@ -12455,26 +12444,9 @@ osc.stop(now + 0.05);
                 }
               }
             } else if (mobId === "magnetizer") {
-              // Левитация и гравитационная воронка, притягивающая частицы
+              // Плавная левитация магнетизатора
               mx = Math.sin(now * 0.0016) * 18;
               my = Math.cos(now * 0.0022) * 12;
-
-              for (let pi = 0; pi < 7; pi++) {
-                const pLife = ((now * 0.0008 + pi / 7) % 1);
-                const pDist = 85 * (1 - pLife);
-                const pAngle = pi * (Math.PI * 2 / 7) + now * 0.003;
-                const px = mx + Math.cos(pAngle) * pDist;
-                const py = my + Math.sin(pAngle) * pDist;
-
-                bCtx.save();
-                bCtx.beginPath();
-                bCtx.arc(px, py, 2.5 * (1 - pLife), 0, Math.PI * 2);
-                bCtx.fillStyle = "#c084fc";
-                bCtx.shadowColor = "#a855f7";
-                bCtx.shadowBlur = 6;
-                bCtx.fill();
-                bCtx.restore();
-              }
             } else if (mobId === "incubator") {
               // Тяжелое покачивание и 2 эскорт-миньона на орбите
               mx = Math.sin(now * 0.0012) * 15;
@@ -12517,21 +12489,9 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               }
             } else if (mobId === "tank") {
-              // Тяжелая поступь с сейсмическими ударными волнами
+              // Плавный тяжелый марш танка
               mx = Math.sin(now * 0.001) * 22;
               my = Math.cos(now * 0.0016) * 8;
-
-              for (let st = 0; st < 2; st++) {
-                const stProg = ((now * 0.0009 + st * 0.5) % 1);
-                const stR = r + stProg * 32;
-                bCtx.save();
-                bCtx.strokeStyle = `rgba(181, 109, 255, ${0.55 * (1 - stProg)})`;
-                bCtx.lineWidth = 2 * (1 - stProg);
-                bCtx.beginPath();
-                bCtx.ellipse(mx, my + 8, stR, stR * 0.38, 0, 0, Math.PI * 2);
-                bCtx.stroke();
-                bCtx.restore();
-              }
             } else if (mobId === "normal") {
               // Плавное патрулирование базового дрона
               mx = Math.sin(now * 0.0018) * 26;
