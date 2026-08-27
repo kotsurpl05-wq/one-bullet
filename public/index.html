@@ -6858,6 +6858,389 @@
       }
     }
 
+    function drawEnemyModel(ctx, type, r, color, opts = {}) {
+      const now = opts.now || performance.now();
+      const id = opts.id || 0;
+
+      if (type === "boss") {
+        const rotation = now * 0.0005;
+        ctx.save();
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        const spikeCount = 16;
+        for (let i = 0; i < spikeCount; i++) {
+          const angle = (Math.PI * 2 * i) / spikeCount;
+          const radius = i % 2 === 0 ? r * 0.88 : r * 0.63;
+          const px = Math.cos(angle) * radius;
+          const py = Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#76133d";
+        ctx.fill();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
+        ctx.fillStyle = "#2a0b22";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffd2e3";
+        ctx.shadowColor = "#ff3f8f";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        if (opts.shieldActive) {
+          const shieldPulse = 1 + Math.sin(now * 0.006) * 0.06;
+          ctx.save();
+          ctx.rotate(now * 0.001);
+          ctx.strokeStyle = "#00f2fe";
+          ctx.shadowColor = "#00f2fe";
+          ctx.shadowBlur = 14;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          for (let s = 0; s < 6; s++) {
+            const sa = (s / 6) * Math.PI * 2;
+            const sx = Math.cos(sa) * ((r + 14) * shieldPulse);
+            const sy = Math.sin(sa) * ((r + 14) * shieldPulse);
+            if (s === 0) ctx.moveTo(sx, sy);
+            else ctx.lineTo(sx, sy);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        }
+      } else if (type === "magnetizer") {
+        const rot = now * 0.0025;
+        ctx.save();
+        ctx.strokeStyle = "#a855f7";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 1.55, r * 0.65, rot, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#c084fc";
+        ctx.shadowColor = "#c084fc";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 1.55, r * 0.65, -rot, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#3b0764";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = "#e9d5ff";
+        ctx.shadowColor = "#c084fc";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "incubator") {
+        const pulse = 1 + Math.sin(now * 0.006 + id) * 0.12;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.75 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "#064e3b";
+        ctx.fill();
+
+        const sporeCount = opts.sporesCount !== undefined ? opts.sporesCount : 5;
+        for (let ni = 0; ni < sporeCount; ni++) {
+          const na = (ni / Math.max(1, sporeCount)) * Math.PI * 2 + now * 0.002;
+          const nx = Math.cos(na) * (r * 1.4);
+          const ny = Math.sin(na) * (r * 1.4);
+          ctx.beginPath();
+          ctx.arc(nx, ny, r * 0.22, 0, Math.PI * 2);
+          ctx.fillStyle = "#10b981";
+          ctx.shadowColor = "#34d399";
+          ctx.shadowBlur = 8;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(nx, ny, r * 0.1, 0, Math.PI * 2);
+          ctx.fillStyle = "#a7f3d0";
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = "#6ee7b7";
+        ctx.shadowColor = "#a7f3d0";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "tank") {
+        const tankRot = now * 0.0003;
+        ctx.save();
+        ctx.rotate(tankRot);
+        ctx.beginPath();
+        for (let s = 0; s < 8; s++) {
+          const sa = (s / 8) * Math.PI * 2;
+          const sx = Math.cos(sa) * (r * 0.85);
+          const sy = Math.sin(sa) * (r * 0.85);
+          if (s === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#2e1065";
+        ctx.fill();
+        ctx.strokeStyle = "#c084fc";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
+        ctx.fillStyle = "#3b0764";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.26, 0, Math.PI * 2);
+        ctx.fillStyle = "#f3e8ff";
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "runner") {
+        const runRot = now * 0.003;
+        ctx.save();
+        ctx.rotate(runRot);
+
+        ctx.fillStyle = "#78350f";
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 1.5;
+        for (let b = 0; b < 4; b++) {
+          ctx.save();
+          ctx.rotate((b * Math.PI) / 2);
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.2);
+          ctx.lineTo(r * 0.95, -r * 0.4);
+          ctx.lineTo(r * 0.6, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = "#451a03";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = "#fef08a";
+        ctx.shadowColor = "#eab308";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "shooter") {
+        const aimRot = now * 0.001;
+        ctx.save();
+        ctx.rotate(aimRot);
+        ctx.strokeStyle = "#34d399";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+        ctx.stroke();
+
+        for (let s = 0; s < 4; s++) {
+          const sa = (s / 4) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(sa) * (r * 0.55), Math.sin(sa) * (r * 0.55));
+          ctx.lineTo(Math.cos(sa) * (r * 0.95), Math.sin(sa) * (r * 0.95));
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
+        ctx.fillStyle = "#022c22";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = "#a7f3d0";
+        ctx.shadowColor = "#10b981";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "splitter") {
+        const splitRot = now * 0.0015;
+        ctx.save();
+        ctx.rotate(splitRot);
+        
+        ctx.fillStyle = "#0369a1";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1.5;
+        for (let s = 0; s < 3; s++) {
+          const sa = (s / 3) * Math.PI * 2;
+          const saNext = ((s + 1) / 3) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(sa + 0.15) * (r * 0.85), Math.sin(sa + 0.15) * (r * 0.85));
+          ctx.lineTo(Math.cos(saNext - 0.15) * (r * 0.85), Math.sin(saNext - 0.15) * (r * 0.85));
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = "#e0f2fe";
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "charger") {
+        const pulse = 1 + Math.sin(now * 0.008 + id) * 0.08;
+        ctx.save();
+        const chRot = now * 0.002;
+        ctx.rotate(chRot);
+
+        ctx.fillStyle = "#7c2d12";
+        ctx.strokeStyle = "#fb923c";
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          ctx.save();
+          ctx.rotate((i * Math.PI) / 2);
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.35, -r * 0.35);
+          ctx.lineTo(0, -r * 0.95 * pulse);
+          ctx.lineTo(r * 0.35, -r * 0.35);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = "#431407";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffedd5";
+        ctx.shadowColor = "#f97316";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "phantom") {
+        const pWave = 1 + Math.sin(now * 0.006 + id) * 0.15;
+        ctx.save();
+        ctx.strokeStyle = "#5eead4";
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = "#2dd4bf";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.8 * pWave, 0, Math.PI * 2);
+        ctx.stroke();
+
+        for (let pi = 0; pi < 3; pi++) {
+          const pa = (pi / 3) * Math.PI * 2 + now * 0.003;
+          const px = Math.cos(pa) * (r * 0.6);
+          const py = Math.sin(pa) * (r * 0.6);
+          ctx.beginPath();
+          ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#ccfbf1";
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2);
+        ctx.fillStyle = "#134e4a";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2);
+        ctx.fillStyle = "#f0fdfa";
+        ctx.shadowColor = "#5eead4";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "twin") {
+        const twRot = now * 0.0025;
+        ctx.save();
+        ctx.rotate(twRot);
+        ctx.strokeStyle = "#f472b6";
+        ctx.lineWidth = 1.5;
+        ctx.fillStyle = "#831843";
+        const dSize = r * 0.65;
+        ctx.beginPath();
+        ctx.moveTo(0, -dSize);
+        ctx.lineTo(dSize, 0);
+        ctx.lineTo(0, dSize);
+        ctx.lineTo(-dSize, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.26, 0, Math.PI * 2);
+        ctx.fillStyle = "#fce7f3";
+        ctx.shadowColor = "#ec4899";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (type === "minion") {
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+        ctx.fillStyle = "#064e3b";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = "#6ee7b7";
+        ctx.shadowColor = "#34d399";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        const scoutRot = now * 0.001;
+        ctx.save();
+        ctx.rotate(scoutRot);
+        ctx.strokeStyle = "#fb7185";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2);
+        ctx.stroke();
+
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * (r * 0.72), Math.sin(a) * (r * 0.72), 2, 0, Math.PI * 2);
+          ctx.fillStyle = "#f43f5e";
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
+        ctx.fillStyle = "#4c0519";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffe4e6";
+        ctx.shadowColor = "#f43f5e";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
     function drawSplinterShards() {
       for (const shard of splinterShards) {
         ctx.save();
@@ -11655,7 +12038,6 @@ osc.stop(now + 0.05);
             const mobId = selectedBestiaryId;
 
             if (mobId === "twin") {
-              // Exact in-game twin pair with dashed laser tether
               const tDist = 38 + Math.sin(now * 0.003) * 6;
               const p1 = { x: -tDist, y: 0 };
               const p2 = { x: tDist, y: 0 };
@@ -11675,7 +12057,7 @@ osc.stop(now + 0.05);
               bCtx.setLineDash([]);
               bCtx.restore();
 
-              [p1, p2].forEach(p => {
+              [p1, p2].forEach((p, pIdx) => {
                 bCtx.save();
                 bCtx.translate(p.x, p.y);
 
@@ -11691,11 +12073,8 @@ osc.stop(now + 0.05);
                 bCtx.fillStyle = tColor;
                 bCtx.fill();
 
-                // Center core
-                bCtx.beginPath();
-                bCtx.arc(0, 0, tr * 0.34, 0, Math.PI * 2);
-                bCtx.fillStyle = "#641e34";
-                bCtx.fill();
+                // Distinctive twin cyber model
+                drawEnemyModel(bCtx, "twin", tr, tColor, { now: now + pIdx * 1000, id: pIdx });
 
                 // Health bar
                 const barW = tr * 2;
@@ -11765,62 +12144,14 @@ osc.stop(now + 0.05);
             bCtx.fillStyle = color;
             bCtx.fill();
 
-            // Exact in-game internal distinctive elements
+            // Exact in-game internal distinctive cyber model
+            drawEnemyModel(bCtx, mobId, r, color, {
+              now: now,
+              shieldActive: mobId === "boss",
+              sporesCount: 5
+            });
+
             if (mobId === "boss") {
-              // 16-spike sawgear armor rotating
-              const rotation = now * 0.0005;
-              bCtx.save();
-              bCtx.rotate(rotation);
-              bCtx.beginPath();
-              const spikeCount = 16;
-              for (let i = 0; i < spikeCount; i++) {
-                const angle = (Math.PI * 2 * i) / spikeCount;
-                const radius = i % 2 === 0 ? r * 0.88 : r * 0.63;
-                const px = Math.cos(angle) * radius;
-                const py = Math.sin(angle) * radius;
-                if (i === 0) bCtx.moveTo(px, py);
-                else bCtx.lineTo(px, py);
-              }
-              bCtx.closePath();
-              bCtx.fillStyle = "#76133d";
-              bCtx.fill();
-              bCtx.restore();
-
-              // Inner dark core
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
-              bCtx.fillStyle = "#2a0b22";
-              bCtx.fill();
-
-              // Glowing center eye
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
-              bCtx.fillStyle = "#ffd2e3";
-              bCtx.shadowColor = "#ff3f8f";
-              bCtx.shadowBlur = 16;
-              bCtx.fill();
-              bCtx.shadowBlur = 0;
-
-              // Active Phase 2 Hexagonal Energy Shield around Boss
-              const shieldPulse = 1 + Math.sin(now * 0.006) * 0.06;
-              bCtx.save();
-              bCtx.rotate(now * 0.001);
-              bCtx.strokeStyle = "#00f2fe";
-              bCtx.shadowColor = "#00f2fe";
-              bCtx.shadowBlur = 14;
-              bCtx.lineWidth = 2.5;
-              bCtx.beginPath();
-              for (let s = 0; s < 6; s++) {
-                const sa = (s / 6) * Math.PI * 2;
-                const sx = Math.cos(sa) * ((r + 14) * shieldPulse);
-                const sy = Math.sin(sa) * ((r + 14) * shieldPulse);
-                if (s === 0) bCtx.moveTo(sx, sy);
-                else bCtx.lineTo(sx, sy);
-              }
-              bCtx.closePath();
-              bCtx.stroke();
-              bCtx.restore();
-
               // 4 Arena Corner Energy Pylons (providing boss shield invulnerability)
               const cornerOffsets = [
                 { x: -105, y: -45 },
@@ -11873,97 +12204,6 @@ osc.stop(now + 0.05);
 
                 bCtx.restore();
               });
-            } else if (mobId === "magnetizer") {
-              // Dual 3D counter-rotating electromagnetic flux rings
-              const rot = now * 0.0025;
-              bCtx.save();
-              bCtx.strokeStyle = "#a855f7";
-              bCtx.lineWidth = 2;
-              bCtx.shadowColor = "#a855f7";
-              bCtx.shadowBlur = 12;
-              bCtx.beginPath();
-              bCtx.ellipse(0, 0, r * 1.6, r * 0.65, rot, 0, Math.PI * 2);
-              bCtx.stroke();
-              bCtx.strokeStyle = "#c084fc";
-              bCtx.shadowColor = "#c084fc";
-              bCtx.beginPath();
-              bCtx.ellipse(0, 0, r * 1.6, r * 0.65, -rot, 0, Math.PI * 2);
-              bCtx.stroke();
-              bCtx.restore();
-
-              // Inner ring
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
-              bCtx.fillStyle = "#3b0764";
-              bCtx.fill();
-
-              // Glowing center core
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
-              bCtx.fillStyle = "#e9d5ff";
-              bCtx.shadowColor = "#c084fc";
-              bCtx.shadowBlur = 12;
-              bCtx.fill();
-              bCtx.shadowBlur = 0;
-            } else if (mobId === "incubator") {
-              // Pulsing inner bio-womb
-              const pulse = 1 + Math.sin(now * 0.006) * 0.12;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.75 * pulse, 0, Math.PI * 2);
-              bCtx.fillStyle = "#064e3b";
-              bCtx.fill();
-
-              // 5 orbiting spore pods revolving around the outer hull
-              for (let ni = 0; ni < 5; ni++) {
-                const na = (ni / 5) * Math.PI * 2 + now * 0.002;
-                const nx = Math.cos(na) * (r * 1.4);
-                const ny = Math.sin(na) * (r * 1.4);
-                bCtx.beginPath();
-                bCtx.arc(nx, ny, r * 0.22, 0, Math.PI * 2);
-                bCtx.fillStyle = "#10b981";
-                bCtx.shadowColor = "#34d399";
-                bCtx.shadowBlur = 8;
-                bCtx.fill();
-
-                bCtx.beginPath();
-                bCtx.arc(nx, ny, r * 0.1, 0, Math.PI * 2);
-                bCtx.fillStyle = "#a7f3d0";
-                bCtx.fill();
-              }
-
-              // Center dot
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
-              bCtx.fillStyle = "#6ee7b7";
-              bCtx.shadowColor = "#a7f3d0";
-              bCtx.shadowBlur = 6;
-              bCtx.fill();
-              bCtx.shadowBlur = 0;
-            } else if (mobId === "tank") {
-              // Concentric purple rings and light core
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.48, 0, Math.PI * 2);
-              bCtx.fillStyle = "#311c49";
-              bCtx.fill();
-
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.2, 0, Math.PI * 2);
-              bCtx.fillStyle = "#e5c8ff";
-              bCtx.fill();
-            } else if (mobId === "runner") {
-              // Rotated 45-degree diamond center
-              bCtx.save();
-              bCtx.rotate(Math.PI / 4);
-              const coreSize = r * 0.65;
-              bCtx.fillStyle = "#5b4212";
-              bCtx.fillRect(-coreSize / 2, -coreSize / 2, coreSize, coreSize);
-              bCtx.restore();
-            } else {
-              // Normal, Shooter, Splitter, Charger, Phantom
-              bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.34, 0, Math.PI * 2);
-              bCtx.fillStyle = "#641e34";
-              bCtx.fill();
             }
 
             // In-game Health Bar
@@ -17152,171 +17392,25 @@ osc.stop(now + 0.05);
         ctx.fill();
         ctx.shadowBlur = 0;
       } else {
+        // Внешнее свечение.
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r + 5, 0, Math.PI * 2);
         ctx.fillStyle = `${enemy.color}18`;
         ctx.fill();
 
+        // Тело врага.
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
         ctx.fillStyle = enemy.color;
         ctx.fill();
 
-        if (enemy.type === "boss") {
-          const rotation = performance.now() * 0.0005;
-          const spikeCount = 16;
-
-          ctx.save();
-          ctx.rotate(rotation);
-          ctx.beginPath();
-
-          for (let index = 0; index < spikeCount; index++) {
-            const angle = Math.PI * 2 * index / spikeCount;
-            const radius = index % 2 === 0
-              ? enemy.r * 0.88
-              : enemy.r * 0.63;
-
-            const x = Math.cos(angle) * radius;
-            const y = Math.sin(angle) * radius;
-
-            if (index === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
-            }
-          }
-
-          ctx.closePath();
-          ctx.fillStyle = "#76133d";
-          ctx.fill();
-          ctx.restore();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.52, 0, Math.PI * 2);
-          ctx.fillStyle = "#2a0b22";
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.24, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffd2e3";
-          ctx.shadowColor = "#ff3f8f";
-          ctx.shadowBlur = 16;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-
-          if (enemy.shieldActive || enemy.phase === 2) {
-            const shieldPulse = 1 + Math.sin(performance.now() * 0.006) * 0.06;
-            ctx.save();
-            ctx.rotate(performance.now() * 0.001);
-            ctx.strokeStyle = "#00f2fe";
-            ctx.shadowColor = "#00f2fe";
-            ctx.shadowBlur = 14;
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            for (let s = 0; s < 6; s++) {
-              const sa = (s / 6) * Math.PI * 2;
-              const sx = Math.cos(sa) * ((enemy.r + 14) * shieldPulse);
-              const sy = Math.sin(sa) * ((enemy.r + 14) * shieldPulse);
-              if (s === 0) ctx.moveTo(sx, sy);
-              else ctx.lineTo(sx, sy);
-            }
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-          }
-        } else if (enemy.type === "magnetizer") {
-          const now = performance.now();
-          const rot = now * 0.0025;
-          ctx.save();
-          ctx.strokeStyle = "#a855f7";
-          ctx.lineWidth = 2;
-          ctx.shadowColor = "#a855f7";
-          ctx.shadowBlur = 10;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, rot, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.strokeStyle = "#c084fc";
-          ctx.shadowColor = "#c084fc";
-          ctx.beginPath();
-          ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, -rot, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
-          ctx.fillStyle = "#3b0764";
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
-          ctx.fillStyle = "#e9d5ff";
-          ctx.shadowColor = "#c084fc";
-          ctx.shadowBlur = 10;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        } else if (enemy.type === "incubator") {
-          const now = performance.now();
-          const pulse = 1 + Math.sin(now * 0.006 + (enemy.id || 0)) * 0.12;
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.75 * pulse, 0, Math.PI * 2);
-          ctx.fillStyle = "#064e3b";
-          ctx.fill();
-
-          // Orbiting spore pods revolving around the hull (dynamic count)
-          const sporeCount = enemy.sporesCount !== undefined ? enemy.sporesCount : 5;
-          for (let ni = 0; ni < sporeCount; ni++) {
-            const na = (ni / Math.max(1, sporeCount)) * Math.PI * 2 + now * 0.002;
-            const nx = Math.cos(na) * (enemy.r * 1.4);
-            const ny = Math.sin(na) * (enemy.r * 1.4);
-            ctx.beginPath();
-            ctx.arc(nx, ny, enemy.r * 0.22, 0, Math.PI * 2);
-            ctx.fillStyle = "#10b981";
-            ctx.shadowColor = "#34d399";
-            ctx.shadowBlur = 8;
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(nx, ny, enemy.r * 0.1, 0, Math.PI * 2);
-            ctx.fillStyle = "#a7f3d0";
-            ctx.fill();
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
-          ctx.fillStyle = "#6ee7b7";
-          ctx.shadowColor = "#a7f3d0";
-          ctx.shadowBlur = 6;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        } else if (enemy.type === "tank") {
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.48, 0, Math.PI * 2);
-          ctx.fillStyle = "#311c49";
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.2, 0, Math.PI * 2);
-          ctx.fillStyle = "#e5c8ff";
-          ctx.fill();
-        } else if (enemy.type === "runner") {
-          ctx.save();
-          ctx.rotate(Math.PI / 4);
-
-          const coreSize = enemy.r * 0.65;
-          ctx.fillStyle = "#5b4212";
-          ctx.fillRect(
-            -coreSize / 2,
-            -coreSize / 2,
-            coreSize,
-            coreSize
-          );
-          ctx.restore();
-        } else {
-          ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.34, 0, Math.PI * 2);
-          ctx.fillStyle = "#641e34";
-          ctx.fill();
-        }
+        // Отличительные элементы разных типов врагов.
+        drawEnemyModel(ctx, enemy.type, enemy.r, enemy.color, {
+          now: performance.now(),
+          id: enemy.id,
+          shieldActive: Boolean(enemy.shieldActive),
+          sporesCount: enemy.sporesCount
+        });
       }
 
       if (enemy.maxHp > 1 || enemy.hp < enemy.maxHp) {
@@ -18517,195 +18611,12 @@ osc.stop(now + 0.05);
           ctx.fill();
 
           // Отличительные элементы разных типов врагов.
-          if (enemy.type === "boss") {
-            const rotation =
-              performance.now() * 0.0005;
-
-            ctx.save();
-            ctx.rotate(rotation);
-
-            ctx.beginPath();
-
-            const spikeCount = 16;
-
-            for (let i = 0; i < spikeCount; i++) {
-              const angle =
-                Math.PI * 2 * i / spikeCount;
-
-              const radius =
-                i % 2 === 0
-                  ? enemy.r * 0.88
-                  : enemy.r * 0.63;
-
-              const x = Math.cos(angle) * radius;
-              const y = Math.sin(angle) * radius;
-
-              if (i === 0) {
-                ctx.moveTo(x, y);
-              } else {
-                ctx.lineTo(x, y);
-              }
-            }
-
-            ctx.closePath();
-            ctx.fillStyle = "#76133d";
-            ctx.fill();
-
-            ctx.restore();
-
-            ctx.beginPath();
-            ctx.arc(
-              0,
-              0,
-              enemy.r * 0.52,
-              0,
-              Math.PI * 2
-            );
-            ctx.fillStyle = "#2a0b22";
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(
-              0,
-              0,
-              enemy.r * 0.24,
-              0,
-              Math.PI * 2
-            );
-            ctx.fillStyle = "#ffd2e3";
-            ctx.shadowColor = "#ff3f8f";
-            ctx.shadowBlur = 16;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            if (enemy.shieldActive) {
-              const shieldPulse = 1 + Math.sin(performance.now() * 0.006) * 0.06;
-              ctx.save();
-              ctx.rotate(performance.now() * 0.001);
-              ctx.strokeStyle = "#00f2fe";
-              ctx.shadowColor = "#00f2fe";
-              ctx.shadowBlur = 14;
-              ctx.lineWidth = 2.5;
-              ctx.beginPath();
-              for (let s = 0; s < 6; s++) {
-                const sa = (s / 6) * Math.PI * 2;
-                const sx = Math.cos(sa) * ((enemy.r + 14) * shieldPulse);
-                const sy = Math.sin(sa) * ((enemy.r + 14) * shieldPulse);
-                if (s === 0) ctx.moveTo(sx, sy);
-                else ctx.lineTo(sx, sy);
-              }
-              ctx.closePath();
-              ctx.stroke();
-              ctx.restore();
-            }
-          } else if (enemy.type === "magnetizer") {
-            const now = performance.now();
-            const rot = now * 0.0025;
-            ctx.save();
-            ctx.strokeStyle = "#a855f7";
-            ctx.lineWidth = 2;
-            ctx.shadowColor = "#a855f7";
-            ctx.shadowBlur = 10;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, rot, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.strokeStyle = "#c084fc";
-            ctx.shadowColor = "#c084fc";
-            ctx.beginPath();
-            ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, -rot, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
-            ctx.fillStyle = "#3b0764";
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
-            ctx.fillStyle = "#e9d5ff";
-            ctx.shadowColor = "#c084fc";
-            ctx.shadowBlur = 10;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          } else if (enemy.type === "incubator") {
-            const now = performance.now();
-            const pulse = 1 + Math.sin(now * 0.006 + (enemy.id || 0)) * 0.12;
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.75 * pulse, 0, Math.PI * 2);
-            ctx.fillStyle = "#064e3b";
-            ctx.fill();
-
-            // Orbiting spore pods revolving around the hull (dynamic count)
-            const sporeCount = enemy.sporesCount !== undefined ? enemy.sporesCount : 5;
-            for (let ni = 0; ni < sporeCount; ni++) {
-              const na = (ni / Math.max(1, sporeCount)) * Math.PI * 2 + now * 0.002;
-              const nx = Math.cos(na) * (enemy.r * 1.4);
-              const ny = Math.sin(na) * (enemy.r * 1.4);
-              ctx.beginPath();
-              ctx.arc(nx, ny, enemy.r * 0.22, 0, Math.PI * 2);
-              ctx.fillStyle = "#10b981";
-              ctx.shadowColor = "#34d399";
-              ctx.shadowBlur = 8;
-              ctx.fill();
-
-              ctx.beginPath();
-              ctx.arc(nx, ny, enemy.r * 0.1, 0, Math.PI * 2);
-              ctx.fillStyle = "#a7f3d0";
-              ctx.fill();
-            }
-
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
-            ctx.fillStyle = "#6ee7b7";
-            ctx.shadowColor = "#a7f3d0";
-            ctx.shadowBlur = 6;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          } else if (enemy.type === "minion") {
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
-            ctx.fillStyle = "#064e3b";
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.3, 0, Math.PI * 2);
-            ctx.fillStyle = "#34d399";
-            ctx.shadowColor = "#6ee7b7";
-            ctx.shadowBlur = 6;
-            ctx.fill();
-          } else if (enemy.type === "tank") {
-
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.48, 0, Math.PI * 2);
-            ctx.fillStyle = "#311c49";
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.2, 0, Math.PI * 2);
-            ctx.fillStyle = "#e5c8ff";
-            ctx.fill();
-          } else if (enemy.type === "runner") {
-            ctx.save();
-            ctx.rotate(Math.PI / 4);
-
-            const coreSize = enemy.r * 0.65;
-
-            ctx.fillStyle = "#5b4212";
-            ctx.fillRect(
-              -coreSize / 2,
-              -coreSize / 2,
-              coreSize,
-              coreSize
-            );
-
-            ctx.restore();
-          } else {
-            ctx.beginPath();
-            ctx.arc(0, 0, enemy.r * 0.34, 0, Math.PI * 2);
-            ctx.fillStyle = "#641e34";
-            ctx.fill();
-          }
+          drawEnemyModel(ctx, enemy.type, enemy.r, enemy.color, {
+            now: performance.now(),
+            id: enemy.id,
+            shieldActive: Boolean(enemy.shieldActive),
+            sporesCount: enemy.sporesCount
+          });
         }
 
         // Полоса здоровья.
