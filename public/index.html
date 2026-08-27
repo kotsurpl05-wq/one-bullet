@@ -12359,27 +12359,26 @@ osc.stop(now + 0.05);
       checkAndRenderFloatingReconnectWidget();
     
       panel.innerHTML = `
-        <div class="main-menu-fullscreen" style="max-width: 860px; gap: 16px;">
-          <div class="hero-brand-container">
-            <h1 class="hero-cyber-logo" style="font-size: clamp(24px, 3.8vw, 36px); margin: 0;">
-              👥 СОВМЕСТНЫЙ РЕЖИМ
-            </h1>
-            <div class="hero-cyber-subtitle" style="margin-top: 4px;">
-              <span>ОНЛАЙН КООПЕРАТИВ НА 2 ИГРОКОВ</span>
+        <div class="cyber-modal-container" style="max-width: 960px; width: 100%;">
+          <div class="cyber-modal-header" style="flex-shrink: 0;">
+            <div class="cyber-modal-icon">👥</div>
+            <div>
+              <h2 class="cyber-modal-title">Совместный режим // Сетевое подключение</h2>
+              <div class="cyber-modal-subtitle">Онлайн-кооператив на 2 игроков с синхронизацией в реальном времени</div>
             </div>
           </div>
 
-          <div class="network-form" style="width: 100%; max-width: 620px; margin: 0 auto; background: rgba(15, 23, 42, 0.8); border: 1.5px solid #283a54; border-radius: 18px; padding: 22px 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px; display: flex; flex-direction: column; gap: 14px;">
             ${(() => {
               const rec = window.net?.getReconnectData?.();
               if (rec && rec.roomCode && rec.token) {
                 return `
-                  <div class="network-reconnect-quick-box" style="margin-bottom: 16px; padding: 12px 16px; background: rgba(0, 242, 254, 0.12); border: 1px solid rgba(0, 242, 254, 0.45); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                  <div class="network-reconnect-quick-box" style="padding: 12px 18px; background: rgba(0, 242, 254, 0.12); border: 1.5px solid rgba(0, 242, 254, 0.45); border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 0 20px rgba(0, 242, 254, 0.15);">
                     <div>
                       <div style="font-size: 11px; font-weight: 900; color: #00f2fe; letter-spacing: 1px;">⚡ ОБНАРУЖЕН АКТИВНЫЙ ЗАБЕГ</div>
-                      <div style="font-size: 12.5px; color: #cbd5e1; margin-top: 2px;">Комната <strong>[${rec.roomCode}]</strong> на паузе. Напарник ждёт!</div>
+                      <div style="font-size: 13px; color: #cbd5e1; margin-top: 2px;">Комната <strong>[${rec.roomCode}]</strong> на паузе. Напарник ждёт!</div>
                     </div>
-                    <button type="button" class="action-button" id="menuQuickRejoinBtn" style="margin: 0; padding: 8px 16px; font-size: 12px; white-space: nowrap;">
+                    <button type="button" class="action-button" id="menuQuickRejoinBtn" style="margin: 0; padding: 10px 18px; font-size: 12.5px; font-weight: 800; white-space: nowrap;">
                       ⚡ Вернуться в бой
                     </button>
                   </div>
@@ -12388,73 +12387,102 @@ osc.stop(now + 0.05);
               return '';
             })()}
 
-            <div class="network-field">
-              <label for="networkPlayerName">
-                ПОЗЫВНОЙ ИГРОКА
-              </label>
-            
-              <input
-                id="networkPlayerName"
-                class="network-input"
-                type="text"
-                maxlength="18"
-                autocomplete="nickname"
-                value="${escapeHtml(playerName)}"
-                placeholder="Введите ваш ник"
-              >
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;">
+              <!-- Card 1: Callsign & Loadout -->
+              <div class="guide-card-item" style="display: flex; flex-direction: column; justify-content: space-between; gap: 14px; padding: 20px;">
+                <div>
+                  <div class="guide-card-header" style="margin-bottom: 8px;">
+                    <span class="guide-num">01</span>
+                    <h4>👤 Позывной бойца</h4>
+                  </div>
+                  <p style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">Укажите позывной, отображаемый для напарника в лобби и интерфейсе совместной битвы.</p>
+                  
+                  <div class="network-field">
+                    <input
+                      id="networkPlayerName"
+                      class="network-input"
+                      type="text"
+                      maxlength="18"
+                      autocomplete="nickname"
+                      value="${escapeHtml(playerName)}"
+                      placeholder="Введите ваш позывной"
+                      style="font-size: 14px; font-weight: 700; background: rgba(13, 21, 37, 0.95); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 12px; padding: 13px 16px; color: #ffffff;"
+                    >
+                  </div>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+                  <span style="font-size: 11.5px; color: #94a3b8;">🎨 Выбранный скин:</span>
+                  <span style="font-size: 12px; font-weight: 800; color: #38bdf8;">${(BULLET_SKIN_CATALOG.find(s => s.id === (gameSettings.bulletSkin || 'neon'))?.name) || 'Плазмоид'}</span>
+                </div>
+              </div>
+
+              <!-- Card 2: Room Code & Quick Join -->
+              <div class="guide-card-item" style="display: flex; flex-direction: column; justify-content: space-between; gap: 14px; padding: 20px;">
+                <div>
+                  <div class="guide-card-header" style="margin-bottom: 8px;">
+                    <span class="guide-num">02</span>
+                    <h4>🔑 Код подключения</h4>
+                  </div>
+                  <p style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">Введите 5-значный код комнаты напарника для входа или создайте новую сессию.</p>
+                  
+                  <div class="network-field">
+                    <input
+                      id="networkRoomCode"
+                      class="network-input room-code-input"
+                      type="text"
+                      maxlength="5"
+                      autocomplete="off"
+                      placeholder="•••••"
+                      style="font-size: 22px; font-weight: 900; letter-spacing: 8px; background: rgba(13, 21, 37, 0.95); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 12px; padding: 10px 14px; text-align: center; text-transform: uppercase; color: #00f2fe;"
+                    >
+                  </div>
+                </div>
+
+                <div style="font-size: 11.5px; color: #64748b; text-align: center; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px 12px;">
+                  ⚡ Нажмите <strong>Enter</strong> для быстрого подключения к сессии
+                </div>
+              </div>
             </div>
-          
-            <div class="network-field">
-              <label for="networkRoomCode">
-                5-ЗНАЧНЫЙ КОД КОМНАТЫ
-              </label>
-            
-              <input
-                id="networkRoomCode"
-                class="network-input room-code-input"
-                type="text"
-                maxlength="5"
-                autocomplete="off"
-                placeholder="ABCDE"
-              >
-            </div>
-          
-            <div class="network-actions" style="margin-top: 22px; gap: 12px;">
-              <button
-                type="button"
-                class="secondary-button"
-                data-network-action="back"
-                style="min-width: 140px;"
-              >
-                ← Назад
-              </button>
-            
-              <button
-                type="button"
-                class="secondary-button"
-                data-network-action="join"
-                style="min-width: 160px;"
-              >
-                🔑 Войти по коду
-              </button>
-            
-              <button
-                type="button"
-                class="action-button"
-                data-network-action="create"
-                style="min-width: 190px; margin: 0;"
-              >
-                🚀 Создать комнату
-              </button>
-            </div>
-          
-            <div id="networkMessageContainer" style="margin-top: 14px;">
+
+            <!-- Status Message and Server Indicator -->
+            <div id="networkMessageContainer">
               ${getNetworkMessageHtml()}
             </div>
-          
-            <div style="margin-top: 10px; text-align: center;">
+            
+            <div style="text-align: center;">
               ${getConnectionIndicatorHtml()}
             </div>
+          </div>
+
+          <!-- Bottom Actions -->
+          <div class="network-actions" style="margin-top: 14px; gap: 14px; flex-shrink: 0;">
+            <button
+              type="button"
+              class="secondary-button"
+              data-network-action="back"
+              style="min-width: 150px;"
+            >
+              ← Назад в меню
+            </button>
+          
+            <button
+              type="button"
+              class="secondary-button"
+              data-network-action="join"
+              style="min-width: 170px;"
+            >
+              🔑 Войти по коду
+            </button>
+          
+            <button
+              type="button"
+              class="action-button"
+              data-network-action="create"
+              style="min-width: 210px; margin: 0;"
+            >
+              🚀 Создать комнату
+            </button>
           </div>
         </div>
       `;
@@ -12737,91 +12765,92 @@ osc.stop(now + 0.05);
         .join("");
       
       panel.innerHTML = `
-        <div class="main-menu-fullscreen" style="max-width: 900px; gap: 16px;">
-          <div class="hero-brand-container">
-            <h1 class="hero-cyber-logo" style="font-size: clamp(24px, 3.8vw, 36px); margin: 0;">
-              👥 КООПЕРАТИВНОЕ ЛОББИ
-            </h1>
-            <div class="hero-cyber-subtitle" style="margin-top: 4px;">
-              <span>СОВМЕСТНЫЙ РЕЙД НА 2 ИГРОКОВ</span>
+        <div class="cyber-modal-container" style="max-width: 960px; width: 100%;">
+          <div class="cyber-modal-header" style="flex-shrink: 0;">
+            <div class="cyber-modal-icon">👥</div>
+            <div>
+              <h2 class="cyber-modal-title">Кооперативное лобби // Отряд</h2>
+              <div class="cyber-modal-subtitle">Подготовка бойцов к совместной высадке на арену</div>
             </div>
           </div>
-      
-          <div style="display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; max-width: 580px; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(0, 242, 254, 0.45); border-radius: 16px; padding: 12px 20px; box-shadow: 0 8px 30px rgba(0, 242, 254, 0.14);">
-            <div style="font-size: 11px; font-weight: 900; color: #94a3b8; letter-spacing: 1.2px; text-transform: uppercase;">КОД:</div>
-            <div style="font-size: 28px; font-weight: 900; letter-spacing: 5px; color: #00f2fe; text-shadow: 0 0 14px rgba(0, 242, 254, 0.6); font-family: monospace;">${escapeHtml(networkRoom.code)}</div>
-            <button
-              type="button"
-              class="copy-code-button"
-              data-lobby-action="copy"
-              style="margin: 0; padding: 8px 16px; font-size: 12px; font-weight: 800;"
-            >
-              📋 Скопировать
-            </button>
-          </div>
-      
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; max-width: 780px;">
-            ${playerSlots}
-          </div>
-      
-          ${
-            isHost
-              ? `
-                <div class="menu-section" style="width: 100%; max-width: 780px; margin: 0;">
-                  <div class="menu-label" style="text-align: center; margin-bottom: 6px; font-size: 11px;">
-                    СЛОЖНОСТЬ РЕЙДА
-                  </div>
-                
-                  <div class="difficulty-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                    ${Object.entries(
-                      difficultySettings
-                    )
-                      .map(([key, settings]) => `
-                        <button
-                          type="button"
-                          class="difficulty-button ${
-                            key === (networkRoom.difficulty || difficulty)
-                              ? "selected"
-                              : ""
-                          }"
-                          data-lobby-difficulty="${key}"
-                        >
-                          ${settings.label}
-                        </button>
-                      `)
-                      .join("")}
-                  </div>
-                </div>
-              `
-              : ""
-          }
-              
-          <div class="lobby-status-container" style="width: 100%; max-width: 780px; margin: 0;">
+
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px; display: flex; flex-direction: column; gap: 14px; align-items: center;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; max-width: 580px; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(0, 242, 254, 0.45); border-radius: 16px; padding: 12px 20px; box-shadow: 0 8px 30px rgba(0, 242, 254, 0.14);">
+              <div style="font-size: 11px; font-weight: 900; color: #94a3b8; letter-spacing: 1.2px; text-transform: uppercase;">КОД КОМНАТЫ:</div>
+              <div style="font-size: 28px; font-weight: 900; letter-spacing: 5px; color: #00f2fe; text-shadow: 0 0 14px rgba(0, 242, 254, 0.6); font-family: monospace;">${escapeHtml(networkRoom.code)}</div>
+              <button
+                type="button"
+                class="copy-code-button"
+                data-lobby-action="copy"
+                style="margin: 0; padding: 8px 16px; font-size: 12px; font-weight: 800;"
+              >
+                📋 Скопировать
+              </button>
+            </div>
+        
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; width: 100%; max-width: 780px;">
+              ${playerSlots}
+            </div>
+        
             ${
-              isCountdownActive
+              isHost
                 ? `
-                  <div class="lobby-countdown-widget">
-                    <span>🚀 Запуск через</span>
-                    <span class="lobby-countdown-number">${networkRoom.countdown}</span>
+                  <div class="menu-section" style="width: 100%; max-width: 780px; margin: 0;">
+                    <div class="menu-label" style="text-align: center; margin-bottom: 6px; font-size: 11px;">
+                      СЛОЖНОСТЬ РЕЙДА
+                    </div>
+                  
+                    <div class="difficulty-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                      ${Object.entries(
+                        difficultySettings
+                      )
+                        .map(([key, settings]) => `
+                          <button
+                            type="button"
+                            class="difficulty-button ${
+                              key === (networkRoom.difficulty || difficulty)
+                                ? "selected"
+                                : ""
+                            }"
+                            data-lobby-difficulty="${key}"
+                          >
+                            ${settings.label}
+                          </button>
+                        `)
+                        .join("")}
+                    </div>
                   </div>
                 `
-                : `
-                  <div class="lobby-notice-box ${roomIsReady ? 'ready-prompt' : ''}">
-                    ${
-                      roomIsReady
-                        ? "⚡ Оба игрока на месте. Нажмите «Я готов» для запуска отсчёта."
-                        : "⏳ Ожидание подключения напарника по коду комнаты..."
-                    }
-                  </div>
-                `
+                : ""
             }
+                
+            <div class="lobby-status-container" style="width: 100%; max-width: 780px; margin: 0;">
+              ${
+                isCountdownActive
+                  ? `
+                    <div class="lobby-countdown-widget">
+                      <span>🚀 Запуск через</span>
+                      <span class="lobby-countdown-number">${networkRoom.countdown}</span>
+                    </div>
+                  `
+                  : `
+                    <div class="lobby-notice-box ${roomIsReady ? 'ready-prompt' : ''}">
+                      ${
+                        roomIsReady
+                          ? "⚡ Оба игрока на месте. Нажмите «Я готов» для запуска отсчёта."
+                          : "⏳ Ожидание подключения напарника по коду комнаты..."
+                      }
+                    </div>
+                  `
+              }
+            </div>
+          
+            <div id="networkMessageContainer" style="width: 100%; max-width: 780px;">
+              ${getNetworkMessageHtml()}
+            </div>
           </div>
         
-          <div id="networkMessageContainer" style="width: 100%; max-width: 780px;">
-            ${getNetworkMessageHtml()}
-          </div>
-        
-          <div class="network-actions" style="width: 100%; max-width: 780px; gap: 14px; margin-top: 2px;">
+          <div class="network-actions" style="width: 100%; max-width: 780px; margin: 14px auto 0 auto; gap: 14px; flex-shrink: 0;">
             <button
               type="button"
               class="secondary-button"
