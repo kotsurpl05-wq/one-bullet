@@ -2030,6 +2030,20 @@
       100% { background-position: 48px 48px; }
     }
 
+    /* Непрозрачный темный фон для модалки настроек во время забега (в паузе) */
+    #overlay.fullscreen-menu-mode.ingame-settings-mode {
+      background: #030712 !important;
+      backdrop-filter: blur(24px) !important;
+    }
+
+    #overlay.fullscreen-menu-mode.ingame-settings-mode::before {
+      background-color: #030712 !important;
+      background-image: 
+        linear-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 242, 254, 0.05) 1px, transparent 1px) !important;
+      opacity: 1 !important;
+    }
+
     .main-menu-fullscreen {
       display: flex !important;
       flex-direction: column !important;
@@ -9703,7 +9717,7 @@
         osc.connect(gain);
         gain.connect(this.sfxGain || this.masterGain);
         osc.start(now);
-        osc.stop(now + 0.05);
+osc.stop(now + 0.05);
       }
 
       playWaveStart() {
@@ -10079,6 +10093,19 @@
 
     function showSettingsMenu(fromView = "menu") {
       currentMenuSubView = "settings";
+      const isPause = fromView === "pause" || fromView === "coop-pause";
+      const isLobby = fromView === "lobby";
+      const backLabel = isPause ? "← Назад в игру" : isLobby ? "← Назад в лобби" : "← Назад в меню";
+      const saveLabel = isPause ? "✓ Сохранить и вернуться" : "✓ Сохранить и закрыть";
+
+      overlay.classList.add("fullscreen-menu-mode");
+      if (isPause) {
+        overlay.classList.add("ingame-settings-mode");
+      } else {
+        overlay.classList.remove("ingame-settings-mode");
+      }
+      overlay.classList.remove("hidden");
+
       panel.innerHTML = `
         <div class="cyber-modal-container" style="max-width: 920px;">
           <div class="cyber-modal-header">
@@ -10193,13 +10220,13 @@
 
           <div class="network-actions" style="margin-top: 28px; gap: 14px;">
             <button type="button" class="secondary-button" id="settingsBackBtn" style="min-width: 150px;">
-              ← Назад в меню
+              ${backLabel}
             </button>
             <button type="button" class="secondary-button" id="settingsResetBtn" style="min-width: 150px;">
               ↺ По умолчанию
             </button>
             <button type="button" class="action-button" id="settingsSaveBtn" style="min-width: 210px; margin: 0;">
-              ✓ Сохранить и закрыть
+              ${saveLabel}
             </button>
           </div>
         </div>
@@ -10293,11 +10320,13 @@
         };
       });
 
-      backBtn.onclick = () => {
+      const exitSettings = () => {
         soundManager.playUiClick();
+        overlay.classList.remove("ingame-settings-mode");
         if (fromView === "lobby") {
           renderNetworkLobby();
         } else if (fromView === "coop-pause" || (fromView === "pause" && (coopSession.active || runMode === "coop" || gameState === "coop-playing"))) {
+          overlay.classList.remove("fullscreen-menu-mode");
           overlay.classList.add("hidden");
           currentMenuSubView = "pause";
           gameState = "coop-playing";
@@ -10305,6 +10334,7 @@
           pauseMenu.classList.remove("hidden");
           pauseMenu.setAttribute("aria-hidden", "false");
         } else if (fromView === "pause") {
+          overlay.classList.remove("fullscreen-menu-mode");
           overlay.classList.add("hidden");
           currentMenuSubView = "pause";
           showPauseMenu();
@@ -10312,6 +10342,8 @@
           showMainMenu();
         }
       };
+
+      backBtn.onclick = exitSettings;
 
       resetBtn.onclick = () => {
         gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon" };
@@ -10320,25 +10352,7 @@
         showSettingsMenu(fromView);
       };
 
-      saveBtn.onclick = () => {
-        soundManager.playUiClick();
-        if (fromView === "lobby") {
-          renderNetworkLobby();
-        } else if (fromView === "coop-pause" || (fromView === "pause" && (coopSession.active || runMode === "coop" || gameState === "coop-playing"))) {
-          overlay.classList.add("hidden");
-          currentMenuSubView = "pause";
-          gameState = "coop-playing";
-          renderPauseMenu();
-          pauseMenu.classList.remove("hidden");
-          pauseMenu.setAttribute("aria-hidden", "false");
-        } else if (fromView === "pause") {
-          overlay.classList.add("hidden");
-          currentMenuSubView = "pause";
-          showPauseMenu();
-        } else {
-          showMainMenu();
-        }
-      };
+      saveBtn.onclick = exitSettings;
     }
 
     function showGuideMenu() {
@@ -18621,14 +18635,18 @@
         if (currentMenuSubView === "settings" && !overlay.classList.contains("hidden")) {
           event.preventDefault();
           soundManager.playUiClick();
-          overlay.classList.add("hidden");
+          overlay.classList.remove("ingame-settings-mode");
           if (coopSession.active || runMode === "coop" || gameState === "coop-playing") {
+            overlay.classList.remove("fullscreen-menu-mode");
+            overlay.classList.add("hidden");
             currentMenuSubView = "pause";
             gameState = "coop-playing";
             renderPauseMenu();
             pauseMenu.classList.remove("hidden");
             pauseMenu.setAttribute("aria-hidden", "false");
           } else if (gameState === "paused" || gameState === "playing") {
+            overlay.classList.remove("fullscreen-menu-mode");
+            overlay.classList.add("hidden");
             currentMenuSubView = "pause";
             showPauseMenu();
           } else {

@@ -80,4 +80,12 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     const drawMatches = indexHtml.match(/drawDamageVignette\(\);/g) || [];
     assert.ok(drawMatches.length >= 2, `drawDamageVignette() must be called in both Solo and Coop scenes (found ${drawMatches.length})`);
   });
+
+  await t.test("6. In-game Settings modal uses fullscreen cyber layout with opaque solid background", () => {
+    assert.ok(indexHtml.includes("#overlay.fullscreen-menu-mode.ingame-settings-mode"), "CSS must declare #overlay.fullscreen-menu-mode.ingame-settings-mode");
+    assert.ok(indexHtml.includes("overlay.classList.add(\"ingame-settings-mode\")"), "showSettingsMenu must add ingame-settings-mode when isPause is true");
+    assert.ok(indexHtml.includes("overlay.classList.remove(\"ingame-settings-mode\")"), "showSettingsMenu exit must clean up ingame-settings-mode");
+    assert.ok(indexHtml.includes("${backLabel}"), "showSettingsMenu must use dynamic backLabel");
+    assert.ok(indexHtml.includes("${saveLabel}"), "showSettingsMenu must use dynamic saveLabel");
+  });
 });
