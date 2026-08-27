@@ -12533,24 +12533,9 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               }
             } else if (mobId === "normal") {
-              // Кибер-патрулирование со сканирующим конусом радара
+              // Плавное патрулирование базового дрона
               mx = Math.sin(now * 0.0018) * 26;
               my = Math.cos(now * 0.0024) * 14;
-
-              const scanAngle = Math.sin(now * 0.003) * 0.55;
-              bCtx.save();
-              bCtx.translate(mx, my);
-              bCtx.rotate(scanAngle);
-              const scanGrad = bCtx.createRadialGradient(0, 0, 4, 0, 0, 70);
-              scanGrad.addColorStop(0, "rgba(255, 85, 119, 0.22)");
-              scanGrad.addColorStop(1, "rgba(255, 85, 119, 0)");
-              bCtx.fillStyle = scanGrad;
-              bCtx.beginPath();
-              bCtx.moveTo(0, 0);
-              bCtx.arc(0, 0, 70, -0.32, 0.32);
-              bCtx.closePath();
-              bCtx.fill();
-              bCtx.restore();
             } else if (mobId === "boss") {
               // Парящий титан с аутентичными внутриигровыми атаками: Веерный залп и Радиальный взрыв (#ff4f91, r=7)
               mx = Math.sin(now * 0.001) * 8;
