@@ -54,6 +54,7 @@ test("Co-op snapshot bandwidth contract", async t => {
         "poisoned", "parasiteInfested",
         "isPhased", "twinPartnerId", "isEnraged",
         "chargeState", "chargeDx", "chargeDy",
+        "chargeProgress", "coolingProgress",
         "sporesCount", "bossId"
       ]);
 

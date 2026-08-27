@@ -5479,7 +5479,14 @@ function createServerCoopSnapshot(room, options) {
       }
 
       if (enemy.isCharging) serialized.isCharging = 1;
-      if (enemy.chargeState && enemy.chargeState !== "idle") serialized.chargeState = enemy.chargeState;
+      if (enemy.chargeState && enemy.chargeState !== "idle") {
+        serialized.chargeState = enemy.chargeState;
+        if (enemy.chargeState === "windup") {
+          serialized.chargeProgress = Number(Math.max(0, Math.min(1, 1 - (enemy.chargeTimer / 0.65))).toFixed(2));
+        } else if (enemy.chargeState === "cooling") {
+          serialized.coolingProgress = Number(Math.max(0, Math.min(1, 1 - (enemy.coolingTimer / 1.0))).toFixed(2));
+        }
+      }
       if (enemy.chargeDx !== undefined && enemy.chargeState === "windup") {
         serialized.chargeDx = Number(enemy.chargeDx.toFixed(2));
         serialized.chargeDy = Number(enemy.chargeDy.toFixed(2));

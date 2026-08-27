@@ -15865,6 +15865,14 @@ osc.stop(now + 0.05);
             snapshotEnemy.isCharging
           );
 
+        coopEnemy.chargeState = snapshotEnemy.chargeState || "idle";
+        coopEnemy.chargeProgress = snapshotEnemy.chargeProgress !== undefined ? snapshotEnemy.chargeProgress : (coopEnemy.chargeState === "windup" ? 0.5 : 0);
+        coopEnemy.coolingProgress = snapshotEnemy.coolingProgress !== undefined ? snapshotEnemy.coolingProgress : 0;
+        if (snapshotEnemy.chargeDx !== undefined) {
+          coopEnemy.chargeDx = snapshotEnemy.chargeDx;
+          coopEnemy.chargeDy = snapshotEnemy.chargeDy;
+        }
+
         coopEnemy.isPhased =
           Boolean(snapshotEnemy.isPhased);
 
