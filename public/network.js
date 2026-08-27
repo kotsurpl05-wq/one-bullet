@@ -17,6 +17,13 @@ class OneBulletNetwork extends EventTarget {
     this.reconnectToken = null;
     this.lastSnapshot = null;
 
+    this.pingMs = 0;
+    this.jitterMs = 0;
+    this.snapshotRate = 20;
+    this.snapshotIntervals = [];
+    this.lastSnapshotAt = 0;
+    this.pingTimer = null;
+
     this.bindSocketEvents();
   }
 
@@ -56,6 +63,7 @@ class OneBulletNetwork extends EventTarget {
     this.socket.on("connect", () => {
       this.connected = true;
       this.playerId = this.socket.id;
+      this.startPingLoop();
 
       this.emit("connected", {
         playerId: this.playerId
@@ -67,6 +75,7 @@ class OneBulletNetwork extends EventTarget {
       this.room = null;
       this.role = null;
       this.lastSnapshot = null;
+      this.stopPingLoop();
     
       this.emit("disconnected", {
         reason
@@ -111,6 +120,19 @@ class OneBulletNetwork extends EventTarget {
 
     this.socket.on("net:snapshot", snapshot => {
       this.lastSnapshot = snapshot;
+
+      const now = performance.now();
+      if (this.lastSnapshotAt > 0) {
+        const dtMs = now - this.lastSnapshotAt;
+        this.snapshotIntervals.push(dtMs);
+        if (this.snapshotIntervals.length > 20) this.snapshotIntervals.shift();
+        const avgDt = this.snapshotIntervals.reduce((a, b) => a + b, 0) / this.snapshotIntervals.length;
+        this.snapshotRate = avgDt > 0 ? Math.round(1000 / avgDt) : 20;
+        const variance = this.snapshotIntervals.reduce((sum, val) => sum + Math.pow(val - avgDt, 2), 0) / this.snapshotIntervals.length;
+        this.jitterMs = Math.round(Math.sqrt(variance));
+      }
+      this.lastSnapshotAt = now;
+
       this.emit("snapshot", snapshot);
     });
 
@@ -125,6 +147,27 @@ class OneBulletNetwork extends EventTarget {
     const handleGameEvent = (payload) => this.emit("game-event", payload);
     this.socket.on("net:game-event", handleGameEvent);
     this.socket.on("coop:game-event", handleGameEvent);
+  }
+
+  startPingLoop() {
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    this.pingTimer = setInterval(() => {
+      if (!this.connected || !this.socket) return;
+      const t0 = performance.now();
+      this.socket.emit("net:ping", t0, (res) => {
+        if (res && res.timestamp) {
+          const rtt = Math.round(performance.now() - t0);
+          this.pingMs = this.pingMs > 0 ? Math.round(this.pingMs * 0.7 + rtt * 0.3) : rtt;
+        }
+      });
+    }, 2000);
+  }
+
+  stopPingLoop() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
   }
 
   on(type, listener) {

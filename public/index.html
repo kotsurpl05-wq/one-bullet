@@ -2814,6 +2814,8 @@
     </div>
   </div>
   
+  <div id="netStats" class="hidden" style="position: fixed; top: 10px; left: 10px; z-index: 9000; background: rgba(8,12,22,0.78); border: 1px solid rgba(120,200,255,0.25); border-radius: 8px; padding: 7px 11px; font-family: monospace; font-size: 11px; line-height: 1.55; color: #9fd8ff; pointer-events: none; white-space: pre;"></div>
+
   <div id="hud" class="hidden">
     <div class="hud-row">
       <span class="hud-label">Волна</span>
@@ -3451,7 +3453,8 @@
     const SOLO_WORLD_HEIGHT = ARENA_HEIGHT;
 
     const COOP_PLAYER_SPEED = 300;
-    const COOP_INPUT_INTERVAL = 1 / 60;
+    const COOP_INPUT_INTERVAL = 1 / 30;
+    const COOP_SNAPSHOT_HZ = 20;
 
     const coopSession = {
       active: false,
@@ -15189,14 +15192,78 @@ osc.stop(now + 0.05);
         coopPlayer.reviveBeacon = snapshotPlayer.reviveBeacon || null;
 
         if (snapshotPlayer.id !== window.net?.playerId) {
-          coopPlayer.x = snapshotX;
-          coopPlayer.y = snapshotY;
           coopPlayer.prevTargetX = coopPlayer.targetX;
           coopPlayer.prevTargetY = coopPlayer.targetY;
           coopPlayer.targetX = snapshotX;
           coopPlayer.targetY = snapshotY;
           coopPlayer.aimX = snapshotAimX;
           coopPlayer.aimY = snapshotAimY;
+
+          /*
+           * Вычисляем скорость из разницы двух последних
+           * серверных позиций, сглаживая EMA-фильтром
+           * чтобы убрать микро-рывки при потере пакетов.
+           */
+          const now = performance.now();
+          const elapsed = (now - (coopPlayer.lastSnapshotTime || now)) / 1000;
+          coopPlayer.lastSnapshotTime = now;
+
+          if (
+            elapsed > 0.005 && elapsed < 0.25 &&
+            Number.isFinite(coopPlayer.prevTargetX) &&
+            Number.isFinite(coopPlayer.prevTargetY)
+          ) {
+            const jumpX = snapshotX - coopPlayer.prevTargetX;
+            const jumpY = snapshotY - coopPlayer.prevTargetY;
+            const jumpDist = Math.hypot(jumpX, jumpY);
+
+            /*
+             * Телепорт или большой рассинхрон: экстраполяция
+             * тут бесполезна и даёт рывок — снапим мгновенно.
+             */
+            if (jumpDist > Math.max(150, 800 * elapsed)) {
+              coopPlayer.displayX = snapshotX;
+              coopPlayer.displayY = snapshotY;
+              coopPlayer.velX = 0;
+              coopPlayer.velY = 0;
+            } else {
+              const rawVelX = jumpX / elapsed;
+              const rawVelY = jumpY / elapsed;
+              /* Ограничение по максимальной скорости (2× нормальной) */
+              const maxVel = 700;
+              const velMag = Math.hypot(rawVelX, rawVelY);
+              const clampedVelX = velMag > maxVel ? rawVelX * (maxVel / velMag) : rawVelX;
+              const clampedVelY = velMag > maxVel ? rawVelY * (maxVel / velMag) : rawVelY;
+
+              /*
+               * Адаптивное сглаживание: фильтр должен быть прозрачен
+               * в момент старта движения и смены направления, иначе
+               * первые 250мс экстраполяция покрывает меньше половины
+               * перемещения и накопленная ошибка даёт рваные скачки.
+               * Фильтруем только устойчивый шум уже установившегося полёта.
+               */
+              const prevSpeed = Math.hypot(
+                coopPlayer.velX || 0,
+                coopPlayer.velY || 0
+              );
+              const newSpeed = Math.hypot(clampedVelX, clampedVelY);
+              const speedDelta = Math.hypot(
+                clampedVelX - (coopPlayer.velX || 0),
+                clampedVelY - (coopPlayer.velY || 0)
+              );
+
+              const startedMoving = prevSpeed < 40 && newSpeed >= 40;
+              const maneuvered = speedDelta > 150;
+
+              const smooth = startedMoving || maneuvered ? 1 : 0.6;
+              coopPlayer.velX = (coopPlayer.velX || 0) * (1 - smooth) + clampedVelX * smooth;
+              coopPlayer.velY = (coopPlayer.velY || 0) * (1 - smooth) + clampedVelY * smooth;
+            }
+          } else {
+            /* Большие дыры между пакетами не дают надёжной скорости */
+            coopPlayer.velX = 0;
+            coopPlayer.velY = 0;
+          }
         }
       
         coopPlayer.r =
@@ -15259,15 +15326,17 @@ osc.stop(now + 0.05);
 
         coopPlayer.alive = isAliveNow;
 
-        coopPlayer.stats =
-          snapshotPlayer.stats ||
-          coopPlayer.stats ||
-          null;
+        if (snapshotPlayer.stats !== undefined) {
+          coopPlayer.stats = snapshotPlayer.stats;
+        } else if (coopPlayer.stats === undefined) {
+          coopPlayer.stats = null;
+        }
 
-        coopPlayer.selectedUpgrades =
-          Array.isArray(snapshotPlayer.selectedUpgrades)
-            ? snapshotPlayer.selectedUpgrades
-            : (coopPlayer.selectedUpgrades || []);
+        if (Array.isArray(snapshotPlayer.selectedUpgrades)) {
+          coopPlayer.selectedUpgrades = snapshotPlayer.selectedUpgrades;
+        } else if (!coopPlayer.selectedUpgrades) {
+          coopPlayer.selectedUpgrades = [];
+        }
 
         coopPlayer.totalDamageDealt =
           Number.isFinite(snapshotPlayer.totalDamageDealt)
@@ -16332,28 +16401,29 @@ osc.stop(now + 0.05);
           coopPlayer.aimY = localInput.aimY;
         } else {
           /*
-           * Удалённый напарник: экстраполяция по вектору между
-           * двумя последними серверными позициями, затем мягкая
-           * коррекция к цели. Это убирает рывки на LAN при 60 Hz.
+           * Удалённый напарник: экстраполяция по сглаженной
+           * скорости (EMA), затем мягкая коррекция к цели.
+           * Это убирает микро-рывки при 20 Hz снапшотах.
            */
-          const prevX = coopPlayer.prevTargetX;
-          const prevY = coopPlayer.prevTargetY;
-          if (
-            Number.isFinite(prevX) &&
-            Number.isFinite(prevY) &&
-            Number.isFinite(coopPlayer.targetX) &&
-            Number.isFinite(coopPlayer.targetY)
-          ) {
-            const velX = (coopPlayer.targetX - prevX) * 60;
-            const velY = (coopPlayer.targetY - prevY) * 60;
-            coopPlayer.displayX += velX * dt;
-            coopPlayer.displayY += velY * dt;
-          }
-          const correctionFactor = Math.min(1, dt * 25);
-          coopPlayer.displayX +=
-            (coopPlayer.targetX - coopPlayer.displayX) * correctionFactor;
-          coopPlayer.displayY +=
-            (coopPlayer.targetY - coopPlayer.displayY) * correctionFactor;
+          const vx = coopPlayer.velX || 0;
+          const vy = coopPlayer.velY || 0;
+          coopPlayer.displayX += vx * dt;
+          coopPlayer.displayY += vy * dt;
+
+          /*
+           * Мягкая коррекция к серверной цели. При малом
+           * рассогласовании действует базовая тяга, при
+           * накопленной ошибке (старт движения, потеря
+           * пакетов) она плавно усиливается вместо того,
+           * чтобы копить скачки.
+           */
+          const errX = coopPlayer.targetX - coopPlayer.displayX;
+          const errY = coopPlayer.targetY - coopPlayer.displayY;
+          const errDist = Math.hypot(errX, errY);
+          const corrPerSec = 8 + Math.min(30, Math.max(0, errDist - 24) * 0.12);
+          const correctionFactor = Math.min(0.75, dt * corrPerSec);
+          coopPlayer.displayX += errX * correctionFactor;
+          coopPlayer.displayY += errY * correctionFactor;
         }
       }
       /*
@@ -16599,14 +16669,14 @@ osc.stop(now + 0.05);
             coopEnemy.targetX -
             coopEnemy.displayX
           ) *
-          Math.min(1, dt * 30);
+          Math.min(1, dt * 15);
       
         coopEnemy.displayY +=
           (
             coopEnemy.targetY -
             coopEnemy.displayY
           ) *
-          Math.min(1, dt * 30);
+          Math.min(1, dt * 15);
       }
       for (
         const crystal of
@@ -21101,12 +21171,78 @@ osc.stop(now + 0.05);
 
     let lastGameError = "";
 
+    /* =========================================================================
+     * Мониторинг сети (F3): FPS, пинг, джиттер, частота снапшотов,
+     * отставание отображения напарника от сервера.
+     * ========================================================================= */
+    const netStatsEl = document.getElementById("netStats");
+    let netStatsVisible = false;
+    let netStatsLastUpdate = 0;
+    let netFpsFrames = 0;
+    let netFpsWindowStart = 0;
+    let netFpsValue = 0;
+
+    function updateNetStats(currentTime) {
+      netFpsFrames += 1;
+      if (!netFpsWindowStart) {
+        netFpsWindowStart = currentTime;
+      } else if (currentTime - netFpsWindowStart >= 1000) {
+        netFpsValue = Math.round(
+          (netFpsFrames * 1000) / (currentTime - netFpsWindowStart)
+        );
+        netFpsFrames = 0;
+        netFpsWindowStart = currentTime;
+      }
+
+      if (!netStatsVisible) return;
+      if (currentTime - netStatsLastUpdate < 500) return;
+      netStatsLastUpdate = currentTime;
+
+      const net = window.net;
+      let text =
+        `FPS ${netFpsValue}\n` +
+        `пинг ${net?.pingMs ?? "?"} мс · джиттер ${net?.jitterMs ?? "?"} мс\n` +
+        `снапшоты ${net?.snapshotRate ?? "?"}/сек`;
+
+      if (
+        coopSession.active &&
+        coopSession.players &&
+        Boolean(window.net?.playerId)
+      ) {
+        for (const [id, p] of coopSession.players) {
+          if (id === window.net.playerId || !p.alive) continue;
+          const lagPx =
+            Number.isFinite(p.serverX) && Number.isFinite(p.displayX)
+              ? Math.round(
+                  Math.hypot(
+                    p.serverX - p.displayX,
+                    p.serverY - p.displayY
+                  )
+                )
+              : "?";
+          text += `\nнапарник: отставание ${lagPx}px`;
+        }
+      }
+
+      netStatsEl.textContent = text;
+    }
+
+    document.addEventListener("keydown", event => {
+      if (event.code === "F3") {
+        event.preventDefault();
+        netStatsVisible = !netStatsVisible;
+        netStatsEl.classList.toggle("hidden", !netStatsVisible);
+      }
+    });
+
     function gameLoop(currentTime) {
       /*
        * Следующий кадр назначается сразу.
        * Поэтому единичная ошибка не остановит цикл полностью.
        */
       requestAnimationFrame(gameLoop);
+
+      updateNetStats(currentTime);
     
       const dt = Math.min(
         Math.max(

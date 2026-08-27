@@ -17,9 +17,7 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e6,
   pingInterval: 3000,
   pingTimeout: 8000,
-  perMessageDeflate: {
-    threshold: 256
-  }
+  perMessageDeflate: false
 });
 
 app.get(["/healthz", "/health", "/ping"], (req, res) => {
@@ -301,7 +299,7 @@ const COOP_WORLD_HEIGHT = 1374;
 
 const COOP_PLAYER_SPEED = 300;
 const COOP_SIMULATION_RATE = 60;
-const COOP_SNAPSHOT_RATE = 60;
+const COOP_SNAPSHOT_RATE = 20;
 
 const COOP_INPUT_TIMEOUT = 1200;
 
@@ -4937,6 +4935,8 @@ function applyServerUpgrade(
     bonusText: offer.bonusText || ""
   });
 
+  player.statsDirty = true;
+  player.upgradesDirty = true;
   return true;
 }
 
@@ -4966,6 +4966,8 @@ function recalculateServerPlayerStats(world, player) {
   for (const up of currentUpgrades) {
     applyServerUpgrade(world, player, up);
   }
+  player.statsDirty = true;
+  player.upgradesDirty = true;
 }
 
 function removeServerUpgrade(world, player, upgradeId) {
@@ -5376,8 +5378,8 @@ function createServerCoopSnapshot(room, options) {
       id: coopPlayer.id,
       name: coopPlayer.name,
 
-      x: Math.round(coopPlayer.x * 10) / 10,
-      y: Math.round(coopPlayer.y * 10) / 10,
+      x: Math.round(coopPlayer.x * 100) / 100,
+      y: Math.round(coopPlayer.y * 100) / 100,
 
       aimX: Math.round(coopPlayer.aimX),
       aimY: Math.round(coopPlayer.aimY),
@@ -5403,8 +5405,8 @@ function createServerCoopSnapshot(room, options) {
           }
         : undefined,
 
-      stats: coopPlayer.stats,
-      selectedUpgrades: coopPlayer.selectedUpgrades,
+      stats: (fullSnapshot || coopPlayer.statsDirty) ? coopPlayer.stats : undefined,
+      selectedUpgrades: (fullSnapshot || coopPlayer.upgradesDirty) ? coopPlayer.selectedUpgrades : undefined,
       totalDamageDealt: coopPlayer.totalDamageDealt || 0
     })),
 
@@ -6057,6 +6059,10 @@ io.on("connection", socket => {
   
     coopPlayer.lastInputAt =
       Date.now();
+  });
+
+  socket.on("net:ping", (timestamp, ack) => {
+    ack?.({ timestamp, serverTime: Date.now() });
   });
 
   socket.on("net:toggle-pause", () => {
@@ -6726,14 +6732,22 @@ setInterval(() => {
       room.world.snapshotAccumulator >=
       1 / COOP_SNAPSHOT_RATE
     ) {
-      room.world.snapshotAccumulator = 0;
+      room.world.snapshotAccumulator = Math.min(
+        room.world.snapshotAccumulator - 1 / COOP_SNAPSHOT_RATE,
+        0.1
+      );
 
+      const snapshot = createServerCoopSnapshot(room);
       io.to(room.code)
         .volatile
         .emit(
           "net:snapshot",
-          createServerCoopSnapshot(room)
+          snapshot
         );
+      for (const p of room.world.players.values()) {
+        p.statsDirty = false;
+        p.upgradesDirty = false;
+      }
     }
   }
 }, 1000 / COOP_SIMULATION_RATE);
