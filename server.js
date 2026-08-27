@@ -2615,13 +2615,13 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Пуля автоматически притягивается к владельцу (120 px/с, радиус 20 кл).",
+    description: "Пуля автоматически притягивается к владельцу (100 px/с, радиус 20 кл).",
     fixedRarity: "rare",
     available(player) {
       return !player.stats?.boomerang;
     },
     bonus() {
-      return `Магнитный возврат: 120 px/с, радиус 20 клеток`;
+      return `Магнитный возврат: 100 px/с, радиус 20 клеток`;
     }
   },
 
@@ -2644,10 +2644,10 @@ const SERVER_UPGRADES = [
     title: "Турбо-магнит",
     description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
     available(player) {
-      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 120) < 600;
+      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 100) < 600;
     },
     bonus(player, power) {
-      const current = player.stats?.groundPullSpeed || 120;
+      const current = player.stats?.groundPullSpeed || 100;
       const result = Math.min(600, current + 100 * power);
       return `+${result - current} px/с к скорости возврата (итог: ${result} px/с)`;
     }
@@ -4716,7 +4716,7 @@ function applyServerUpgrade(
 
     case "boomerang": {
       player.stats.boomerang = true;
-      player.stats.groundPullSpeed = 120;
+      player.stats.groundPullSpeed = 100;
       player.stats.magnetRangeBonusCells = player.stats.magnetRangeBonusCells || 0;
       break;
     }
@@ -4726,7 +4726,7 @@ function applyServerUpgrade(
       break;
 
     case "boomerang-speed":
-      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 120) + 100 * power);
+      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 100) + 100 * power);
       break;
 
     case "boomerang-range":

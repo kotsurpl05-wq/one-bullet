@@ -7879,14 +7879,14 @@
       },
       {
         title: "Эффект Бумеранга",
-        description: "Пуля автоматически притягивается к владельцу (120 px/с, радиус 20 кл).",
+        description: "Пуля автоматически притягивается к владельцу (100 px/с, радиус 20 кл).",
         fixedRarity: "rare",
         available() {
           return !stats.boomerang;
         },
         applyWithPower() {
           stats.boomerang = true;
-          stats.groundPullSpeed = 120;
+          stats.groundPullSpeed = 100;
           stats.magnetRangeBonusCells = stats.magnetRangeBonusCells || 0;
         }
       },
@@ -7904,10 +7904,10 @@
         title: "Турбо-магнит",
         description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
         available() {
-          return Boolean(stats.boomerang) && (stats.groundPullSpeed || 120) < 600;
+          return Boolean(stats.boomerang) && (stats.groundPullSpeed || 100) < 600;
         },
         applyWithPower(power) {
-          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 120) + 100 * power);
+          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 100) + 100 * power);
         }
       },
       {

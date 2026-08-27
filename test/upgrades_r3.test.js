@@ -672,7 +672,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       player.maxHp = 10;
       player.stats.damage = 3;
       player.stats.maxBounces = 3;
-      player.stats.groundPullSpeed = 120;
+      player.stats.groundPullSpeed = 100;
       player.stats.boomerang = true;
       player.stats.splinter = true;
       player.stats.stunChance = 1.0; // Guarantee stun in test

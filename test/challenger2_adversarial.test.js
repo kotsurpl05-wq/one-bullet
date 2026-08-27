@@ -30,7 +30,7 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
   const applyUpgrade = (world, player, upgradeId, power) =>
     ctx.applyServerUpgrade(world, player, { upgradeId, power });
 
-  await t.test("1.1 Boomerang family: base gives 120 pullSpeed, boomerang-speed adds +100*p", () => {
+  await t.test("1.1 Boomerang family: base gives 100 pullSpeed, boomerang-speed adds +100*p", () => {
     const { world, player1 } = createTestWorld(ctx);
 
     // Initial baseline stats
@@ -43,18 +43,18 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       "applyServerUpgrade takes (world, player, offer); power must ride inside the offer"
     );
 
-    // Boomerang base: sets groundPullSpeed = 120
+    // Boomerang base: sets groundPullSpeed = 100
     applyUpgrade(world, player1, "boomerang", 1);
-    assert.equal(player1.stats.groundPullSpeed, 120, "Boomerang base sets groundPullSpeed to 120");
+    assert.equal(player1.stats.groundPullSpeed, 100, "Boomerang base sets groundPullSpeed to 100");
     assert.ok(player1.stats.boomerang, "Boomerang flag must be true");
 
-    // boomerang-speed power 1: +100 (total 220)
+    // boomerang-speed power 1: +100 (total 200)
     applyUpgrade(world, player1, "boomerang-speed", 1);
-    assert.equal(player1.stats.groundPullSpeed, 220, "boomerang-speed power 1 adds +100 (total 220)");
+    assert.equal(player1.stats.groundPullSpeed, 200, "boomerang-speed power 1 adds +100 (total 200)");
 
-    // boomerang-speed power 2: +200 (total 420)
+    // boomerang-speed power 2: +200 (total 400)
     applyUpgrade(world, player1, "boomerang-speed", 2);
-    assert.equal(player1.stats.groundPullSpeed, 420, "boomerang-speed power 2 adds +200 (total 420)");
+    assert.equal(player1.stats.groundPullSpeed, 400, "boomerang-speed power 2 adds +200 (total 400)");
 
     // boomerang-speed power 2: +200 (total 600, capped)
     applyUpgrade(world, player1, "boomerang-speed", 2);

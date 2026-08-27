@@ -179,7 +179,7 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   // =========================================================================
   // 5. BOOMERANG UPGRADE (replaces old magnetic field merge)
   // =========================================================================
-  await t.test("5.1 'Эффект Бумеранга' grants groundPullSpeed=120 and boomerang flag (no pickup/magnet-range)", () => {
+  await t.test("5.1 'Эффект Бумеранга' grants groundPullSpeed=100 and boomerang flag (no pickup/magnet-range)", () => {
     const boomerangUpgrade = ctx.SERVER_UPGRADES.find(u => u.id === "boomerang");
     assert.ok(boomerangUpgrade, "Boomerang upgrade must exist in SERVER_UPGRADES");
     assert.equal(boomerangUpgrade.title, "Эффект Бумеранга", "Title must be 'Эффект Бумеранга'");
@@ -188,7 +188,7 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     player1.stats.groundPullSpeed = 0;
 
     ctx.applyServerUpgrade(world, player1, { upgradeId: "boomerang", power: 1 });
-    assert.equal(player1.stats.groundPullSpeed, 120, "groundPullSpeed should be set to 120");
+    assert.equal(player1.stats.groundPullSpeed, 100, "groundPullSpeed should be set to 120");
     assert.ok(player1.stats.boomerang, "boomerang flag must be set");
 
     // pickup and magnet-range should NOT exist as standalone upgrades

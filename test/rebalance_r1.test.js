@@ -113,7 +113,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     );
   });
 
-  await t.test("Tier 1 - Unit 6: Boomerang grants groundPullSpeed=120 and boomerang flag", () => {
+  await t.test("Tier 1 - Unit 6: Boomerang grants groundPullSpeed=100 and boomerang flag", () => {
     const boomerangUpgrade = ctx.SERVER_UPGRADES.find(u => u.id === "boomerang");
     assert.ok(boomerangUpgrade, "Boomerang upgrade must exist in SERVER_UPGRADES");
 
@@ -123,7 +123,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     // Apply boomerang upgrade
     ctx.applyServerUpgrade(world, player1, { upgradeId: "boomerang", power: 1 });
 
-    assert.equal(player1.stats.groundPullSpeed, 120, "Boomerang must set groundPullSpeed to 120");
+    assert.equal(player1.stats.groundPullSpeed, 100, "Boomerang must set groundPullSpeed to 100");
     assert.ok(player1.stats.boomerang, "Boomerang must set boomerang flag to true");
 
     // Bonus text description check
@@ -309,7 +309,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     assert.ok(player1.stats.critChance >= 0.10);
     assert.equal(player1.stats.magazineSize, 2);
     assert.equal(player1.stats.pickupRadius || 0, 0);
-    assert.equal(player1.stats.groundPullSpeed, 120);
+    assert.equal(player1.stats.groundPullSpeed, 100);
   });
 
   await t.test("Tier 3 - Cross-Feature 2: Critical Hit 2.0x Multiplier Execution on Bullet Hit", () => {
