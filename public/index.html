@@ -12397,30 +12397,39 @@ osc.stop(now + 0.05);
                 my = Math.sin(prog * Math.PI) * 12;
               }
             } else if (mobId === "shooter") {
-              // Тактический стрейф и стрельба снарядами
-              mx = Math.sin(now * 0.002) * 32;
-              my = Math.cos(now * 0.004) * 10;
+              // Тактический стрейф
+              mx = Math.sin(now * 0.002) * 30;
+              my = Math.cos(now * 0.0035) * 12;
 
-              // Летящие изумрудные снаряды стрелка
+              // Стрельба аутентичными снарядами стрелка (#67ff9a, r=5, glow=17px) по прямой траектории
+              const shootPeriod = 1600;
               for (let p = 0; p < 2; p++) {
-                const pProg = ((now * 0.0011 + p * 0.5) % 1);
-                const px = mx + 16 + pProg * 90;
-                const py = my;
-                bCtx.save();
-                bCtx.beginPath();
-                bCtx.arc(px, py, 4, 0, Math.PI * 2);
-                bCtx.fillStyle = "#a7f3d0";
-                bCtx.shadowColor = "#34d399";
-                bCtx.shadowBlur = 10;
-                bCtx.fill();
+                const pProgress = ((now + p * 800) % shootPeriod) / shootPeriod;
+                const pAngle = (p % 2 === 0 ? 0.08 : -0.08) + Math.sin(now * 0.001) * 0.05;
+                const muzzleX = mx + Math.cos(pAngle) * (r + 7);
+                const muzzleY = my + Math.sin(pAngle) * (r + 7);
+                const px = muzzleX + Math.cos(pAngle) * (pProgress * 150);
+                const py = muzzleY + Math.sin(pAngle) * (pProgress * 150);
 
-                bCtx.beginPath();
-                bCtx.moveTo(px - 14, py);
-                bCtx.lineTo(px, py);
-                bCtx.strokeStyle = "rgba(52, 211, 153, 0.55)";
-                bCtx.lineWidth = 3;
-                bCtx.stroke();
-                bCtx.restore();
+                if (pProgress > 0.05 && pProgress < 0.95) {
+                  // Точная внутриигровая модель снаряда стрелка
+                  bCtx.save();
+                  bCtx.translate(px, py);
+
+                  bCtx.beginPath();
+                  bCtx.arc(0, 0, 5 * 2.4, 0, Math.PI * 2);
+                  bCtx.fillStyle = "rgba(103, 255, 154, 0.14)";
+                  bCtx.fill();
+
+                  bCtx.beginPath();
+                  bCtx.arc(0, 0, 5, 0, Math.PI * 2);
+                  bCtx.fillStyle = "#67ff9a";
+                  bCtx.shadowColor = "#67ff9a";
+                  bCtx.shadowBlur = 17;
+                  bCtx.fill();
+
+                  bCtx.restore();
+                }
               }
             } else if (mobId === "magnetizer") {
               // Левитация и гравитационная воронка, притягивающая частицы
@@ -12528,24 +12537,70 @@ osc.stop(now + 0.05);
               bCtx.fill();
               bCtx.restore();
             } else if (mobId === "boss") {
-              // Парящий титан со спиральным выбросом плазменных снарядов
+              // Парящий титан с аутентичными внутриигровыми атаками: Веерный залп и Радиальный взрыв (#ff4f91, r=7)
               mx = Math.sin(now * 0.001) * 8;
               my = Math.cos(now * 0.0014) * 6;
 
-              for (let s = 0; s < 6; s++) {
-                const sLife = ((now * 0.0006 + s / 6) % 1);
-                const sDist = 36 + sLife * 90;
-                const sAngle = (s / 6) * Math.PI * 2 + now * 0.0015;
-                const sx = mx + Math.cos(sAngle) * sDist;
-                const sy = my + Math.sin(sAngle) * sDist;
-                bCtx.save();
-                bCtx.beginPath();
-                bCtx.arc(sx, sy, 4.5 * (1 - sLife * 0.35), 0, Math.PI * 2);
-                bCtx.fillStyle = "#ffe4e6";
-                bCtx.shadowColor = "#ff3f8f";
-                bCtx.shadowBlur = 12;
-                bCtx.fill();
-                bCtx.restore();
+              const bossAttackCycle = (now % 4400) / 4400;
+
+              if (bossAttackCycle < 0.50) {
+                // Внутриигровой веерный залп (shootBossSpread)
+                const spreadProg = bossAttackCycle / 0.50;
+                const spreadDist = spreadProg * 145;
+                const spreadAngles = [-0.18, 0, 0.18];
+
+                if (spreadProg > 0.08 && spreadProg < 0.95) {
+                  spreadAngles.forEach(ang => {
+                    const bx = mx + Math.cos(ang) * (r + 8) + Math.cos(ang) * spreadDist;
+                    const by = my + Math.sin(ang) * (r + 8) + Math.sin(ang) * spreadDist;
+
+                    bCtx.save();
+                    bCtx.translate(bx, by);
+
+                    bCtx.beginPath();
+                    bCtx.arc(0, 0, 7 * 2.4, 0, Math.PI * 2);
+                    bCtx.fillStyle = "rgba(255, 79, 145, 0.14)";
+                    bCtx.fill();
+
+                    bCtx.beginPath();
+                    bCtx.arc(0, 0, 7, 0, Math.PI * 2);
+                    bCtx.fillStyle = "#ff4f91";
+                    bCtx.shadowColor = "#ff4f91";
+                    bCtx.shadowBlur = 17;
+                    bCtx.fill();
+
+                    bCtx.restore();
+                  });
+                }
+              } else {
+                // Внутриигровой круговой радиальный залп (shootBossRadial)
+                const radialProg = (bossAttackCycle - 0.50) / 0.50;
+                const radialDist = radialProg * 130;
+
+                if (radialProg > 0.08 && radialProg < 0.95) {
+                  for (let rad = 0; rad < 8; rad++) {
+                    const rang = (rad / 8) * Math.PI * 2;
+                    const bx = mx + Math.cos(rang) * (r + 8) + Math.cos(rang) * radialDist;
+                    const by = my + Math.sin(rang) * (r + 8) + Math.sin(rang) * radialDist;
+
+                    bCtx.save();
+                    bCtx.translate(bx, by);
+
+                    bCtx.beginPath();
+                    bCtx.arc(0, 0, 7 * 2.4, 0, Math.PI * 2);
+                    bCtx.fillStyle = "rgba(255, 79, 145, 0.14)";
+                    bCtx.fill();
+
+                    bCtx.beginPath();
+                    bCtx.arc(0, 0, 7, 0, Math.PI * 2);
+                    bCtx.fillStyle = "#ff4f91";
+                    bCtx.shadowColor = "#ff4f91";
+                    bCtx.shadowBlur = 17;
+                    bCtx.fill();
+
+                    bCtx.restore();
+                  }
+                }
               }
             }
 
