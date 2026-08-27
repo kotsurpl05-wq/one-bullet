@@ -2242,6 +2242,11 @@
       box-shadow: 0 10px 24px rgba(255, 79, 167, 0.2), inset 0 0 20px rgba(255, 79, 167, 0.08);
     }
 
+    .mode-card-cyber.skins-card:hover {
+      border-color: #c084fc;
+      box-shadow: 0 10px 24px rgba(192, 132, 252, 0.2), inset 0 0 20px rgba(192, 132, 252, 0.08);
+    }
+
     .mode-card-cyber.settings-card:hover {
       border-color: #ffaa55;
       box-shadow: 0 10px 24px rgba(255, 170, 85, 0.2), inset 0 0 20px rgba(255, 170, 85, 0.08);
@@ -2284,6 +2289,10 @@
 
     .coop-card .mode-card-badge {
       color: #ff85c0;
+    }
+
+    .skins-card .mode-card-badge {
+      color: #c084fc;
     }
 
     .settings-card .mode-card-badge {
@@ -2602,6 +2611,116 @@
       background: rgba(34, 197, 94, 0.2);
       color: #4ade80;
       border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+
+    /* Навигация по вкладкам Базы Знаний */
+    .guide-tabs-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+    }
+
+    .guide-tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 140ms ease;
+    }
+
+    .guide-tab-btn:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #e2e8f0;
+      transform: translateY(-1px);
+    }
+
+    .guide-tab-btn.active {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+    }
+
+    .guide-filter-pills {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .guide-filter-pill {
+      padding: 5px 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+
+    .guide-filter-pill:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #ffffff;
+    }
+
+    .guide-filter-pill.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+
+    .bestiary-item-card, .upgrade-codex-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      background: rgba(18, 28, 45, 0.65);
+      color: #fff;
+      cursor: pointer;
+      text-align: left;
+      transition: all 130ms ease;
+    }
+
+    .bestiary-item-card:hover, .upgrade-codex-card:hover {
+      transform: translateX(3px);
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    .bestiary-item-card.selected, .upgrade-codex-card.selected {
+      border-color: #38bdf8 !important;
+      background: rgba(56, 189, 248, 0.22) !important;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.3) !important;
+    }
+
+    .stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
     }
 
     .guide-cards-grid {
@@ -10060,6 +10179,10 @@ osc.stop(now + 0.05);
         cancelAnimationFrame(skinPreviewAnimId);
         skinPreviewAnimId = null;
       }
+      if (guidePreviewAnimId) {
+        cancelAnimationFrame(guidePreviewAnimId);
+        guidePreviewAnimId = null;
+      }
       hidePauseMenu();
       hideUpgradeTooltip();
       if (typeof hideLiveStats === "function") hideLiveStats();
@@ -10143,9 +10266,9 @@ osc.stop(now + 0.05);
             </button>
 
             <button type="button" class="mode-card-cyber skins-card" data-main-action="skins">
-              <div class="mode-card-icon" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 10px; color: #c084fc;">🎨</div>
+              <div class="mode-card-icon">🎨</div>
               <div class="mode-card-body">
-                <div class="mode-card-badge" style="background: rgba(168, 85, 247, 0.22); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.45);">ARMORY & SKINS</div>
+                <div class="mode-card-badge">ARMORY & SKINS</div>
                 <h3>Оружейная</h3>
                 <p>12 скинов пули, анимации ядра, орбитальные эффекты и живая демонстрация.</p>
               </div>
@@ -10690,78 +10813,1047 @@ osc.stop(now + 0.05);
       if (backBtn) backBtn.onclick = exitSkins;
     }
 
-    function showGuideMenu() {
+    let guidePreviewAnimId = null;
+    let currentGuideTab = "basics";
+    let selectedBestiaryId = "normal";
+    let selectedUpgradeCodexId = "lightning";
+    let currentUpgradeCategoryFilter = "all";
+
+    const BESTIARY_CATALOG = [
+      {
+        id: "normal",
+        name: "Обычный Дроид",
+        icon: "🤖",
+        color: "#ffffff",
+        tag: "ПЕХОТА",
+        tagColor: "#94a3b8",
+        hp: "100 HP (+100/3 волны)",
+        speed: "50 px/s (+1.2/волна)",
+        wave: "Волна 1+",
+        xp: "125 XP",
+        desc: "Базовый патрульный дроид синдиката. Атакует плотными группами, двигаясь напрямую к игроку.",
+        abilities: [
+          "Прямолинейное преследование цели",
+          "Опасен при окружении большим числом",
+          "Идеальная мишень для отскоков и рикошетов"
+        ],
+        tactics: "Используйте стены арены, чтобы пускать пулю рикошетом сквозь строй врагов, уничтожая их десятками."
+      },
+      {
+        id: "runner",
+        name: "Быстрый Бегун",
+        icon: "⚡",
+        color: "#38bdf8",
+        tag: "РАЗВЕДКА",
+        tagColor: "#38bdf8",
+        hp: "70 HP (+100/4 волны)",
+        speed: "95 px/s (+2.0/волна)",
+        wave: "Волна 2+",
+        xp: "115 XP",
+        desc: "Легкий скоростной перехватчик. Стремительно сокращает дистанцию и заходит с флангов.",
+        abilities: [
+          "Высочайшая скорость перемещения (95+ px/s)",
+          "Быстрый фланговый обход",
+          "Пониженный запас прочности"
+        ],
+        tactics: "Не стреляйте в упор, если не уверены в подборе пули. Используйте рывок с замедлением или ловите пулю обратно."
+      },
+      {
+        id: "tank",
+        name: "Бронированный Танк",
+        icon: "🛡️",
+        color: "#4ade80",
+        tag: "ТЯЖЕЛЫЙ",
+        tagColor: "#4ade80",
+        hp: "300 HP (+100/2 волны)",
+        speed: "30 px/s (+0.8/волна)",
+        wave: "Волна 3+",
+        xp: "275 XP",
+        desc: "Тяжело бронированная боевая платформа. Медленно, но неумолимо продавливает позицию игрока.",
+        abilities: [
+          "Огромный запас здоровья и сопротивление урону",
+          "Блокирует полет пули своим массивным корпусом",
+          "Дает большое количество кристаллов опыта"
+        ],
+        tactics: "Используйте улучшения «Пробитие», «Цепная молния» или «Яд», чтобы наносить урон танку без потери темпа."
+      },
+      {
+        id: "charger",
+        name: "Чарджер // Таран",
+        icon: "🦏",
+        color: "#f97316",
+        tag: "ШТУРМ",
+        tagColor: "#f97316",
+        hp: "200 HP (+100/3 волны)",
+        speed: "45 px/s (Рывок: 160 px/s)",
+        wave: "Волна 4+",
+        xp: "240 XP",
+        desc: "Штурмовой дроид-таран. При приближении к игроку переходит в режим яростного рывка.",
+        abilities: [
+          "Внезапный разгон и таранная атака при сближении",
+          "Высокий контактный урон",
+          "Инерция движения во время рывка"
+        ],
+        tactics: "Уклоняйтесь рывком в сторону в момент разгона чарджера, заставляя его врезаться в стену."
+      },
+      {
+        id: "splitter",
+        name: "Делитель // Кластер",
+        icon: "💥",
+        color: "#fbbf24",
+        tag: "ОСКОЛОЧНЫЙ",
+        tagColor: "#fbbf24",
+        hp: "150 HP (+100/3 волны)",
+        speed: "40 px/s (+1.0/волна)",
+        wave: "Волна 5+",
+        xp: "310 XP",
+        desc: "Кластерная мина. При уничтожении корпуса распадается на двух быстрых мини-дронов.",
+        abilities: [
+          "Деление на 2 скоростных осколочных дрона при гибели",
+          "Высокая суммарная награда опытом",
+          "Создает хаос на арене после первого попадания"
+        ],
+        tactics: "Готовьте второй рикошет заранее, чтобы накрыть мини-дронов сразу в момент их появления."
+      },
+      {
+        id: "shooter",
+        name: "Стрелок // Снайпер",
+        icon: "🔫",
+        color: "#ef4444",
+        tag: "ДАЛЬНИЙ БОЙ",
+        tagColor: "#ef4444",
+        hp: "120 HP (+100/4 волны)",
+        speed: "35 px/s (Кайтинг)",
+        wave: "Волна 6+",
+        xp: "255 XP",
+        desc: "Дистанционный боевой модуль. Держит дистанцию и ведет прицельный огонь красными энерго-сгустками.",
+        abilities: [
+          "Прицельная стрельба плазменными снарядами",
+          "Постоянное удержание дистанции от игрока",
+          "Красные выстрелы наносят урон игроку"
+        ],
+        tactics: "Стреляйте на опережение с рикошетом от стены или уничтожайте выстрелы врага ловлей пули."
+      },
+      {
+        id: "incubator",
+        name: "Инкубатор // Улей",
+        icon: "🥚",
+        color: "#a855f7",
+        tag: "ПРИЗЫВАТЕЛЬ",
+        tagColor: "#a855f7",
+        hp: "400 HP (+100/2 волны)",
+        speed: "25 px/s (Пассивный)",
+        wave: "Волна 7+",
+        xp: "475 XP",
+        desc: "Био-механический улей. Каждые 4.5 секунды выпускает стаю паразитических миньонов.",
+        abilities: [
+          "Периодический призыв роя миньонов (до 5 одновременно)",
+          "Массивный корпус с высоким запасом прочности",
+          "Миньоны не дают опыта, но создают массу помех"
+        ],
+        tactics: "Фокусируйте весь урон на инкубаторе в первую очередь, иначе арена быстро заполнится роем миньонов."
+      },
+      {
+        id: "phantom",
+        name: "Фантом // Фазовый",
+        icon: "👻",
+        color: "#88eedd",
+        tag: "ФАЗОВЫЙ",
+        tagColor: "#88eedd",
+        hp: "120 HP (+100/4 волны)",
+        speed: "55 px/s (+1.5/волна)",
+        wave: "Волна 8+",
+        xp: "185 XP",
+        desc: "Квантовый фантом. Циклически переходит в неосязаемую фазу (2 секунды неуязвимости).",
+        abilities: [
+          "Фазовый сдвиг: 2с полной неуязвимости ко всем атакам",
+          "3с материальной фазы для нанесения урона",
+          "Проходит сквозь пули в бестелесной форме"
+        ],
+        tactics: "Следите за свечением ауры: стреляйте только когда фантом полностью материализовался."
+      },
+      {
+        id: "magnetizer",
+        name: "Магнетизатор",
+        icon: "🧲",
+        color: "#c084fc",
+        tag: "ГРАВИТАЦИЯ",
+        tagColor: "#c084fc",
+        hp: "180 HP (+100/3 волны)",
+        speed: "50 px/s (+1.2/волна)",
+        wave: "Волна 8+",
+        xp: "195 XP",
+        desc: "Гравитационный контроллер. Создает мощное силовое поле (150–500 px/s), искривляя полет пуль и воруя патрон с пола.",
+        abilities: [
+          "Искривление траектории летящей пули в радиусе 400px",
+          "Притяжение лежащей на земле пули с градиентом от 150 до 500 px/s",
+          "Конфликт и борьба притяжений с магнитом игрока"
+        ],
+        tactics: "Прокачивайте «Эффект Бумеранга» и силу магнита до 500–600 px/s, чтобы перетягивать пулю обратно, либо сбивайте моба критом."
+      },
+      {
+        id: "twin",
+        name: "Связанные Твины",
+        icon: "🔗",
+        color: "#ff6b9d",
+        tag: "ПАРНЫЙ ОТРЯД",
+        tagColor: "#ff6b9d",
+        hp: "140 HP (+100/5 волн)",
+        speed: "90 px/s (+2.0/волна)",
+        wave: "Волна 9+",
+        xp: "165 XP",
+        desc: "Синхронная пара дронов, соединенная смертоносным лазерным лучом. Гибель одного вводит второго в ярость.",
+        abilities: [
+          "Лазерная связь: луч между твинами наносит периодический урон",
+          "Ярость одиночки: при смерти партнера оставшийся ускоряется на +40%",
+          "Координированное окружение игрока"
+        ],
+        tactics: "Старайтесь уничтожать обоих твинов одновременно одним выстрелом с рикошетом."
+      },
+      {
+        id: "boss",
+        name: "Кибер-Титан // БОСС",
+        icon: "👑",
+        color: "#f43f5e",
+        tag: "ГЛАВНЫЙ БОСС",
+        tagColor: "#f43f5e",
+        hp: "4180+ HP (Скейл от волны и режима)",
+        speed: "60 px/s (Фазовый бой)",
+        wave: "Каждые 5 волн",
+        xp: "1500 XP",
+        desc: "Титанический страж сектора с 3 сложными боевыми фазами, щитами и лазерными системами.",
+        abilities: [
+          "Фаза 1: Ударные рывки с радиальной ударной волной",
+          "Фаза 2 (50% HP): Силовой щит и орбитальные защитные дроны",
+          "Фаза 3 (<33% HP): Яростный спиральный шторм пуль и прицельный луч",
+          "Уничтожение щита вводит босса в 2-секундный шок"
+        ],
+        tactics: "Сбивайте орбитальные дроны для оглушения босса, используйте замедление времени и ловите пулю на противоходе."
+      }
+    ];
+
+    const UPGRADES_CODEX = [
+      // 10 Семей способностей
+      {
+        id: "lightning",
+        title: "Цепной конденсатор",
+        icon: "⚡",
+        rarity: "RARE",
+        category: "trees",
+        family: "lightning",
+        color: "#ffca28",
+        desc: "При попадании пули во врага выпускает разряд цепной молнии, поражающий до 3 целей на 60% от урона пули.",
+        tree: [
+          "Мощность разряда: +40% к урону молнии за уровень",
+          "Проводники цепи: +2 дополнительные цели за уровень",
+          "Радиус дуги: +30% к радиусу перескока между врагами"
+        ],
+        synergy: "Идеально синергирует с «Тяжёлой пулей» и высоким базовым уроном."
+      },
+      {
+        id: "explosion",
+        title: "Разрывной сердечник",
+        icon: "💥",
+        rarity: "RARE",
+        category: "trees",
+        family: "explosion",
+        color: "#f87171",
+        desc: "При контакте снаряда с врагом происходит детонация, наносящая 60% урона по площади в радиусе 80px.",
+        tree: [
+          "Ударная волна: +30% к урону взрыва за уровень",
+          "Радиус детонации: +25% к радиусу взрыва за уровень"
+        ],
+        synergy: "Эффективно зачищает плотные скопления легких врагов и миньонов инкубатора."
+      },
+      {
+        id: "catch-blast",
+        title: "Импульсный захват",
+        icon: "🌀",
+        rarity: "RARE",
+        category: "trees",
+        family: "catch",
+        color: "#38bdf8",
+        desc: "В момент подбора или ловли пули выпускает кинетическую волну на 100px, наносящую 80% урона и отбрасывающую врагов.",
+        tree: [
+          "Сила импульса: +40% к урону волны за уровень",
+          "Радиус импульса: +25% к радиусу волны за уровень"
+        ],
+        synergy: "Позволяет безопасно подбирать пулю в окружении и мгновенно уничтожать преследователей."
+      },
+      {
+        id: "boomerang",
+        title: "Эффект Бумеранга",
+        icon: "🧲",
+        rarity: "RARE",
+        category: "trees",
+        family: "boomerang",
+        color: "#a78bfa",
+        desc: "Наделяет игрока возвратным магнитом (100 px/s). Пуля на пути притяжения наносит урон и борется с магнетизатором.",
+        tree: [
+          "Тяжёлый бумеранг: +50% к урону пули на обратном пути",
+          "Турбо-магнит: +100 px/s к скорости притяжения (до 600)",
+          "Дальний захват: +2 клетки к максимальной дистанции магнита"
+        ],
+        synergy: "Позволяет играть агрессивно без необходимости бегать за пулей через всю арену."
+      },
+      {
+        id: "splinter",
+        title: "Осколочный Рикошет",
+        icon: "✨",
+        rarity: "RARE",
+        category: "trees",
+        family: "splinter",
+        color: "#fbbf24",
+        desc: "Каждый отскок пули от стены выпускает 2 самонаводящихся световых осколка, наносящих 25% урона.",
+        tree: [
+          "Количество осколков: +1 осколок при каждом рикошете",
+          "Урон осколков: +15% к урону каждого осколка"
+        ],
+        synergy: "Многократно усиливается при наличии «Дополнительных рикошетов»."
+      },
+      {
+        id: "stun",
+        title: "Кинетический Удар",
+        icon: "🥊",
+        rarity: "RARE",
+        category: "trees",
+        family: "stun",
+        color: "#fb923c",
+        desc: "Каждое 5-е попадание оглушает цель на 0.6 секунды, полностью блокируя передвижение и атаки.",
+        tree: [
+          "Частота оглушения: срабатывает на 1 удар чаще (до каждых 2 ударов)",
+          "Глубокий шок: +0.4 секунды к длительности стана"
+        ],
+        synergy: "Критически важно для контроля боссов, танков и чарджеров."
+      },
+      {
+        id: "reactive-armor",
+        title: "Реактивная Броня",
+        icon: "🛡️",
+        rarity: "RARE",
+        category: "trees",
+        family: "armor",
+        color: "#4ade80",
+        desc: "При получении урона испускает защитную ударную волну (радиус 120px), отбрасывая врагов и давая окно для маневра (КД: 3с).",
+        tree: [
+          "Область отражения: +30px к радиусу защитной волны",
+          "Быстрая перезарядка: -1.0с к кулдауну щита"
+        ],
+        synergy: "Спасает от мгновенной гибели при зажатии в угол."
+      },
+      {
+        id: "poison",
+        title: "Ядовитая пуля",
+        icon: "🧪",
+        rarity: "RARE",
+        category: "trees",
+        family: "poison",
+        color: "#22c55e",
+        desc: "Покрывает снаряд токсином. При попадании накладывает DoT-эффект: 50 урона/сек в течение 3.0 секунд.",
+        tree: [
+          "Урон яда: +35 урона в секунду за уровень",
+          "Длительность яда: +1.5 секунды к общему времени действия"
+        ],
+        synergy: "Идеально для постепенного уничтожения боссов и танков во время кайта."
+      },
+      {
+        id: "parasite",
+        title: "Пуля с паразитом",
+        icon: "🪱",
+        rarity: "RARE",
+        category: "trees",
+        family: "parasite",
+        color: "#e2e8f0",
+        desc: "35% шанс заразить цель паразитом. При гибели врага вылетают 2 самонаводящиеся споры (75 урона).",
+        tree: [
+          "Шанс паразита: +20% к вероятности заражения цели",
+          "Количество спор: +1 дополнительная спора при гибели",
+          "Урон паразита: +40 к урону каждой споры"
+        ],
+        synergy: "Запускает цепные взрывы спор в толпе противников."
+      },
+      {
+        id: "target-mark",
+        title: "Метка Цели",
+        icon: "🎯",
+        rarity: "RARE",
+        category: "trees",
+        family: "mark",
+        color: "#ec4899",
+        desc: "Первый удар помечает врага голографической меткой на 4.0 секунды. Весь входящий урон по цели увеличивается на +40%.",
+        tree: [
+          "Уязвимость: +20% к множителю урона по помеченной цели",
+          "Глубокая метка: +2.0 секунды к длительности метки"
+        ],
+        synergy: "Комбинируется со всеми источниками урона (молнии, взрывы, рикошеты, криты)."
+      },
+
+      // Оружие и Пуля
+      {
+        id: "damage",
+        title: "Тяжёлая пуля",
+        icon: "🗡️",
+        rarity: "COMMON",
+        category: "weapon",
+        color: "#f87171",
+        desc: "Увеличивает базовый урон пули на +100 единиц. Все процентные способности скалируются от этого значения.",
+        tree: ["Увеличивает урон каждого выстрела, крита и рикошета."],
+        synergy: "Фундаментальное улучшение для любого билда."
+      },
+      {
+        id: "ricochet",
+        title: "Дополнительный рикошет",
+        icon: "🔀",
+        rarity: "COMMON",
+        category: "weapon",
+        color: "#38bdf8",
+        desc: "Добавляет +1 отскок от стен арены. Каждый рикошет сбрасывает таймер урона по врагам.",
+        tree: ["Позволяет пуле дольше оставаться в полете и наносить урон."],
+        synergy: "Синергирует с Осколочным Рикошетом и зачисткой толпы."
+      },
+      {
+        id: "pierce",
+        title: "Пробитие",
+        icon: "🏹",
+        rarity: "COMMON",
+        category: "weapon",
+        color: "#fb923c",
+        desc: "Пуля проходит насквозь через +1 цель без остановки, поражая сразу нескольких врагов в линии.",
+        tree: ["Устраняет блокирование пули одиночными телами."],
+        synergy: "Помогает уничтожать стрелков и инкубаторов за спинами танков."
+      },
+      {
+        id: "speed",
+        title: "Разогнанный ствол",
+        icon: "🚀",
+        rarity: "COMMON",
+        category: "weapon",
+        color: "#facc15",
+        desc: "Увеличивает начальную скорость полета снаряда на +25%. Пуля быстрее достигает цели и быстрее рикошетит.",
+        tree: ["Повышает динамику боя и снижает время ожидания снаряда."],
+        synergy: "Отлично сочетается с рикошетами и осколками."
+      },
+      {
+        id: "homing",
+        title: "Умная пуля",
+        icon: "🔮",
+        rarity: "EPIC",
+        category: "weapon",
+        color: "#c084fc",
+        desc: "Снаряд плавно доворачивает и наводится на ближайшие уязвимые цели во время свободного полета.",
+        tree: ["Значительно увеличивает точность стрельбы и попадания."],
+        synergy: "Гарантирует попадания при сложных рикошетах."
+      },
+      {
+        id: "extra-bullet",
+        title: "Запасной патрон",
+        icon: "🎒",
+        rarity: "DIVINE",
+        category: "weapon",
+        color: "#fb7185",
+        desc: "Увеличивает максимальное число патронов на арене до 2! Вы можете стрелять вторым патроном, пока первый еще летит.",
+        tree: ["Удваивает темп стрельбы и огневую мощь игрока."],
+        synergy: "Максимальный скачок боевой эффективности."
+      },
+
+      // Выживание и Защита
+      {
+        id: "boots",
+        title: "Лёгкие ботинки",
+        icon: "👟",
+        rarity: "COMMON",
+        category: "survival",
+        color: "#4ade80",
+        desc: "Увеличивает базовую скорость перемещения персонажа на +15%. Упрощает позиционирование и уклонение.",
+        tree: ["Помогает убегать от бегунов и чарджеров."],
+        synergy: "Основа мобильности в соло и коопе."
+      },
+      {
+        id: "max-hp",
+        title: "Усиленная броня",
+        icon: "🛡️",
+        rarity: "COMMON",
+        category: "survival",
+        color: "#34d399",
+        desc: "Увеличивает максимальный запас здоровья на +100 HP и пропорционально восстанавливает здоровье.",
+        tree: ["Повышает живучесть в затяжных босс-файтах."],
+        synergy: "Снижает риск фатального урона."
+      },
+      {
+        id: "crit",
+        title: "Критический механизм",
+        icon: "🎲",
+        rarity: "COMMON",
+        category: "survival",
+        color: "#f43f5e",
+        desc: "Дает +15% к шансу нанесения критического урона (200% урона с остановкой времени hit-stop).",
+        tree: ["Может наносить сокрушительный урон боссам."],
+        synergy: "Умножает весь урон пули и наложенные метки."
+      }
+    ];
+
+    function showGuideMenu(initialTab = "basics") {
       currentMenuSubView = "guide";
-      panel.innerHTML = `
-        <div class="cyber-modal-container" style="max-width: 920px;">
-          <div class="cyber-modal-header">
-            <div class="cyber-modal-icon">📖</div>
-            <div>
-              <h2 class="cyber-modal-title">База знаний // Руководство выживания</h2>
-              <div class="cyber-modal-subtitle">Ключевые механики, рикошеты, поведение боссов и тактика боя</div>
-            </div>
-          </div>
+      currentGuideTab = initialTab;
 
-          <div class="guide-cards-grid">
-            <div class="guide-card-item">
-              <div class="guide-card-header">
-                <span class="guide-num">01</span>
-                <h4>🎯 Единственный патрон</h4>
-              </div>
-              <p>У вас только <strong>1 патрон</strong> в магазине. Выстрелив, вы остаетесь безоружным, пока не подберете его с пола или не притянете <em>Возвратным магнитом</em>.</p>
-            </div>
-
-            <div class="guide-card-item">
-              <div class="guide-card-header">
-                <span class="guide-num">02</span>
-                <h4>⚡ Рикошеты и пробитие</h4>
-              </div>
-              <p>Патрон отскакивает от стен арены. Каждый рикошет <strong>сбрасывает кулдаун урона</strong>, позволяя поражать врагов снова и снова на обратной траектории!</p>
-            </div>
-
-            <div class="guide-card-item">
-              <div class="guide-card-header">
-                <span class="guide-num">03</span>
-                <h4>👑 Боссы и их фазы</h4>
-              </div>
-              <p>Каждые 5 волн появляется Босс с 3 фазами: рывки с ударной волной, щиты с орбитальными дронами и яростный спиральный шторм пуль.</p>
-            </div>
-
-            <div class="guide-card-item">
-              <div class="guide-card-header">
-                <span class="guide-num">04</span>
-                <h4>👥 Кооперативный бой</h4>
-              </div>
-              <p>В сетевом режиме напарники делят общий опыт и кристаллы. Если напарник погиб, выживший может спасти раунд, уничтожив остаток волны!</p>
-            </div>
-          </div>
-
-          <div class="network-actions" style="margin-top: 28px; gap: 14px;">
-            <button type="button" class="secondary-button" id="guideBackBtn" style="min-width: 150px;">
-              ← Назад в меню
-            </button>
-            <button type="button" class="action-button" id="guideCloseBtn" style="min-width: 220px; margin: 0;">
-              ✓ Всё понятно, в бой!
-            </button>
-          </div>
-        </div>
-      `;
-
-      const backBtn = panel.querySelector("#guideBackBtn");
-      if (backBtn) {
-        backBtn.onclick = () => {
-          soundManager.playUiClick();
-          showMainMenu();
-        };
+      if (guidePreviewAnimId) {
+        cancelAnimationFrame(guidePreviewAnimId);
+        guidePreviewAnimId = null;
       }
 
-      const closeBtn = panel.querySelector("#guideCloseBtn");
-      if (closeBtn) {
-        closeBtn.onclick = () => {
-          soundManager.playUiClick();
-          showMainMenu();
-        };
-      }
+      overlay.classList.add("fullscreen-menu-mode");
+      overlay.classList.remove("ingame-settings-mode");
+      overlay.classList.remove("hidden");
+
+      const renderGuideModal = () => {
+        panel.innerHTML = `
+          <div class="cyber-modal-container" style="max-width: 960px; width: 100%;">
+            <div class="cyber-modal-header" style="margin-bottom: 12px;">
+              <div class="cyber-modal-icon">📖</div>
+              <div>
+                <h2 class="cyber-modal-title">База знаний // Кибер-Кодекс</h2>
+                <div class="cyber-modal-subtitle">Справочник механик, интерактивный бестиарий всех врагов и кодекс способностей</div>
+              </div>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="guide-tabs-bar">
+              <button type="button" class="guide-tab-btn ${currentGuideTab === 'basics' ? 'active' : ''}" data-guide-tab="basics">
+                <span>📖</span> <span>Основы механик</span>
+              </button>
+              <button type="button" class="guide-tab-btn ${currentGuideTab === 'bestiary' ? 'active' : ''}" data-guide-tab="bestiary">
+                <span>👾</span> <span>Бестиарий (${BESTIARY_CATALOG.length})</span>
+              </button>
+              <button type="button" class="guide-tab-btn ${currentGuideTab === 'upgrades' ? 'active' : ''}" data-guide-tab="upgrades">
+                <span>⚡</span> <span>Каталог улучшений</span>
+              </button>
+            </div>
+
+            <!-- Tab 1: Basics -->
+            ${currentGuideTab === 'basics' ? `
+              <div class="guide-cards-grid" style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">01</span>
+                    <h4>🎯 Единственный патрон</h4>
+                  </div>
+                  <p>У вас только <strong>1 патрон</strong> в магазине. Выстрелив, вы остаетесь безоружным, пока не подберете его с пола или не притянете <em>Возвратным магнитом</em>.</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">02</span>
+                    <h4>⚡ Рикошеты и пробитие</h4>
+                  </div>
+                  <p>Патрон отскакивает от стен арены. Каждый рикошет <strong>сбрасывает кулдаун урона</strong>, позволяя поражать врагов снова и снова на обратной траектории!</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">03</span>
+                    <h4>👑 Боссы и 3 фазы боя</h4>
+                  </div>
+                  <p>Каждые 5 волн появляется Босс с 3 фазами: таранные рывки с ударной волной, щиты с орбитальными дронами и яростный спиральный шторм пуль.</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">04</span>
+                    <h4>👥 Кооперативный бой</h4>
+                  </div>
+                  <p>В сетевом режиме напарники делят общий опыт и кристаллы. Если напарник погиб, выживший может спасти раунд, уничтожив остаток волны!</p>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Tab 2: Bestiary -->
+            ${currentGuideTab === 'bestiary' ? `
+              <div class="skins-armory-layout" style="margin-top: 6px;">
+                <!-- Left: Enemy List -->
+                <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between;">
+                    <span>Каталог врагов и боссов</span>
+                    <span style="color: #38bdf8;">Выбран: <strong id="bestiaryActiveName" style="color: #f8fafc;"></strong></span>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 7px; max-height: 380px; overflow-y: auto; padding-right: 6px;">
+                    ${BESTIARY_CATALOG.map(mob => {
+                      const isSel = selectedBestiaryId === mob.id;
+                      return `
+                        <button type="button" class="bestiary-item-card ${isSel ? 'selected' : ''}" data-bestiary-id="${mob.id}">
+                          <div style="font-size: 22px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border-radius: 8px; flex-shrink: 0;">${mob.icon}</div>
+                          <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                              <strong style="font-size: 12.5px; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(mob.name)}</strong>
+                              <span style="font-size: 8.5px; font-weight: 800; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: ${mob.tagColor};">${mob.tag}</span>
+                            </div>
+                            <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(mob.hp)} • ${escapeHtml(mob.wave)}</div>
+                          </div>
+                        </button>
+                      `;
+                    }).join("")}
+                  </div>
+                </div>
+
+                <!-- Right: Interactive Live Demonstration Window -->
+                <div style="flex: 1.05; min-width: 310px; background: rgba(13, 21, 37, 0.88); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 10px;">
+                      <span style="font-size: 11px; font-weight: 900; color: #7ee7ff; letter-spacing: 1px;">ДЕМОНСТРАЦИЯ МОДЕЛИ</span>
+                      <span id="bestiaryDangerBadge" style="font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 6px; background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3);"></span>
+                    </div>
+
+                    <!-- Canvas Frame -->
+                    <div style="position: relative; width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+                      <canvas id="bestiaryCanvas" width="280" height="140" style="width: 280px; height: 140px;"></canvas>
+                      <div style="position: absolute; bottom: 4px; right: 6px; font-size: 8.5px; color: #64748b; font-family: monospace;">60 FPS SIMULATION</div>
+                    </div>
+
+                    <!-- Specs Chips -->
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+                      <span class="stat-chip" id="bestiaryHpChip">❤️ HP: -</span>
+                      <span class="stat-chip" id="bestiarySpeedChip">⚡ Скорость: -</span>
+                      <span class="stat-chip" id="bestiaryXpChip">💎 Опыт: -</span>
+                    </div>
+
+                    <h3 id="bestiaryTitle" style="font-size: 15px; font-weight: 900; color: #ffffff; margin: 0 0 4px 0;"></h3>
+                    <p id="bestiaryDesc" style="font-size: 11.5px; color: #cbd5e1; line-height: 1.35; margin: 0 0 8px 0;"></p>
+
+                    <!-- Abilities List -->
+                    <div style="background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;">
+                      <div style="font-size: 10px; font-weight: 800; color: #38bdf8; margin-bottom: 4px; text-transform: uppercase;">Особенности и Способности:</div>
+                      <ul id="bestiaryAbilitiesList" style="margin: 0; padding-left: 14px; font-size: 11px; color: #94a3b8; line-height: 1.35;"></ul>
+                    </div>
+                  </div>
+
+                  <!-- Tactics tip -->
+                  <div style="font-size: 10.5px; color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); border-radius: 8px; padding: 6px 10px;">
+                    💡 <strong style="color: #fef08a;">Тактика:</strong> <span id="bestiaryTactics"></span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Tab 3: Upgrades Codex -->
+            ${currentGuideTab === 'upgrades' ? `
+              <div>
+                <!-- Category Filter Pills -->
+                <div class="guide-filter-pills">
+                  <button type="button" class="guide-filter-pill ${currentUpgradeCategoryFilter === 'all' ? 'active' : ''}" data-cat-filter="all">Все улучшения (${UPGRADES_CODEX.length})</button>
+                  <button type="button" class="guide-filter-pill ${currentUpgradeCategoryFilter === 'trees' ? 'active' : ''}" data-cat-filter="trees">🌳 Семьи Способностей (10)</button>
+                  <button type="button" class="guide-filter-pill ${currentUpgradeCategoryFilter === 'weapon' ? 'active' : ''}" data-cat-filter="weapon">🎯 Оружие и Пуля</button>
+                  <button type="button" class="guide-filter-pill ${currentUpgradeCategoryFilter === 'survival' ? 'active' : ''}" data-cat-filter="survival">🛡️ Выживание и Защита</button>
+                </div>
+
+                <div class="skins-armory-layout" style="margin-top: 4px;">
+                  <!-- Left: Upgrades List -->
+                  <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; flex-direction: column; gap: 7px; max-height: 350px; overflow-y: auto; padding-right: 6px;">
+                      ${UPGRADES_CODEX.filter(u => currentUpgradeCategoryFilter === 'all' || u.category === currentUpgradeCategoryFilter).map(u => {
+                        const isSel = selectedUpgradeCodexId === u.id;
+                        return `
+                          <button type="button" class="upgrade-codex-card ${isSel ? 'selected' : ''}" data-upgrade-id="${u.id}">
+                            <div style="font-size: 22px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border-radius: 8px; flex-shrink: 0;">${u.icon}</div>
+                            <div style="flex: 1; min-width: 0;">
+                              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                                <strong style="font-size: 12.5px; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(u.title)}</strong>
+                                <span style="font-size: 8.5px; font-weight: 800; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: ${u.color};">${u.rarity}</span>
+                              </div>
+                              <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(u.desc)}</div>
+                            </div>
+                          </button>
+                        `;
+                      }).join("")}
+                    </div>
+                  </div>
+
+                  <!-- Right: Upgrade Details -->
+                  <div style="flex: 1.05; min-width: 310px; background: rgba(13, 21, 37, 0.88); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <div>
+                      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px;">
+                        <span style="font-size: 11px; font-weight: 900; color: #7ee7ff; letter-spacing: 1px;">КОДЕКС МОДИФИКАЦИЙ</span>
+                        <span id="upgradeRarityBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px;"></span>
+                      </div>
+
+                      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <div id="upgradeBigIcon" style="font-size: 36px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 12px; flex-shrink: 0;"></div>
+                        <div>
+                          <h3 id="upgradeTitle" style="font-size: 16px; font-weight: 900; color: #ffffff; margin: 0 0 3px 0;"></h3>
+                          <div id="upgradeCategoryBadge" style="font-size: 10px; color: #94a3b8; font-weight: 700;"></div>
+                        </div>
+                      </div>
+
+                      <p id="upgradeDesc" style="font-size: 12px; color: #cbd5e1; line-height: 1.45; margin: 0 0 12px 0;"></p>
+
+                      <!-- Tree Progression -->
+                      <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin-bottom: 10px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #38bdf8; margin-bottom: 6px; text-transform: uppercase;">Ветки прогрессии / Формула:</div>
+                        <ul id="upgradeTreeList" style="margin: 0; padding-left: 16px; font-size: 11.5px; color: #94a3b8; line-height: 1.4;"></ul>
+                      </div>
+                    </div>
+
+                    <!-- Synergy -->
+                    <div style="font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 8px 10px;">
+                      ⚡ <strong style="color: #7ee7ff;">Синергия:</strong> <span id="upgradeSynergy"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="network-actions" style="margin-top: 22px; gap: 14px;">
+              <button type="button" class="secondary-button" id="guideBackBtn" style="min-width: 150px;">
+                ← Назад в меню
+              </button>
+            </div>
+          </div>
+        `;
+
+        // Tab click handlers
+        panel.querySelectorAll(".guide-tab-btn").forEach(btn => {
+          btn.onclick = () => {
+            currentGuideTab = btn.dataset.guideTab;
+            soundManager.playUiClick();
+            if (guidePreviewAnimId) {
+              cancelAnimationFrame(guidePreviewAnimId);
+              guidePreviewAnimId = null;
+            }
+            renderGuideModal();
+          };
+        });
+
+        const backBtn = panel.querySelector("#guideBackBtn");
+        if (backBtn) {
+          backBtn.onclick = () => {
+            soundManager.playUiClick();
+            if (guidePreviewAnimId) {
+              cancelAnimationFrame(guidePreviewAnimId);
+              guidePreviewAnimId = null;
+            }
+            showMainMenu();
+          };
+        }
+
+        // Bestiary logic
+        if (currentGuideTab === "bestiary") {
+          const bCanvas = panel.querySelector("#bestiaryCanvas");
+          const bCtx = bCanvas ? bCanvas.getContext("2d") : null;
+          const nameLabel = panel.querySelector("#bestiaryActiveName");
+          const dangerBadge = panel.querySelector("#bestiaryDangerBadge");
+          const hpChip = panel.querySelector("#bestiaryHpChip");
+          const speedChip = panel.querySelector("#bestiarySpeedChip");
+          const xpChip = panel.querySelector("#bestiaryXpChip");
+          const titleEl = panel.querySelector("#bestiaryTitle");
+          const descEl = panel.querySelector("#bestiaryDesc");
+          const abilitiesList = panel.querySelector("#bestiaryAbilitiesList");
+          const tacticsEl = panel.querySelector("#bestiaryTactics");
+
+          const updateBestiaryDetails = () => {
+            const mob = BESTIARY_CATALOG.find(m => m.id === selectedBestiaryId) || BESTIARY_CATALOG[0];
+            if (nameLabel) nameLabel.textContent = mob.name;
+            if (dangerBadge) {
+              dangerBadge.textContent = mob.tag;
+              dangerBadge.style.color = mob.tagColor || "#f87171";
+              dangerBadge.style.borderColor = mob.tagColor || "rgba(239,68,68,0.3)";
+            }
+            if (hpChip) hpChip.textContent = `❤️ ${mob.hp}`;
+            if (speedChip) speedChip.textContent = `⚡ ${mob.speed}`;
+            if (xpChip) xpChip.textContent = `💎 ${mob.xp}`;
+            if (titleEl) titleEl.textContent = `${mob.icon} ${mob.name}`;
+            if (descEl) descEl.textContent = mob.desc;
+            if (tacticsEl) tacticsEl.textContent = mob.tactics;
+            if (abilitiesList) {
+              abilitiesList.innerHTML = mob.abilities.map(a => `<li>${escapeHtml(a)}</li>`).join("");
+            }
+
+            panel.querySelectorAll(".bestiary-item-card").forEach(card => {
+              card.classList.toggle("selected", card.dataset.bestiaryId === selectedBestiaryId);
+            });
+          };
+
+          updateBestiaryDetails();
+
+          panel.querySelectorAll(".bestiary-item-card").forEach(card => {
+            card.onclick = () => {
+              selectedBestiaryId = card.dataset.bestiaryId;
+              soundManager.playUiClick();
+              updateBestiaryDetails();
+            };
+          });
+
+          // 60 FPS Canvas Model Renderer for Bestiary
+          let prevBt = performance.now();
+          let bAngle = 0;
+
+          const renderBestiaryFrame = (t) => {
+            if (currentMenuSubView !== "guide" || currentGuideTab !== "bestiary" || !bCtx) return;
+            const dt = Math.min(0.05, (t - prevBt) / 1000);
+            prevBt = t;
+            bAngle += dt * 2.0;
+
+            bCtx.clearRect(0, 0, bCanvas.width, bCanvas.height);
+
+            // Cyber grid backdrop
+            bCtx.save();
+            bCtx.strokeStyle = "rgba(0, 242, 254, 0.05)";
+            bCtx.lineWidth = 1;
+            for (let x = 0; x < bCanvas.width; x += 20) {
+              bCtx.beginPath();
+              bCtx.moveTo(x, 0);
+              bCtx.lineTo(x, bCanvas.height);
+              bCtx.stroke();
+            }
+            for (let y = 0; y < bCanvas.height; y += 20) {
+              bCtx.beginPath();
+              bCtx.moveTo(0, y);
+              bCtx.lineTo(bCanvas.width, y);
+              bCtx.stroke();
+            }
+            bCtx.restore();
+
+            const cx = bCanvas.width / 2;
+            const cy = bCanvas.height / 2;
+
+            // Draw mob based on selectedBestiaryId
+            bCtx.save();
+            bCtx.translate(cx, cy);
+
+            const mob = BESTIARY_CATALOG.find(m => m.id === selectedBestiaryId) || BESTIARY_CATALOG[0];
+
+            if (mob.id === "normal") {
+              bCtx.fillStyle = "#ffffff";
+              bCtx.shadowColor = "rgba(255,255,255,0.6)";
+              bCtx.shadowBlur = 12;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 16, 0, Math.PI * 2);
+              bCtx.fill();
+              // Core eye
+              bCtx.fillStyle = "#00f2fe";
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 6, 0, Math.PI * 2);
+              bCtx.fill();
+            } else if (mob.id === "runner") {
+              bCtx.rotate(bAngle * 0.5);
+              bCtx.fillStyle = "#38bdf8";
+              bCtx.shadowColor = "#38bdf8";
+              bCtx.shadowBlur = 16;
+              bCtx.beginPath();
+              bCtx.moveTo(0, -18);
+              bCtx.lineTo(13, 14);
+              bCtx.lineTo(0, 8);
+              bCtx.lineTo(-13, 14);
+              bCtx.closePath();
+              bCtx.fill();
+            } else if (mob.id === "tank") {
+              bCtx.rotate(bAngle * 0.2);
+              bCtx.fillStyle = "#4ade80";
+              bCtx.shadowColor = "#4ade80";
+              bCtx.shadowBlur = 16;
+              bCtx.beginPath();
+              for (let i = 0; i < 6; i++) {
+                const a = (i / 6) * Math.PI * 2;
+                const r = 24;
+                const px = Math.cos(a) * r;
+                const py = Math.sin(a) * r;
+                if (i === 0) bCtx.moveTo(px, py);
+                else bCtx.lineTo(px, py);
+              }
+              bCtx.closePath();
+              bCtx.fill();
+              bCtx.strokeStyle = "#166534";
+              bCtx.lineWidth = 3;
+              bCtx.stroke();
+            } else if (mob.id === "charger") {
+              bCtx.fillStyle = "#f97316";
+              bCtx.shadowColor = "#f97316";
+              bCtx.shadowBlur = 18;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 18, 0, Math.PI * 2);
+              bCtx.fill();
+              // Ram horns
+              bCtx.fillStyle = "#ffedd5";
+              bCtx.beginPath();
+              bCtx.moveTo(-10, -14);
+              bCtx.lineTo(0, -26);
+              bCtx.lineTo(10, -14);
+              bCtx.fill();
+            } else if (mob.id === "splitter") {
+              bCtx.fillStyle = "#fbbf24";
+              bCtx.shadowColor = "#fbbf24";
+              bCtx.shadowBlur = 16;
+              const pulse = 16 + Math.sin(bAngle * 3) * 2;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, pulse, 0, Math.PI * 2);
+              bCtx.fill();
+              // Orbiting miniature splitters
+              for (let i = 0; i < 2; i++) {
+                const a = bAngle * 2 + i * Math.PI;
+                bCtx.fillStyle = "#fef08a";
+                bCtx.beginPath();
+                bCtx.arc(Math.cos(a) * 32, Math.sin(a) * 32, 6, 0, Math.PI * 2);
+                bCtx.fill();
+              }
+            } else if (mob.id === "shooter") {
+              bCtx.fillStyle = "#ef4444";
+              bCtx.shadowColor = "#ef4444";
+              bCtx.shadowBlur = 16;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 16, 0, Math.PI * 2);
+              bCtx.fill();
+              // Rotating laser sight
+              const aimA = bAngle * 1.5;
+              bCtx.strokeStyle = "rgba(239, 68, 68, 0.8)";
+              bCtx.lineWidth = 2;
+              bCtx.beginPath();
+              bCtx.moveTo(0, 0);
+              bCtx.lineTo(Math.cos(aimA) * 60, Math.sin(aimA) * 60);
+              bCtx.stroke();
+            } else if (mob.id === "incubator") {
+              bCtx.fillStyle = "#a855f7";
+              bCtx.shadowColor = "#a855f7";
+              bCtx.shadowBlur = 18;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 22, 0, Math.PI * 2);
+              bCtx.fill();
+              // 4 orbiting spores
+              for (let i = 0; i < 4; i++) {
+                const a = bAngle * 2 + (i / 4) * Math.PI * 2;
+                bCtx.fillStyle = "#e9d5ff";
+                bCtx.beginPath();
+                bCtx.arc(Math.cos(a) * 36, Math.sin(a) * 36, 4, 0, Math.PI * 2);
+                bCtx.fill();
+              }
+            } else if (mob.id === "phantom") {
+              const alpha = 0.35 + Math.sin(bAngle * 2) * 0.45;
+              bCtx.globalAlpha = Math.max(0.15, alpha);
+              bCtx.fillStyle = "#88eedd";
+              bCtx.shadowColor = "#88eedd";
+              bCtx.shadowBlur = 20;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 17, 0, Math.PI * 2);
+              bCtx.fill();
+            } else if (mob.id === "magnetizer") {
+              bCtx.fillStyle = "#c084fc";
+              bCtx.shadowColor = "#c084fc";
+              bCtx.shadowBlur = 18;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 16, 0, Math.PI * 2);
+              bCtx.fill();
+              // Dual rotating magnetic flux rings
+              bCtx.strokeStyle = "#a855f7";
+              bCtx.lineWidth = 2;
+              bCtx.beginPath();
+              bCtx.ellipse(0, 0, 36, 14, bAngle, 0, Math.PI * 2);
+              bCtx.stroke();
+              bCtx.strokeStyle = "#c084fc";
+              bCtx.beginPath();
+              bCtx.ellipse(0, 0, 36, 14, -bAngle, 0, Math.PI * 2);
+              bCtx.stroke();
+            } else if (mob.id === "twin") {
+              // Draw 2 twin drones with active laser tether
+              const tDist = 42;
+              const tX1 = -tDist + Math.sin(bAngle) * 6;
+              const tX2 = tDist - Math.sin(bAngle) * 6;
+              bCtx.strokeStyle = "#ff6b9d";
+              bCtx.lineWidth = 3;
+              bCtx.shadowColor = "#ff6b9d";
+              bCtx.shadowBlur = 12;
+              bCtx.beginPath();
+              bCtx.moveTo(tX1, 0);
+              bCtx.lineTo(tX2, 0);
+              bCtx.stroke();
+
+              bCtx.fillStyle = "#ff6b9d";
+              bCtx.beginPath();
+              bCtx.arc(tX1, 0, 11, 0, Math.PI * 2);
+              bCtx.arc(tX2, 0, 11, 0, Math.PI * 2);
+              bCtx.fill();
+            } else if (mob.id === "boss") {
+              // Massive boss titan core with rotating shields
+              bCtx.fillStyle = "#f43f5e";
+              bCtx.shadowColor = "#f43f5e";
+              bCtx.shadowBlur = 24;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, 26, 0, Math.PI * 2);
+              bCtx.fill();
+
+              // Dual orbiting shield drones
+              for (let i = 0; i < 2; i++) {
+                const a = bAngle * 1.8 + i * Math.PI;
+                bCtx.fillStyle = "#fb7185";
+                bCtx.beginPath();
+                bCtx.arc(Math.cos(a) * 44, Math.sin(a) * 44, 8, 0, Math.PI * 2);
+                bCtx.fill();
+              }
+            }
+
+            bCtx.restore();
+
+            guidePreviewAnimId = requestAnimationFrame(renderBestiaryFrame);
+          };
+
+          guidePreviewAnimId = requestAnimationFrame(renderBestiaryFrame);
+        }
+
+        // Upgrades Codex logic
+        if (currentGuideTab === "upgrades") {
+          const rarityBadge = panel.querySelector("#upgradeRarityBadge");
+          const bigIcon = panel.querySelector("#upgradeBigIcon");
+          const titleEl = panel.querySelector("#upgradeTitle");
+          const catBadge = panel.querySelector("#upgradeCategoryBadge");
+          const descEl = panel.querySelector("#upgradeDesc");
+          const treeList = panel.querySelector("#upgradeTreeList");
+          const synergyEl = panel.querySelector("#upgradeSynergy");
+
+          const updateUpgradeDetails = () => {
+            const up = UPGRADES_CODEX.find(u => u.id === selectedUpgradeCodexId) || UPGRADES_CODEX[0];
+            if (rarityBadge) {
+              rarityBadge.textContent = up.rarity;
+              rarityBadge.style.background = up.color ? `${up.color}25` : "rgba(255,255,255,0.1)";
+              rarityBadge.style.color = up.color || "#ffffff";
+              rarityBadge.style.border = `1px solid ${up.color || "#ffffff"}`;
+            }
+            if (bigIcon) {
+              bigIcon.textContent = up.icon;
+              bigIcon.style.borderColor = up.color || "rgba(255,255,255,0.2)";
+              bigIcon.style.boxShadow = `0 0 16px ${up.color || "rgba(255,255,255,0.2)"}35`;
+            }
+            if (titleEl) titleEl.textContent = up.title;
+            if (catBadge) {
+              catBadge.textContent = up.category === "trees" ? "🌳 СЕМЬЯ СПОСОБНОСТЕЙ" : up.category === "weapon" ? "🎯 ОРУЖИЕ И ПУЛЯ" : "🛡️ ВЫЖИВАНИЕ";
+            }
+            if (descEl) descEl.textContent = up.desc;
+            if (synergyEl) synergyEl.textContent = up.synergy || "Отлично дополняет быстрые сборки.";
+            if (treeList) {
+              treeList.innerHTML = (up.tree || []).map(t => `<li>${escapeHtml(t)}</li>`).join("");
+            }
+
+            panel.querySelectorAll(".upgrade-codex-card").forEach(card => {
+              card.classList.toggle("selected", card.dataset.upgradeId === selectedUpgradeCodexId);
+            });
+          };
+
+          updateUpgradeDetails();
+
+          panel.querySelectorAll(".upgrade-codex-card").forEach(card => {
+            card.onclick = () => {
+              selectedUpgradeCodexId = card.dataset.upgradeId;
+              soundManager.playUiClick();
+              updateUpgradeDetails();
+            };
+          });
+
+          panel.querySelectorAll(".guide-filter-pill").forEach(pill => {
+            pill.onclick = () => {
+              currentUpgradeCategoryFilter = pill.dataset.catFilter;
+              soundManager.playUiClick();
+              renderGuideModal();
+            };
+          });
+        }
+      };
+
+      renderGuideModal();
     }
 
     function showChangelogMenu() {
@@ -19007,6 +20099,10 @@ osc.stop(now + 0.05);
             if (skinPreviewAnimId) {
               cancelAnimationFrame(skinPreviewAnimId);
               skinPreviewAnimId = null;
+            }
+            if (guidePreviewAnimId) {
+              cancelAnimationFrame(guidePreviewAnimId);
+              guidePreviewAnimId = null;
             }
             showMainMenu();
           } else {

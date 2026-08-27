@@ -100,4 +100,25 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     const pauseMenuChunk = indexHtml.substring(indexHtml.indexOf('id="pauseMenu"'), indexHtml.indexOf('id="pauseMenu"') + 1500);
     assert.ok(!pauseMenuChunk.includes('data-pause-action="skins"'), "Pause menu (ESC menu) must NOT contain skins action");
   });
+
+  await t.test("8. Knowledge Base Bestiary & Upgrades Codex parity with live canvas preview", () => {
+    // Check clean badge without inline border
+    assert.ok(!indexHtml.includes('class="mode-card-badge" style="background: rgba(168, 85, 247'), "Armory badge should not have custom inline border");
+    
+    // Check Bestiary catalog & canvas
+    assert.ok(indexHtml.includes("const BESTIARY_CATALOG ="), "Client must declare BESTIARY_CATALOG");
+    assert.ok(indexHtml.includes("bestiaryCanvas"), "Guide modal must contain bestiaryCanvas");
+    assert.ok(indexHtml.includes("renderBestiaryFrame"), "Guide modal must have renderBestiaryFrame animation loop");
+
+    const EXPECTED_MOBS = ["normal", "runner", "tank", "charger", "splitter", "shooter", "incubator", "phantom", "magnetizer", "twin", "boss"];
+    for (const mob of EXPECTED_MOBS) {
+      assert.ok(indexHtml.includes(`id: "${mob}"`), `BESTIARY_CATALOG must define mob '${mob}'`);
+    }
+
+    // Check Upgrades Codex catalog
+    assert.ok(indexHtml.includes("const UPGRADES_CODEX ="), "Client must declare UPGRADES_CODEX");
+    assert.ok(indexHtml.includes('data-guide-tab="bestiary"'), "Guide modal must have Bestiary tab");
+    assert.ok(indexHtml.includes('data-guide-tab="upgrades"'), "Guide modal must have Upgrades tab");
+    assert.ok(indexHtml.includes('data-guide-tab="basics"'), "Guide modal must have Basics tab");
+  });
 });
