@@ -7174,8 +7174,22 @@
         ctx.fill();
         ctx.shadowBlur = 0;
       } else if (type === "charger") {
+        if (opts.chargeState === "windup" && opts.chargeDx !== undefined && opts.chargeDy !== undefined) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(251, 146, 60, 0.6)";
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(opts.chargeDx * 130, opts.chargeDy * 130);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        const vib = opts.chargeState === "windup" ? Math.sin(now * 0.08) * 2 : 0;
         const pulse = 1 + Math.sin(now * 0.008 + id) * 0.08;
         ctx.save();
+        ctx.translate(vib, 0);
         const chRot = now * 0.002;
         ctx.rotate(chRot);
 
@@ -7203,9 +7217,9 @@
 
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffedd5";
-        ctx.shadowColor = "#f97316";
-        ctx.shadowBlur = 12;
+        ctx.fillStyle = opts.isCharging ? "#ffffff" : "#ffedd5";
+        ctx.shadowColor = opts.isCharging ? "#ea580c" : "#f97316";
+        ctx.shadowBlur = opts.isCharging ? 16 : 12;
         ctx.fill();
         ctx.shadowBlur = 0;
       } else if (type === "phantom") {
@@ -7919,22 +7933,51 @@
               1.3 - wave * 0.02
             );
           }
-        } else {
-          let speedMultiplier = 1;
-        
-          if (
-            enemy.type === "charger" &&
-            length < 240
-          ) {
-            speedMultiplier = 2.35;
-            enemy.isCharging = true;
+        } else if (enemy.type === "charger") {
+          if (!enemy.chargeState) enemy.chargeState = "idle";
+          if (enemy.chargeCooldown === undefined) enemy.chargeCooldown = 1.2;
+          if (enemy.chargeTimer === undefined) enemy.chargeTimer = 0;
+
+          if (enemy.chargeCooldown > 0) {
+            enemy.chargeCooldown -= dt;
           }
-        
+
+          if (enemy.chargeState === "windup") {
+            enemy.chargeTimer -= dt;
+            enemy.isCharging = false;
+            if (enemy.chargeTimer <= 0) {
+              enemy.chargeState = "dashing";
+              enemy.chargeTimer = 0.55;
+              enemy.isCharging = true;
+            }
+          } else if (enemy.chargeState === "dashing") {
+            enemy.chargeTimer -= dt;
+            enemy.isCharging = true;
+            enemy.x += (enemy.chargeDx || dx) * enemySpeed * 3.6 * dt;
+            enemy.y += (enemy.chargeDy || dy) * enemySpeed * 3.6 * dt;
+            if (enemy.chargeTimer <= 0) {
+              enemy.chargeState = "idle";
+              enemy.isCharging = false;
+              enemy.chargeCooldown = 2.0;
+            }
+          } else {
+            enemy.isCharging = false;
+            if (enemy.chargeCooldown <= 0 && length < 280 && enemyCanAttack) {
+              enemy.chargeState = "windup";
+              enemy.chargeTimer = 0.65;
+              enemy.chargeDx = dx;
+              enemy.chargeDy = dy;
+            } else {
+              enemy.x += dx * enemySpeed * dt;
+              enemy.y += dy * enemySpeed * dt;
+            }
+          }
+        } else {
           enemy.x +=
-            dx * enemySpeed * speedMultiplier * dt;
+            dx * enemySpeed * dt;
         
           enemy.y +=
-            dy * enemySpeed * speedMultiplier * dt;
+            dy * enemySpeed * dt;
         }
 
         enemy.x = clamp(
@@ -12175,6 +12218,99 @@ osc.stop(now + 0.05);
               return;
             }
 
+            // 2. SPLITTER (Сплиттер) - Демонстрация деления на двух миньонов после гибели
+            if (mobId === "splitter") {
+              const splitCycle = (now % 4400) / 4400;
+              const sr = 20;
+              const sColor = "#46b8ff";
+              const smx = Math.sin(now * 0.0016) * 16;
+              const smy = Math.cos(now * 0.0022) * 10;
+
+              if (splitCycle < 0.44) {
+                // Основной кристалл жив и парит
+                bCtx.save();
+                bCtx.translate(smx, smy);
+
+                bCtx.beginPath();
+                bCtx.arc(0, 0, sr + 6, 0, Math.PI * 2);
+                bCtx.fillStyle = `${sColor}18`;
+                bCtx.fill();
+
+                bCtx.beginPath();
+                bCtx.arc(0, 0, sr, 0, Math.PI * 2);
+                bCtx.fillStyle = sColor;
+                bCtx.fill();
+
+                drawEnemyModel(bCtx, "splitter", sr, sColor, { now });
+
+                const barWidth = sr * 2;
+                bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+                bCtx.fillRect(-barWidth / 2, -sr - 10, barWidth, 4);
+                bCtx.fillStyle = "#67ff9a";
+                bCtx.fillRect(-barWidth / 2, -sr - 10, barWidth, 4);
+
+                bCtx.restore();
+              } else if (splitCycle < 0.52) {
+                // Вспышка деления / гибель кристалла
+                const flashProg = (splitCycle - 0.44) / 0.08;
+                bCtx.save();
+                bCtx.beginPath();
+                bCtx.arc(smx, smy, sr * (1 + flashProg * 1.6), 0, Math.PI * 2);
+                bCtx.fillStyle = `rgba(56, 189, 248, ${0.85 * (1 - flashProg)})`;
+                bCtx.shadowColor = "#38bdf8";
+                bCtx.shadowBlur = 18;
+                bCtx.fill();
+
+                // Осколочные искры
+                for (let sp = 0; sp < 8; sp++) {
+                  const spa = (sp / 8) * Math.PI * 2;
+                  const spd = flashProg * 35;
+                  bCtx.beginPath();
+                  bCtx.arc(smx + Math.cos(spa) * spd, smy + Math.sin(spa) * spd, 2.5 * (1 - flashProg), 0, Math.PI * 2);
+                  bCtx.fillStyle = "#e0f2fe";
+                  bCtx.fill();
+                }
+                bCtx.restore();
+              } else {
+                // Появление двух самостоятельных миньонов-осколков
+                const spawnProg = (splitCycle - 0.52) / 0.48;
+                const sepDist = Math.sin(Math.min(1, spawnProg * 2.2) * Math.PI / 2) * 54;
+                const miniR = 11;
+
+                [-1, 1].forEach((dir, sIdx) => {
+                  const mx = smx + dir * sepDist + Math.sin(now * 0.003 + sIdx * 2) * 8;
+                  const my = smy + Math.cos(now * 0.0035 + sIdx * 2) * 12;
+
+                  bCtx.save();
+                  bCtx.translate(mx, my);
+
+                  bCtx.beginPath();
+                  bCtx.arc(0, 0, miniR + 4, 0, Math.PI * 2);
+                  bCtx.fillStyle = `${sColor}18`;
+                  bCtx.fill();
+
+                  bCtx.beginPath();
+                  bCtx.arc(0, 0, miniR, 0, Math.PI * 2);
+                  bCtx.fillStyle = sColor;
+                  bCtx.fill();
+
+                  drawEnemyModel(bCtx, "splitter", miniR, sColor, { now: now + sIdx * 1000 });
+
+                  const miniBarW = miniR * 2;
+                  bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+                  bCtx.fillRect(-miniBarW / 2, -miniR - 7, miniBarW, 3);
+                  bCtx.fillStyle = "#67ff9a";
+                  bCtx.fillRect(-miniBarW / 2, -miniR - 7, miniBarW, 3);
+
+                  bCtx.restore();
+                });
+              }
+
+              bCtx.restore();
+              guidePreviewAnimId = requestAnimationFrame(renderBestiaryFrame);
+              return;
+            }
+
             // Normal entity specs and scale
             let r = 16;
             let color = "#ff5577";
@@ -12187,8 +12323,6 @@ osc.stop(now + 0.05);
               r = 25; color = "#b56dff";
             } else if (mobId === "shooter") {
               r = 16; color = "#50d890";
-            } else if (mobId === "splitter") {
-              r = 20; color = "#46b8ff";
             } else if (mobId === "charger") {
               r = 15; color = "#ff814a";
             } else if (mobId === "incubator") {
@@ -12227,17 +12361,16 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               }
             } else if (mobId === "charger") {
-              // Цикл тарана: Прицеливание -> Рывок -> Остановка
+              // Цикл тарана: Замирание/Прицеливание -> Взрывной рывок -> Остановка
               const cycle = (now % 3200) / 3200;
               if (cycle < 0.35) {
-                // Подготовка и прицеливание с лазерной линией
-                const vib = Math.sin(now * 0.06) * 2;
+                const vib = Math.sin(now * 0.08) * 2;
                 mx = -55 + vib;
                 my = 0;
 
                 bCtx.save();
-                bCtx.strokeStyle = "rgba(251, 146, 60, 0.45)";
-                bCtx.lineWidth = 1.5;
+                bCtx.strokeStyle = "rgba(251, 146, 60, 0.55)";
+                bCtx.lineWidth = 1.8;
                 bCtx.setLineDash([4, 4]);
                 bCtx.beginPath();
                 bCtx.moveTo(-55, 0);
@@ -12245,50 +12378,50 @@ osc.stop(now + 0.05);
                 bCtx.stroke();
                 bCtx.restore();
               } else if (cycle < 0.65) {
-                // Молниеносный рывок вперед со шлейфом
                 const prog = (cycle - 0.35) / 0.30;
                 mx = -55 + prog * 115;
                 my = 0;
 
                 bCtx.save();
-                bCtx.strokeStyle = "rgba(255, 237, 213, 0.5)";
-                bCtx.lineWidth = 2;
+                bCtx.strokeStyle = "rgba(255, 237, 213, 0.6)";
+                bCtx.lineWidth = 2.5;
                 bCtx.beginPath();
-                bCtx.moveTo(mx - 30, my - 6); bCtx.lineTo(mx - 10, my - 6);
-                bCtx.moveTo(mx - 40, my); bCtx.lineTo(mx - 15, my);
-                bCtx.moveTo(mx - 30, my + 6); bCtx.lineTo(mx - 10, my + 6);
+                bCtx.moveTo(mx - 32, my - 6); bCtx.lineTo(mx - 10, my - 6);
+                bCtx.moveTo(mx - 44, my); bCtx.lineTo(mx - 14, my);
+                bCtx.moveTo(mx - 32, my + 6); bCtx.lineTo(mx - 10, my + 6);
                 bCtx.stroke();
                 bCtx.restore();
               } else {
-                // Торможение и разворот
                 const prog = (cycle - 0.65) / 0.35;
                 mx = 60 - Math.sin(prog * Math.PI) * 115;
                 my = Math.sin(prog * Math.PI) * 12;
               }
             } else if (mobId === "shooter") {
-              // Тактический стрейф и снайперский прицельный луч
+              // Тактический стрейф и стрельба снарядами
               mx = Math.sin(now * 0.002) * 32;
               my = Math.cos(now * 0.004) * 10;
 
-              const shotCycle = (now % 2200) / 2200;
-              const targetX = 90;
-              const targetY = Math.sin(now * 0.003) * 22;
+              // Летящие изумрудные снаряды стрелка
+              for (let p = 0; p < 2; p++) {
+                const pProg = ((now * 0.0011 + p * 0.5) % 1);
+                const px = mx + 16 + pProg * 90;
+                const py = my;
+                bCtx.save();
+                bCtx.beginPath();
+                bCtx.arc(px, py, 4, 0, Math.PI * 2);
+                bCtx.fillStyle = "#a7f3d0";
+                bCtx.shadowColor = "#34d399";
+                bCtx.shadowBlur = 10;
+                bCtx.fill();
 
-              bCtx.save();
-              bCtx.strokeStyle = `rgba(52, 211, 153, ${0.25 + shotCycle * 0.7})`;
-              bCtx.lineWidth = shotCycle > 0.88 ? 3 : 1.4;
-              bCtx.setLineDash(shotCycle > 0.88 ? [] : [4, 4]);
-              bCtx.beginPath();
-              bCtx.moveTo(mx, my);
-              bCtx.lineTo(targetX, targetY);
-              bCtx.stroke();
-
-              // Прицельная рамка
-              bCtx.strokeStyle = "#34d399";
-              bCtx.lineWidth = 1.5;
-              bCtx.setLineDash([]);
-              bCtx.strokeRect(targetX - 7, targetY - 7, 14, 14);
-              bCtx.restore();
+                bCtx.beginPath();
+                bCtx.moveTo(px - 14, py);
+                bCtx.lineTo(px, py);
+                bCtx.strokeStyle = "rgba(52, 211, 153, 0.55)";
+                bCtx.lineWidth = 3;
+                bCtx.stroke();
+                bCtx.restore();
+              }
             } else if (mobId === "magnetizer") {
               // Левитация и гравитационная воронка, притягивающая частицы
               mx = Math.sin(now * 0.0016) * 18;
@@ -12359,25 +12492,6 @@ osc.stop(now + 0.05);
                 my = nextWp.y;
                 extraAlpha = 0.2 + ((segProg - 0.58) / 0.42) * 0.75;
               }
-            } else if (mobId === "splitter") {
-              // Пульсирующая нестабильность кристалла с фантомными осколками
-              mx = Math.sin(now * 0.0016) * 16;
-              my = Math.cos(now * 0.0022) * 12;
-
-              const fissionPulse = (Math.sin(now * 0.004) + 1) / 2;
-              if (fissionPulse > 0.7) {
-                const sep = (fissionPulse - 0.7) * 45;
-                for (let s = 0; s < 3; s++) {
-                  const sa = (s / 3) * Math.PI * 2 + now * 0.002;
-                  const sx = mx + Math.cos(sa) * sep;
-                  const sy = my + Math.sin(sa) * sep;
-                  bCtx.save();
-                  bCtx.translate(sx, sy);
-                  bCtx.globalAlpha = 0.35;
-                  drawEnemyModel(bCtx, "splitter", 10, "#38bdf8", { now });
-                  bCtx.restore();
-                }
-              }
             } else if (mobId === "tank") {
               // Тяжелая поступь с сейсмическими ударными волнами
               mx = Math.sin(now * 0.001) * 22;
@@ -12414,28 +12528,25 @@ osc.stop(now + 0.05);
               bCtx.fill();
               bCtx.restore();
             } else if (mobId === "boss") {
-              // Парящий титан с прицельным лучом снайпера
+              // Парящий титан со спиральным выбросом плазменных снарядов
               mx = Math.sin(now * 0.001) * 8;
               my = Math.cos(now * 0.0014) * 6;
 
-              const beamAngle = now * 0.0008;
-              const beamLen = 135;
-              const bx = mx + Math.cos(beamAngle) * beamLen;
-              const by = my + Math.sin(beamAngle) * beamLen;
-
-              bCtx.save();
-              bCtx.strokeStyle = "rgba(255, 63, 143, 0.45)";
-              bCtx.lineWidth = 1.5;
-              bCtx.setLineDash([6, 4]);
-              bCtx.beginPath();
-              bCtx.moveTo(mx, my);
-              bCtx.lineTo(bx, by);
-              bCtx.stroke();
-              bCtx.setLineDash([]);
-
-              bCtx.strokeStyle = "#ff3f8f";
-              bCtx.strokeRect(bx - 5, by - 5, 10, 10);
-              bCtx.restore();
+              for (let s = 0; s < 6; s++) {
+                const sLife = ((now * 0.0006 + s / 6) % 1);
+                const sDist = 36 + sLife * 90;
+                const sAngle = (s / 6) * Math.PI * 2 + now * 0.0015;
+                const sx = mx + Math.cos(sAngle) * sDist;
+                const sy = my + Math.sin(sAngle) * sDist;
+                bCtx.save();
+                bCtx.beginPath();
+                bCtx.arc(sx, sy, 4.5 * (1 - sLife * 0.35), 0, Math.PI * 2);
+                bCtx.fillStyle = "#ffe4e6";
+                bCtx.shadowColor = "#ff3f8f";
+                bCtx.shadowBlur = 12;
+                bCtx.fill();
+                bCtx.restore();
+              }
             }
 
             bCtx.save();
@@ -12454,11 +12565,16 @@ osc.stop(now + 0.05);
             bCtx.fillStyle = color;
             bCtx.fill();
 
+            const cCycle = (now % 3200) / 3200;
             // Exact in-game internal distinctive cyber model
             drawEnemyModel(bCtx, mobId, r, color, {
               now: now,
               shieldActive: mobId === "boss",
-              sporesCount: 5
+              sporesCount: 5,
+              chargeState: mobId === "charger" ? (cCycle < 0.35 ? "windup" : (cCycle < 0.65 ? "dashing" : "idle")) : undefined,
+              chargeDx: mobId === "charger" ? 1 : undefined,
+              chargeDy: mobId === "charger" ? 0 : undefined,
+              isCharging: mobId === "charger" ? (cCycle >= 0.35 && cCycle < 0.65) : false
             });
 
             // In-game Health Bar
@@ -17716,12 +17832,15 @@ osc.stop(now + 0.05);
         ctx.fillStyle = enemy.color;
         ctx.fill();
 
-        // Отличительные элементы разных типов врагов.
         drawEnemyModel(ctx, enemy.type, enemy.r, enemy.color, {
           now: performance.now(),
           id: enemy.id,
           shieldActive: Boolean(enemy.shieldActive),
-          sporesCount: enemy.sporesCount
+          sporesCount: enemy.sporesCount,
+          chargeState: enemy.chargeState,
+          chargeDx: enemy.chargeDx,
+          chargeDy: enemy.chargeDy,
+          isCharging: Boolean(enemy.isCharging)
         });
       }
 
@@ -18922,12 +19041,15 @@ osc.stop(now + 0.05);
           ctx.fillStyle = enemy.color;
           ctx.fill();
 
-          // Отличительные элементы разных типов врагов.
           drawEnemyModel(ctx, enemy.type, enemy.r, enemy.color, {
             now: performance.now(),
             id: enemy.id,
             shieldActive: Boolean(enemy.shieldActive),
-            sporesCount: enemy.sporesCount
+            sporesCount: enemy.sporesCount,
+            chargeState: enemy.chargeState,
+            chargeDx: enemy.chargeDx,
+            chargeDy: enemy.chargeDy,
+            isCharging: Boolean(enemy.isCharging)
           });
         }
 

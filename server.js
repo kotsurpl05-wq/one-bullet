@@ -2003,6 +2003,11 @@ function createServerEnemy(
 
     contactCooldown: 0,
     isCharging: false,
+    chargeState: "idle",
+    chargeCooldown: 1.2,
+    chargeTimer: 0,
+    chargeDx: 0,
+    chargeDy: 0,
     preferredDistance,
     shootCooldown,
     radialCooldown,
@@ -4325,29 +4330,74 @@ function updateServerEnemies(
           enemy.shootCooldown = Math.max(0.5, 1.3 - world.wave * 0.02);
         }
       }
-    } else {
-      let speedMultiplier = 1;
+    } else if (enemy.type === "charger") {
+      if (!enemy.chargeState) enemy.chargeState = "idle";
+      if (enemy.chargeCooldown === undefined) enemy.chargeCooldown = 1.2;
+      if (enemy.chargeTimer === undefined) enemy.chargeTimer = 0;
 
-      if (
-        enemy.type === "charger" &&
-        targetDistance < 240
-      ) {
-        speedMultiplier = 2.35;
-        enemy.isCharging = true;
+      if (enemy.chargeCooldown > 0) {
+        enemy.chargeCooldown -= dt;
       }
 
+      if (enemy.chargeState === "windup") {
+        enemy.chargeTimer -= dt;
+        enemy.isCharging = false;
+        if (enemy.chargeTimer <= 0) {
+          enemy.chargeState = "dashing";
+          enemy.chargeTimer = 0.55;
+          enemy.isCharging = true;
+        }
+      } else if (enemy.chargeState === "dashing") {
+        enemy.chargeTimer -= dt;
+        enemy.isCharging = true;
+        enemy.x +=
+          (enemy.chargeDx || dx) *
+          enemy.speed *
+          difficulty.enemySpeed *
+          3.6 *
+          dt;
+        enemy.y +=
+          (enemy.chargeDy || dy) *
+          enemy.speed *
+          difficulty.enemySpeed *
+          3.6 *
+          dt;
+        if (enemy.chargeTimer <= 0) {
+          enemy.chargeState = "idle";
+          enemy.isCharging = false;
+          enemy.chargeCooldown = 2.0;
+        }
+      } else {
+        enemy.isCharging = false;
+        if (enemy.chargeCooldown <= 0 && targetDistance < 280 && enemy.hasEnteredArena) {
+          enemy.chargeState = "windup";
+          enemy.chargeTimer = 0.65;
+          enemy.chargeDx = dx;
+          enemy.chargeDy = dy;
+        } else {
+          enemy.x +=
+            dx *
+            enemy.speed *
+            difficulty.enemySpeed *
+            dt;
+          enemy.y +=
+            dy *
+            enemy.speed *
+            difficulty.enemySpeed *
+            dt;
+        }
+      }
+    } else {
       enemy.x +=
         dx *
         enemy.speed *
         difficulty.enemySpeed *
-        speedMultiplier *
         dt;
 
       enemy.y +=
         dy *
         enemy.speed *
         difficulty.enemySpeed *
-        speedMultiplier *
         dt;
     }
 
@@ -5409,6 +5459,11 @@ function createServerCoopSnapshot(room, options) {
       }
 
       if (enemy.isCharging) serialized.isCharging = 1;
+      if (enemy.chargeState && enemy.chargeState !== "idle") serialized.chargeState = enemy.chargeState;
+      if (enemy.chargeDx !== undefined && enemy.chargeState === "windup") {
+        serialized.chargeDx = Number(enemy.chargeDx.toFixed(2));
+        serialized.chargeDy = Number(enemy.chargeDy.toFixed(2));
+      }
       if (enemy.stunTimer > 0) serialized.stunTimer = Number(enemy.stunTimer.toFixed(2));
       if (enemy.targetMarked) serialized.targetMarked = 1;
       if (enemy.poisonTimer > 0) serialized.poisoned = 1;
