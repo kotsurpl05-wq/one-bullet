@@ -3612,6 +3612,10 @@ function damageServerEnemy(
 
   enemy.hp -= amount;
 
+  if (killerPlayer) {
+    killerPlayer.totalDamageDealt = (killerPlayer.totalDamageDealt || 0) + amount;
+  }
+
   if (enemy.hp <= 0) {
     killServerEnemy(
       world,
@@ -5307,7 +5311,8 @@ function createServerCoopSnapshot(room, options) {
         : undefined,
 
       stats: coopPlayer.stats,
-      selectedUpgrades: coopPlayer.selectedUpgrades
+      selectedUpgrades: coopPlayer.selectedUpgrades,
+      totalDamageDealt: coopPlayer.totalDamageDealt || 0
     })),
 
     bullets: [

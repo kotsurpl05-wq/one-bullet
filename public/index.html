@@ -2781,6 +2781,7 @@
     let wave = 1;
     let kills = 0;
     let score = 0;
+    let totalDamageDealt = 0;
     let enemyId = 0;
     let wavePending = false;
     let waveToast = 1.5;
@@ -3317,6 +3318,7 @@
       wave = 1;
       kills = 0;
       score = 0;
+      totalDamageDealt = 0;
       enemyId = 0;
     
       playerLevel = 1;
@@ -4408,6 +4410,7 @@
       }
 
       enemy.hp -= damage;
+      totalDamageDealt += damage;
       if (critical) {
         soundManager.playCritHit();
       } else {
@@ -11508,6 +11511,8 @@
             `;
           }
           const isReady = Boolean(roomPlayer.ready);
+          const coopPlayer = coopSession.players.get(roomPlayer.id);
+          const playerDmg = coopPlayer?.totalDamageDealt || 0;
           return `
             <div class="solo-diff-card ${isReady ? 'selected' : ''}" style="cursor: default; text-align: left; align-items: stretch; min-height: 120px; padding: 14px 18px; justify-content: space-between;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -11521,6 +11526,9 @@
               <div style="margin: 6px 0;">
                 <div style="font-size: 17px; font-weight: 900; color: #f8fafc;">
                   ${escapeHtml(roomPlayer.name)}
+                </div>
+                <div style="font-size: 12px; font-weight: 700; color: #ff9b45; margin-top: 4px;">
+                  ⚔️ Урон: ${playerDmg.toLocaleString("ru-RU")}
                 </div>
               </div>
               <div class="lobby-player-status ${isReady ? 'is-ready' : 'not-ready'}" style="margin: 0; display: flex; align-items: center; gap: 6px; font-size: 11px;">
@@ -12854,6 +12862,11 @@
           Array.isArray(snapshotPlayer.selectedUpgrades)
             ? snapshotPlayer.selectedUpgrades
             : (coopPlayer.selectedUpgrades || []);
+
+        coopPlayer.totalDamageDealt =
+          Number.isFinite(snapshotPlayer.totalDamageDealt)
+            ? snapshotPlayer.totalDamageDealt
+            : (coopPlayer.totalDamageDealt || 0);
       
         const nextHp =
           Number.isFinite(snapshotPlayer.hp)
@@ -15570,6 +15583,32 @@
         drawCoopBullet(coopBullet);
       }
 
+      // Boomerang dashed lines in coop
+      for (const coopBullet of coopSession.bullets.values()) {
+        if (coopBullet.state !== "ground") continue;
+        const owner = coopSession.players.get(coopBullet.ownerId);
+        if (!owner || !owner.alive || !owner.stats?.boomerang) continue;
+        if ((owner.stats.groundPullSpeed || 0) <= 0) continue;
+        const bx = coopBullet.displayX ?? coopBullet.x;
+        const by = coopBullet.displayY ?? coopBullet.y;
+        const ox = owner.displayX ?? owner.x;
+        const oy = owner.displayY ?? owner.y;
+        const dist = Math.hypot(bx - ox, by - oy);
+        if (dist <= (owner.r || 16) + (coopBullet.r || 7)) continue;
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([6, 5]);
+        ctx.moveTo(bx, by);
+        ctx.lineTo(ox, oy);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.3)";
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 4;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       drawCoopParticles();
     
       /*
@@ -16883,6 +16922,31 @@
       }
     }
 
+    function drawBoomerangLines() {
+      if (!stats.boomerang || (stats.groundPullSpeed || 0) <= 0) return;
+      for (const bullet of bullets) {
+        if (bullet.state !== "ground") continue;
+        const dist = Math.hypot(bullet.x - player.x, bullet.y - player.y);
+        if (dist <= player.r + bullet.r) continue; // already at player
+        const magnetCells = Math.min(40, 20 + (stats.magnetRangeBonusCells || 0));
+        const maxDist = magnetCells * 48;
+        if (dist > maxDist) continue; // outside magnet range
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([6, 5]);
+        ctx.moveTo(bullet.x, bullet.y);
+        ctx.lineTo(player.x, player.y);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 4;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
+
     function drawParticles() {
       for (const particle of particles) {
         const lifeRatio = clamp(
@@ -17421,6 +17485,7 @@
       drawParasiteSpores();
       drawPlayer();
       drawBullets();
+      drawBoomerangLines();
       drawParticles();
       drawDamageNumbersIn(damageNumbers);
 
