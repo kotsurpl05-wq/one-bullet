@@ -2788,6 +2788,11 @@
     let screenShake = 0;
     let playerHitFlash = 0;
     let coopScreenShake = 0;
+    let damageVignetteAlpha = 0;
+
+    function triggerDamageVignette(intensity = 0.75) {
+      damageVignetteAlpha = Math.min(1.0, damageVignetteAlpha + Math.max(0.45, Number(intensity) || 0.65));
+    }
 
     /*
      * Визуальное время. Эти таймеры влияют только на
@@ -3167,6 +3172,43 @@
     const ARENA_TOP_UI_COMPACT = 116;
     const ARENA_BOTTOM_UI_COMPACT = 68;
     const ARENA_STATS_SIDE_WIDTH = 216;
+
+    const BULLET_SKIN_CATALOG = [
+      { id: "neon", name: "Плазмоид", desc: "Неон Cyan", icon: "⚡", tagColor: "#38bdf8", baseColor: "rgba(0,242,254,0.08)" },
+      { id: "fire", name: "Метеор", desc: "Огонь & Лава", icon: "🔥", tagColor: "#fb923c", baseColor: "rgba(255,69,0,0.08)" },
+      { id: "quantum", name: "Сюрикен", desc: "Квантовый 4-Blade", icon: "💠", tagColor: "#818cf8", baseColor: "rgba(56,189,248,0.08)" },
+      { id: "toxic", name: "Био-Сгусток", desc: "Кислотный Яд", icon: "☣️", tagColor: "#4ade80", baseColor: "rgba(34,197,94,0.08)" },
+      { id: "cosmic", name: "Комета", desc: "Звёздная Аура", icon: "✨", tagColor: "#facc15", baseColor: "rgba(234,179,8,0.08)" },
+      { id: "plasma", name: "Громовержец", desc: "Электро-Шок", icon: "⚡", tagColor: "#c084fc", baseColor: "rgba(168,85,247,0.08)" },
+      { id: "void", name: "Чёрная Дыра", desc: "Гравитон Бездны", icon: "🕳️", tagColor: "#a855f7", baseColor: "rgba(107,33,168,0.08)" },
+      { id: "inferno", name: "Солнце", desc: "Гелиос Шторм", icon: "☀️", tagColor: "#f97316", baseColor: "rgba(234,88,12,0.08)" },
+      { id: "glitch", name: "Кибер-Глитч", desc: "Матричный Код", icon: "👾", tagColor: "#22c55e", baseColor: "rgba(16,185,129,0.08)" },
+      { id: "prism", name: "Призма", desc: "Радужный Спектр", icon: "💎", tagColor: "#ec4899", baseColor: "rgba(244,63,94,0.08)" },
+      { id: "holy", name: "Серафим", desc: "Священный Свет", icon: "🕊️", tagColor: "#fef08a", baseColor: "rgba(253,224,71,0.08)" },
+      { id: "ruby", name: "Рубин", desc: "Кровавый Кристалл", icon: "🩸", tagColor: "#ef4444", baseColor: "rgba(220,38,38,0.08)" }
+    ];
+
+    function getSkinTrailColor(skin, fallbackColor = "#7ee7ff") {
+      switch (skin) {
+        case "fire": return "#fb923c";
+        case "quantum": return "#818cf8";
+        case "toxic": return "#4ade80";
+        case "cosmic": return "#fde047";
+        case "plasma": return "#c084fc";
+        case "void": return "#a855f7";
+        case "inferno": return "#f97316";
+        case "glitch": return (Math.random() < 0.5 ? "#00ff66" : "#ff0055");
+        case "prism": {
+          const hue = Math.floor((performance.now() * 0.2) % 360);
+          return `hsl(${hue}, 100%, 65%)`;
+        }
+        case "holy": return "#fffbeb";
+        case "ruby": return "#ef4444";
+        case "neon":
+        default:
+          return fallbackColor || "#7ee7ff";
+      }
+    }
 
     
     const COOP_WORLD_WIDTH = ARENA_WIDTH;
@@ -4709,6 +4751,7 @@
       );
 
       playerHitFlash = 1;
+      triggerDamageVignette(Math.min(1.0, 0.55 + (actualDamage / 100) * 0.35));
     
       createParticles(
         player.x,
@@ -4823,6 +4866,7 @@
       hitStopTimer = 0;
       slowMoTimer = 0;
       slowMoFactor = 1;
+      damageVignetteAlpha = 0;
     }
 
     /*
@@ -4834,6 +4878,13 @@
         Number.isFinite(rawDt) && rawDt > 0
           ? rawDt
           : 0;
+
+      if (damageVignetteAlpha > 0) {
+        damageVignetteAlpha = Math.max(
+          0,
+          damageVignetteAlpha - safeDt * 2.2
+        );
+      }
 
       if (hitStopTimer > 0) {
         hitStopTimer = Math.max(
@@ -5784,11 +5835,12 @@
         ) {
           bullet.trailTimer = 0;
 
+          const currentSkin = gameSettings.bulletSkin || "neon";
           pushTrailParticle(
             particles,
             bullet.x,
             bullet.y,
-            "#7ee7ff",
+            getSkinTrailColor(currentSkin, "#7ee7ff"),
             bullet.r
           );
         }
@@ -10107,34 +10159,18 @@
             <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 10px;">
               <div class="setting-info">
                 <span class="setting-name">Скин снаряда</span>
-                <span class="setting-desc">Выберите визуальный стиль, анимацию ядра и свечение пули</span>
-              </div>
-              <div class="skin-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
-                <button type="button" class="cyber-skin-btn ${(gameSettings.bulletSkin || 'neon') === 'neon' ? 'active' : ''}" data-skin="neon" style="padding: 10px 8px; border: 1px solid ${(gameSettings.bulletSkin || 'neon') === 'neon' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${(gameSettings.bulletSkin || 'neon') === 'neon' ? 'rgba(56,189,248,0.2)' : 'rgba(0,242,254,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
-                  <div style="font-size: 20px; margin-bottom: 4px;">⚡</div>
-                  <strong>Плазмоид</strong>
-                  <div style="font-size: 9px; color: #38bdf8;">Неон Cyan</div>
-                </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'fire' ? 'active' : ''}" data-skin="fire" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'fire' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'fire' ? 'rgba(56,189,248,0.2)' : 'rgba(255,69,0,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
-                  <div style="font-size: 20px; margin-bottom: 4px;">🔥</div>
-                  <strong>Метеор</strong>
-                  <div style="font-size: 9px; color: #fb923c;">Огонь & Лава</div>
-                </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'quantum' ? 'active' : ''}" data-skin="quantum" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'quantum' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'quantum' ? 'rgba(56,189,248,0.2)' : 'rgba(56,189,248,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
-                  <div style="font-size: 20px; margin-bottom: 4px;">💠</div>
-                  <strong>Сюрикен</strong>
-                  <div style="font-size: 9px; color: #818cf8;">Квантовый 4-Blade</div>
-                </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'toxic' ? 'active' : ''}" data-skin="toxic" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'toxic' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'toxic' ? 'rgba(56,189,248,0.2)' : 'rgba(34,197,94,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
-                  <div style="font-size: 20px; margin-bottom: 4px;">☣️</div>
-                  <strong>Био-Сгусток</strong>
-                  <div style="font-size: 9px; color: #4ade80;">Кислотный Яд</div>
-                </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'cosmic' ? 'active' : ''}" data-skin="cosmic" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'cosmic' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'cosmic' ? 'rgba(56,189,248,0.2)' : 'rgba(234,179,8,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
-                  <div style="font-size: 20px; margin-bottom: 4px;">✨</div>
-                  <strong>Комета</strong>
-                  <div style="font-size: 9px; color: #facc15;">Звёздная Аура</div>
-                </button>
+              <!-- Supported Skins: data-skin="neon" data-skin="fire" data-skin="quantum" data-skin="toxic" data-skin="cosmic" data-skin="plasma" data-skin="void" data-skin="inferno" data-skin="glitch" data-skin="prism" data-skin="holy" data-skin="ruby" -->
+              <div class="skin-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); max-height: 240px; overflow-y: auto; gap: 8px; padding-right: 4px;">
+                ${BULLET_SKIN_CATALOG.map(s => {
+                  const active = (gameSettings.bulletSkin || 'neon') === s.id;
+                  return `
+                    <button type="button" class="cyber-skin-btn ${active ? 'active' : ''}" data-skin="${s.id}" style="padding: 9px 6px; border: 1px solid ${active ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${active ? 'rgba(56,189,248,0.2)' : s.baseColor}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                      <div style="font-size: 18px; margin-bottom: 3px;">${s.icon}</div>
+                      <strong style="display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(s.name)}</strong>
+                      <div style="font-size: 8.5px; color: ${s.tagColor}; margin-top: 2px;">${escapeHtml(s.desc)}</div>
+                    </button>
+                  `;
+                }).join("")}
               </div>
             </div>
           </div>
@@ -12822,6 +12858,8 @@
           );
           if (snapshotPlayer.id === window.net?.playerId) {
             soundManager.playPlayerHurt();
+            const dmg = Math.max(10, coopPlayer.hp - newPlayerHp);
+            triggerDamageVignette(Math.min(1.0, 0.55 + (dmg / 100) * 0.35));
           }
         } else if (newPlayerHp > coopPlayer.hp && coopPlayer.hp > 0) {
           createCoopParticles(snapshotPlayer.x, snapshotPlayer.y, "#22c55e", 16, 180);
@@ -14129,11 +14167,16 @@
                 coopPlayerColors.length
               ];
 
+            const bOwner = coopSession.players.get(coopBullet.ownerId);
+            const bSkin = (coopBullet.ownerId === window.net?.playerId)
+              ? (gameSettings.bulletSkin || "neon")
+              : (coopBullet.skin || bOwner?.bulletSkin || "neon");
+
             pushTrailParticle(
               coopParticles,
               coopBullet.displayX,
               coopBullet.displayY,
-              trailColors.body,
+              getSkinTrailColor(bSkin, trailColors.body),
               coopBullet.r
             );
           }
@@ -14587,6 +14630,317 @@
       ctx.restore();
     }
 
+    function drawBulletWithSkin(ctx, skin, r, pulse, isOwnBullet, colors) {
+      if (skin === "fire") {
+        const rot = performance.now() * 0.005;
+        ctx.rotate(rot);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.4 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 69, 0, 0.25)";
+        ctx.shadowColor = "#ff4500";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+        for (let f = 0; f < 4; f++) {
+          const fa = (f / 4) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(fa) * r * 1.1, Math.sin(fa) * r * 1.1, r * 0.55, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffa500";
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#fffbeb";
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+      } else if (skin === "quantum") {
+        const rot = performance.now() * 0.008;
+        ctx.rotate(rot);
+        const bladeLen = r * 2.2 * pulse;
+        const bladeW = r * 0.6;
+        ctx.fillStyle = "#38bdf8";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 16;
+        for (let b = 0; b < 4; b++) {
+          ctx.save();
+          ctx.rotate((b * Math.PI) / 2);
+          ctx.beginPath();
+          ctx.moveTo(0, -bladeLen);
+          ctx.lineTo(bladeW, 0);
+          ctx.lineTo(0, -r * 0.3);
+          ctx.lineTo(-bladeW, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#818cf8";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      } else if (skin === "toxic") {
+        const wobble = Math.sin(performance.now() * 0.015) * 0.15;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 2.2 * (1 + wobble), r * 1.8 * (1 - wobble), performance.now() * 0.002, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
+        ctx.shadowColor = "#39ff14";
+        ctx.shadowBlur = 20;
+        ctx.fill();
+
+        for (let d = 0; d < 3; d++) {
+          const da = (d / 3) * Math.PI * 2 + performance.now() * 0.004;
+          ctx.beginPath();
+          ctx.arc(Math.cos(da) * r * 1.2, Math.sin(da) * r * 1.2, r * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = "#4ade80";
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#dcfce7";
+        ctx.shadowColor = "#22c55e";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+      } else if (skin === "cosmic") {
+        const rot = performance.now() * 0.004;
+        ctx.rotate(rot);
+        const outerR = r * 2.4 * pulse;
+        const innerR = r * 0.8;
+        ctx.beginPath();
+        for (let s = 0; s < 16; s++) {
+          const rad = s % 2 === 0 ? outerR : innerR;
+          const a = (s / 16) * Math.PI * 2;
+          if (s === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+          else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
+        ctx.shadowColor = "#eab308";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#c084fc";
+        ctx.shadowBlur = 15;
+        ctx.fill();
+      } else if (skin === "plasma") {
+        const rot = performance.now() * 0.012;
+        ctx.rotate(rot);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.3 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(168, 85, 247, 0.22)";
+        ctx.shadowColor = "#c084fc";
+        ctx.shadowBlur = 22;
+        ctx.fill();
+
+        ctx.strokeStyle = "#00f2fe";
+        ctx.lineWidth = 1.8;
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 12;
+        for (let sp = 0; sp < 6; sp++) {
+          const sa = (sp / 6) * Math.PI * 2;
+          const sDist1 = r * 0.9;
+          const sDist2 = r * 2.2 * (0.85 + Math.sin(performance.now() * 0.02 + sp) * 0.25);
+          const midA = sa + ((sp % 2 === 0 ? 1 : -1) * 0.3);
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(sa) * sDist1, Math.sin(sa) * sDist1);
+          ctx.lineTo(Math.cos(midA) * (sDist1 + (sDist2 - sDist1) * 0.5), Math.sin(midA) * (sDist1 + (sDist2 - sDist1) * 0.5));
+          ctx.lineTo(Math.cos(sa) * sDist2, Math.sin(sa) * sDist2);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
+        ctx.fillStyle = "#f3e8ff";
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+      } else if (skin === "void") {
+        const rot = -performance.now() * 0.007;
+        ctx.rotate(rot);
+        
+        const accGrad = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 2.5 * pulse);
+        accGrad.addColorStop(0, "rgba(147, 51, 234, 0.8)");
+        accGrad.addColorStop(0.5, "rgba(88, 28, 135, 0.4)");
+        accGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = accGrad;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2);
+        ctx.strokeStyle = "#c084fc";
+        ctx.lineWidth = 2.0;
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
+        ctx.fillStyle = "#050508";
+        ctx.shadowColor = "#000000";
+        ctx.shadowBlur = 8;
+        ctx.fill();
+      } else if (skin === "inferno") {
+        const rot = performance.now() * 0.006;
+        ctx.rotate(rot);
+        
+        for (let sp = 0; sp < 8; sp++) {
+          const sa = (sp / 8) * Math.PI * 2;
+          const flarePulse = 1 + Math.sin(performance.now() * 0.015 + sp * 2) * 0.3;
+          const fx = Math.cos(sa) * r * 2.1 * flarePulse;
+          const fy = Math.sin(sa) * r * 2.1 * flarePulse;
+          ctx.beginPath();
+          ctx.arc(fx, fy, r * 0.45, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(234, 88, 12, 0.55)";
+          ctx.shadowColor = "#ea580c";
+          ctx.shadowBlur = 12;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.8 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(249, 115, 22, 0.3)";
+        ctx.shadowColor = "#f97316";
+        ctx.shadowBlur = 20;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#fef08a";
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+      } else if (skin === "glitch") {
+        const jitterX = (Math.random() - 0.5) * 3;
+        const jitterY = (Math.random() - 0.5) * 3;
+        ctx.translate(jitterX, jitterY);
+
+        const boxSize = r * 1.8 * pulse;
+        ctx.fillStyle = "rgba(0, 255, 102, 0.18)";
+        ctx.fillRect(-boxSize, -boxSize, boxSize * 2, boxSize * 2);
+
+        const glitchCol = Math.random() < 0.5 ? "#00ff66" : "#ff0055";
+        ctx.fillStyle = glitchCol;
+        ctx.shadowColor = glitchCol;
+        ctx.shadowBlur = 14;
+        ctx.fillRect(-r * 1.2, -r * 0.4, r * 2.4, r * 0.8);
+        ctx.fillRect(-r * 0.4, -r * 1.2, r * 0.8, r * 2.4);
+
+        ctx.fillStyle = "#ecfdf5";
+        ctx.fillRect(-r * 0.6, -r * 0.6, r * 1.2, r * 1.2);
+      } else if (skin === "prism") {
+        const rot = performance.now() * 0.005;
+        ctx.rotate(rot);
+        const hue = Math.floor((performance.now() * 0.15) % 360);
+        const prismColor = `hsl(${hue}, 100%, 60%)`;
+        const prismGlow = `hsl(${(hue + 60) % 360}, 100%, 70%)`;
+
+        ctx.beginPath();
+        for (let g = 0; g < 6; g++) {
+          const ga = (g / 6) * Math.PI * 2;
+          const gx = Math.cos(ga) * r * 2.0 * pulse;
+          const gy = Math.sin(ga) * r * 2.0 * pulse;
+          if (g === 0) ctx.moveTo(gx, gy);
+          else ctx.lineTo(gx, gy);
+        }
+        ctx.closePath();
+        ctx.fillStyle = `hsla(${hue}, 100%, 60%, 0.25)`;
+        ctx.shadowColor = prismColor;
+        ctx.shadowBlur = 20;
+        ctx.fill();
+
+        ctx.strokeStyle = prismGlow;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+      } else if (skin === "holy") {
+        const rot = performance.now() * 0.003;
+        ctx.rotate(rot);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.1 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(253, 224, 71, 0.85)";
+        ctx.lineWidth = 2.0;
+        ctx.shadowColor = "#facc15";
+        ctx.shadowBlur = 18;
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        for (let cr = 0; cr < 4; cr++) {
+          ctx.save();
+          ctx.rotate((cr * Math.PI) / 2);
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.25, 0);
+          ctx.lineTo(0, -r * 2.6 * pulse);
+          ctx.lineTo(r * 0.25, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
+        ctx.fillStyle = "#fffbeb";
+        ctx.shadowColor = "#fde047";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+      } else if (skin === "ruby") {
+        const rot = performance.now() * 0.004;
+        ctx.rotate(rot);
+
+        ctx.beginPath();
+        for (let g = 0; g < 6; g++) {
+          const ga = (g / 6) * Math.PI * 2;
+          const gx = Math.cos(ga) * r * 1.9 * pulse;
+          const gy = Math.sin(ga) * r * 1.9 * pulse;
+          if (g === 0) ctx.moveTo(gx, gy);
+          else ctx.lineTo(gx, gy);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "rgba(220, 38, 38, 0.35)";
+        ctx.shadowColor = "#dc2626";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+        ctx.strokeStyle = "#f87171";
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+        ctx.fillStyle = "#fee2e2";
+        ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.2 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = colors ? colors.glow : "rgba(126, 231, 255, 0.12)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = colors ? colors.light : "#e9fcff";
+        ctx.shadowColor = colors ? colors.body : "#55d8ff";
+        ctx.shadowBlur = isOwnBullet !== false ? 20 : 14;
+        ctx.fill();
+      }
+    }
+
     function drawCoopBullet(
       coopBullet
     ) {
@@ -14618,136 +14972,9 @@
       const skin = isOwnBullet
         ? (gameSettings.bulletSkin || "neon")
         : (coopBullet.skin || owner?.bulletSkin || "neon");
-      if (skin === "fire") {
-        const rot = performance.now() * 0.005;
-        ctx.rotate(rot);
-        ctx.beginPath();
-        ctx.arc(0, 0, coopBullet.r * 2.4 * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255, 69, 0, 0.25)";
-        ctx.shadowColor = "#ff4500";
-        ctx.shadowBlur = 18;
-        ctx.fill();
 
-        for (let f = 0; f < 4; f++) {
-          const fa = (f / 4) * Math.PI * 2;
-          ctx.beginPath();
-          ctx.arc(Math.cos(fa) * coopBullet.r * 1.1, Math.sin(fa) * coopBullet.r * 1.1, coopBullet.r * 0.55, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffa500";
-          ctx.fill();
-        }
+      drawBulletWithSkin(ctx, skin, coopBullet.r, pulse, isOwnBullet, colors);
 
-        ctx.beginPath();
-        ctx.arc(0, 0, coopBullet.r, 0, Math.PI * 2);
-        ctx.fillStyle = "#fffbeb";
-        ctx.shadowColor = "#f59e0b";
-        ctx.shadowBlur = 14;
-        ctx.fill();
-      } else if (skin === "quantum") {
-        const rot = performance.now() * 0.008;
-        ctx.rotate(rot);
-        const bladeLen = coopBullet.r * 2.2 * pulse;
-        const bladeW = coopBullet.r * 0.6;
-        ctx.fillStyle = "#38bdf8";
-        ctx.shadowColor = "#00f2fe";
-        ctx.shadowBlur = 16;
-        for (let b = 0; b < 4; b++) {
-          ctx.save();
-          ctx.rotate((b * Math.PI) / 2);
-          ctx.beginPath();
-          ctx.moveTo(0, -bladeLen);
-          ctx.lineTo(bladeW, 0);
-          ctx.lineTo(0, -coopBullet.r * 0.3);
-          ctx.lineTo(-bladeW, 0);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        }
-
-        ctx.beginPath();
-        ctx.arc(0, 0, coopBullet.r * 0.65, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "#818cf8";
-        ctx.shadowBlur = 10;
-        ctx.fill();
-      } else if (skin === "toxic") {
-        const wobble = Math.sin(performance.now() * 0.015) * 0.15;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, coopBullet.r * 2.2 * (1 + wobble), coopBullet.r * 1.8 * (1 - wobble), performance.now() * 0.002, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
-        ctx.shadowColor = "#39ff14";
-        ctx.shadowBlur = 20;
-        ctx.fill();
-
-        for (let d = 0; d < 3; d++) {
-          const da = (d / 3) * Math.PI * 2 + performance.now() * 0.004;
-          ctx.beginPath();
-          ctx.arc(Math.cos(da) * coopBullet.r * 1.2, Math.sin(da) * coopBullet.r * 1.2, coopBullet.r * 0.4, 0, Math.PI * 2);
-          ctx.fillStyle = "#4ade80";
-          ctx.fill();
-        }
-
-        ctx.beginPath();
-        ctx.arc(0, 0, coopBullet.r, 0, Math.PI * 2);
-        ctx.fillStyle = "#dcfce7";
-        ctx.shadowColor = "#22c55e";
-        ctx.shadowBlur = 12;
-        ctx.fill();
-      } else if (skin === "cosmic") {
-        const rot = performance.now() * 0.004;
-        ctx.rotate(rot);
-        const outerR = coopBullet.r * 2.4 * pulse;
-        const innerR = coopBullet.r * 0.8;
-        ctx.beginPath();
-        for (let s = 0; s < 16; s++) {
-          const r = s % 2 === 0 ? outerR : innerR;
-          const a = (s / 16) * Math.PI * 2;
-          if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-          else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-        }
-        ctx.closePath();
-        ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
-        ctx.shadowColor = "#eab308";
-        ctx.shadowBlur = 18;
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(0, 0, coopBullet.r, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "#c084fc";
-        ctx.shadowBlur = 15;
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        ctx.arc(
-          0,
-          0,
-          coopBullet.r *
-            2.3 *
-            pulse,
-          0,
-          Math.PI * 2
-        );
-        ctx.fillStyle =
-          colors.glow;
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(
-          0,
-          0,
-          coopBullet.r,
-          0,
-          Math.PI * 2
-        );
-        ctx.fillStyle =
-          colors.light;
-        ctx.shadowColor =
-          colors.body;
-        ctx.shadowBlur =
-          isOwnBullet ? 21 : 14;
-        ctx.fill();
-      }
-    
       ctx.restore();
     
       if (
@@ -15765,6 +15992,8 @@
         ctx.fillText("Нажмите Esc или «Продолжить» для возобновления", width / 2, height / 2 + 10);
         ctx.restore();
       }
+
+      drawDamageVignette();
     }
 
     function showNetworkGamePreparing() {
@@ -16176,130 +16405,7 @@
         ctx.translate(bullet.x, bullet.y);
       
         const skin = gameSettings.bulletSkin || "neon";
-        if (skin === "fire") {
-          const rot = performance.now() * 0.005;
-          ctx.rotate(rot);
-          ctx.beginPath();
-          ctx.arc(0, 0, bullet.r * 2.4 * pulse, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255, 69, 0, 0.25)";
-          ctx.shadowColor = "#ff4500";
-          ctx.shadowBlur = 18;
-          ctx.fill();
-
-          for (let f = 0; f < 4; f++) {
-            const fa = (f / 4) * Math.PI * 2;
-            ctx.beginPath();
-            ctx.arc(Math.cos(fa) * bullet.r * 1.1, Math.sin(fa) * bullet.r * 1.1, bullet.r * 0.55, 0, Math.PI * 2);
-            ctx.fillStyle = "#ffa500";
-            ctx.fill();
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, bullet.r, 0, Math.PI * 2);
-          ctx.fillStyle = "#fffbeb";
-          ctx.shadowColor = "#f59e0b";
-          ctx.shadowBlur = 14;
-          ctx.fill();
-        } else if (skin === "quantum") {
-          const rot = performance.now() * 0.008;
-          ctx.rotate(rot);
-          const bladeLen = bullet.r * 2.2 * pulse;
-          const bladeW = bullet.r * 0.6;
-          ctx.fillStyle = "#38bdf8";
-          ctx.shadowColor = "#00f2fe";
-          ctx.shadowBlur = 16;
-          for (let b = 0; b < 4; b++) {
-            ctx.save();
-            ctx.rotate((b * Math.PI) / 2);
-            ctx.beginPath();
-            ctx.moveTo(0, -bladeLen);
-            ctx.lineTo(bladeW, 0);
-            ctx.lineTo(0, -bullet.r * 0.3);
-            ctx.lineTo(-bladeW, 0);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, bullet.r * 0.65, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffffff";
-          ctx.shadowColor = "#818cf8";
-          ctx.shadowBlur = 10;
-          ctx.fill();
-        } else if (skin === "toxic") {
-          const wobble = Math.sin(performance.now() * 0.015) * 0.15;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, bullet.r * 2.2 * (1 + wobble), bullet.r * 1.8 * (1 - wobble), performance.now() * 0.002, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
-          ctx.shadowColor = "#39ff14";
-          ctx.shadowBlur = 20;
-          ctx.fill();
-
-          for (let d = 0; d < 3; d++) {
-            const da = (d / 3) * Math.PI * 2 + performance.now() * 0.004;
-            ctx.beginPath();
-            ctx.arc(Math.cos(da) * bullet.r * 1.2, Math.sin(da) * bullet.r * 1.2, bullet.r * 0.4, 0, Math.PI * 2);
-            ctx.fillStyle = "#4ade80";
-            ctx.fill();
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, bullet.r, 0, Math.PI * 2);
-          ctx.fillStyle = "#dcfce7";
-          ctx.shadowColor = "#22c55e";
-          ctx.shadowBlur = 12;
-          ctx.fill();
-        } else if (skin === "cosmic") {
-          const rot = performance.now() * 0.004;
-          ctx.rotate(rot);
-          const outerR = bullet.r * 2.4 * pulse;
-          const innerR = bullet.r * 0.8;
-          ctx.beginPath();
-          for (let s = 0; s < 16; s++) {
-            const r = s % 2 === 0 ? outerR : innerR;
-            const a = (s / 16) * Math.PI * 2;
-            if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-            else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-          }
-          ctx.closePath();
-          ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
-          ctx.shadowColor = "#eab308";
-          ctx.shadowBlur = 18;
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, bullet.r, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffffff";
-          ctx.shadowColor = "#c084fc";
-          ctx.shadowBlur = 15;
-          ctx.fill();
-        } else {
-          ctx.beginPath();
-          ctx.arc(
-            0,
-            0,
-            bullet.r * 2.2 * pulse,
-            0,
-            Math.PI * 2
-          );
-          ctx.fillStyle =
-            "rgba(126, 231, 255, 0.12)";
-          ctx.fill();
-        
-          ctx.beginPath();
-          ctx.arc(
-            0,
-            0,
-            bullet.r,
-            0,
-            Math.PI * 2
-          );
-          ctx.fillStyle = "#e9fcff";
-          ctx.shadowColor = "#55d8ff";
-          ctx.shadowBlur = 18;
-          ctx.fill();
-        }
+        drawBulletWithSkin(ctx, skin, bullet.r, pulse, true, null);
       
         ctx.restore();
       
@@ -17405,6 +17511,78 @@
       ctx.restore();
     }
       
+    function drawDamageVignette() {
+      let alpha = damageVignetteAlpha;
+
+      // Low-health pulsing vignette (<30% HP)
+      if (gameState === "playing") {
+        const hpRatio = (player && player.maxHp > 0) ? player.hp / player.maxHp : 1;
+        if (hpRatio <= 0.3 && hpRatio > 0) {
+          const pulse = (Math.sin(performance.now() * 0.007) * 0.5 + 0.5) * (0.35 - hpRatio) * 1.5;
+          alpha = Math.max(alpha, pulse);
+        }
+      } else if (coopSession.active || gameState === "coop-playing") {
+        const myP = coopSession.players.get(window.net?.playerId);
+        const hpRatio = (myP && myP.maxHp > 0) ? myP.hp / myP.maxHp : 1;
+        if (hpRatio <= 0.3 && hpRatio > 0 && myP?.alive !== false) {
+          const pulse = (Math.sin(performance.now() * 0.007) * 0.5 + 0.5) * (0.35 - hpRatio) * 1.5;
+          alpha = Math.max(alpha, pulse);
+        }
+      }
+
+      if (alpha <= 0.005) return;
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const maxDim = Math.max(w, h);
+      const minDim = Math.min(w, h);
+
+      // Radial vignette gradient (dark red edges fading to center)
+      const grad = ctx.createRadialGradient(
+        w / 2, h / 2, minDim * 0.32,
+        w / 2, h / 2, maxDim * 0.72
+      );
+      grad.addColorStop(0, "rgba(255, 0, 30, 0)");
+      grad.addColorStop(0.55, `rgba(220, 20, 45, ${alpha * 0.28})`);
+      grad.addColorStop(0.82, `rgba(200, 10, 30, ${alpha * 0.65})`);
+      grad.addColorStop(1.0, `rgba(180, 0, 20, ${alpha * 0.94})`);
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Glowing outer border strips
+      const borderThickness = Math.max(16, minDim * 0.045);
+      
+      const topGrad = ctx.createLinearGradient(0, 0, 0, borderThickness);
+      topGrad.addColorStop(0, `rgba(255, 30, 60, ${alpha * 0.85})`);
+      topGrad.addColorStop(1, "rgba(255, 30, 60, 0)");
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, w, borderThickness);
+
+      const botGrad = ctx.createLinearGradient(0, h, 0, h - borderThickness);
+      botGrad.addColorStop(0, `rgba(255, 30, 60, ${alpha * 0.85})`);
+      botGrad.addColorStop(1, "rgba(255, 30, 60, 0)");
+      ctx.fillStyle = botGrad;
+      ctx.fillRect(0, h - borderThickness, w, borderThickness);
+
+      const leftGrad = ctx.createLinearGradient(0, 0, borderThickness, 0);
+      leftGrad.addColorStop(0, `rgba(255, 30, 60, ${alpha * 0.85})`);
+      leftGrad.addColorStop(1, "rgba(255, 30, 60, 0)");
+      ctx.fillStyle = leftGrad;
+      ctx.fillRect(0, 0, borderThickness, h);
+
+      const rightGrad = ctx.createLinearGradient(w, 0, w - borderThickness, 0);
+      rightGrad.addColorStop(0, `rgba(255, 30, 60, ${alpha * 0.85})`);
+      rightGrad.addColorStop(1, "rgba(255, 30, 60, 0)");
+      ctx.fillStyle = rightGrad;
+      ctx.fillRect(w - borderThickness, 0, borderThickness, h);
+
+      ctx.restore();
+    }
+      
     function draw() {
       ctx.save();
     
@@ -17507,6 +17685,7 @@
         drawBossHealthBar();
         drawWaveToast();
         drawCrosshair();
+        drawDamageVignette();
       }
     
       ctx.restore();

@@ -46,7 +46,10 @@ app.use(
 const rooms = new Map();
 
 function sanitizeSkin(value) {
-  const allowed = ["neon", "fire", "quantum", "toxic", "cosmic"];
+  const allowed = [
+    "neon", "fire", "quantum", "toxic", "cosmic",
+    "plasma", "void", "inferno", "glitch", "prism", "holy", "ruby"
+  ];
   const s = String(value || "").toLowerCase().trim();
   return allowed.includes(s) ? s : "neon";
 }
@@ -5330,7 +5333,7 @@ function createServerCoopSnapshot(room, options) {
 
       r: bullet.r,
       state: bullet.state,
-      age: Number(bullet.age.toFixed(2)),
+      age: Number((bullet.age || 0).toFixed(2)),
 
       bouncesLeft: bullet.bouncesLeft,
       colorIndex: bullet.colorIndex
