@@ -5445,45 +5445,64 @@
         const magnetCells = Math.min(40, 20 + (stats.magnetRangeBonusCells || 0));
         const MAGNET_MAX_DIST = magnetCells * (typeof WORLD_CELL_SIZE !== "undefined" ? WORLD_CELL_SIZE : 48);
 
+        let moveX = 0;
+        let moveY = 0;
+        let isPlayerPulling = false;
+
         if (
           (stats.groundPullSpeed || 0) > 0 &&
           currentDistance > player.r + bullet.r &&
           currentDistance <= MAGNET_MAX_DIST
         ) {
-          dx /= currentDistance;
-          dy /= currentDistance;
-        
-          const pullStep = Math.min(
-            currentDistance,
-            stats.groundPullSpeed * dt
+          isPlayerPulling = true;
+          const pullStep = stats.groundPullSpeed * dt;
+          moveX += (dx / currentDistance) * pullStep;
+          moveY += (dy / currentDistance) * pullStep;
+        }
+
+        /*
+         * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px с силой 300.
+         * Если у игрока есть бумеранг/магнит, силы суммируются векторно (борьба притяжений).
+         */
+        for (const enemy of enemies) {
+          if (enemy.type !== "magnetizer" || !enemy.hasEnteredArena || enemy.hp <= 0) continue;
+          const distToMag = Math.hypot(
+            enemy.x - bullet.x,
+            enemy.y - bullet.y
           );
-        
-          bullet.x += dx * pullStep;
-          bullet.y += dy * pullStep;
 
-          /*
-           * Эффект Бумеранга: возвращающаяся пуля (pull)
-           * наносит +50% урона по врагам на пути.
-           */
-          if (stats.boomerang && (stats.boomerangPercent || 0) > 0) {
-            for (let ei = enemies.length - 1; ei >= 0; ei--) {
-              const enemy = enemies[ei];
-              if (!enemy || !enemy.hasEnteredArena) continue;
-              if (enemy.type === "phantom" && enemy.isPhased) continue;
-              if (bullet.hitEnemies.has(enemy.id)) continue;
+          if (distToMag < 400 && distToMag > enemy.r + bullet.r) {
+            const magPull = 300 * dt;
+            moveX += ((enemy.x - bullet.x) / distToMag) * magPull;
+            moveY += ((enemy.y - bullet.y) / distToMag) * magPull;
+          }
+        }
 
-              const hitDist = bullet.r + enemy.r;
-              const eDist = Math.hypot(
-                enemy.x - bullet.x,
-                enemy.y - bullet.y
-              );
+        bullet.x += moveX;
+        bullet.y += moveY;
 
-              if (eDist <= hitDist) {
-                bullet.hitEnemies.add(enemy.id);
-                const boomerangDmg = Math.max(1, Math.floor(stats.damage * (stats.boomerangPercent || 0.25)));
+        /*
+         * Эффект Бумеранга: возвращающаяся пуля (pull)
+         * наносит урон по врагам на пути.
+         */
+        if (isPlayerPulling && stats.boomerang && (stats.boomerangPercent || 0) > 0) {
+          for (let ei = enemies.length - 1; ei >= 0; ei--) {
+            const enemy = enemies[ei];
+            if (!enemy || !enemy.hasEnteredArena) continue;
+            if (enemy.type === "phantom" && enemy.isPhased) continue;
+            if (bullet.hitEnemies.has(enemy.id)) continue;
 
-                damageEnemy(ei, boomerangDmg);
-              }
+            const hitDist = bullet.r + enemy.r;
+            const eDist = Math.hypot(
+              enemy.x - bullet.x,
+              enemy.y - bullet.y
+            );
+
+            if (eDist <= hitDist) {
+              bullet.hitEnemies.add(enemy.id);
+              const boomerangDmg = Math.max(1, Math.floor(stats.damage * (stats.boomerangPercent || 0.25)));
+
+              damageEnemy(ei, boomerangDmg);
             }
           }
         }

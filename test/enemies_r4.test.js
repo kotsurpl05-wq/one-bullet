@@ -130,6 +130,52 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
 
       assert.equal(bullet.vy, 0, "Bullet outside 400px range should maintain vy = 0");
     });
+
+    await t1.test("2.4 Contested Ground Pull: Player with 500 pull overcomes Magnetizer 300 pull", () => {
+      const { world, player1: player } = createTestWorld(ctx);
+      player.x = 100;
+      player.y = 300;
+      player.stats = { ...(player.stats || {}), groundPullSpeed: 500, boomerang: true };
+
+      const magnetizer = ctx.createServerEnemy(world, "magnetizer", 500, 300, true);
+      world.enemies.set(magnetizer.id, magnetizer);
+
+      const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
+      bullet.state = "ground";
+      bullet.x = 300;
+      bullet.y = 300;
+
+      const dt = 0.1;
+      ctx.updateServerBullet({ world }, bullet, dt);
+
+      // Player pulls left at 500*0.1 = 50px, Magnetizer pulls right at 300*0.1 = 30px
+      // Net movement = -20px -> bullet.x should be ~280
+      assert.ok(bullet.x < 300, `Bullet must move towards player (expected < 300, got ${bullet.x})`);
+      assert.ok(Math.abs(bullet.x - 280) < 0.001, `Bullet x should be exactly 280, got ${bullet.x}`);
+    });
+
+    await t1.test("2.5 Contested Ground Pull: Magnetizer 300 pull overpowers Player 200 pull", () => {
+      const { world, player1: player } = createTestWorld(ctx);
+      player.x = 100;
+      player.y = 300;
+      player.stats = { ...(player.stats || {}), groundPullSpeed: 200, boomerang: true };
+
+      const magnetizer = ctx.createServerEnemy(world, "magnetizer", 500, 300, true);
+      world.enemies.set(magnetizer.id, magnetizer);
+
+      const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
+      bullet.state = "ground";
+      bullet.x = 300;
+      bullet.y = 300;
+
+      const dt = 0.1;
+      ctx.updateServerBullet({ world }, bullet, dt);
+
+      // Player pulls left at 200*0.1 = 20px, Magnetizer pulls right at 300*0.1 = 30px
+      // Net movement = +10px -> bullet.x should be ~310
+      assert.ok(bullet.x > 300, `Bullet must move towards magnetizer (expected > 300, got ${bullet.x})`);
+      assert.ok(Math.abs(bullet.x - 310) < 0.001, `Bullet x should be exactly 310, got ${bullet.x}`);
+    });
   });
 
   await t.test("Tier 1 - Connected Twins Enemy Unit & Tether / Enrage Verification", async (t1) => {

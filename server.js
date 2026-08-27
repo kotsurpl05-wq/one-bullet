@@ -941,24 +941,32 @@ function updateServerBullet(
       const distToOwner = distance(bullet.x, bullet.y, owner.x, owner.y);
       const magnetCells = Math.min(40, 20 + (owner.stats?.magnetRangeBonusCells || 0));
       const MAGNET_MAX_DIST = magnetCells * 48; // базово 20 клеток (960px), до 40 клеток (1920px)
-      if (distToOwner > owner.r + bullet.r && distToOwner <= MAGNET_MAX_DIST) {
+
+      let moveX = 0;
+      let moveY = 0;
+
+      if ((owner.stats?.groundPullSpeed || 0) > 0 && distToOwner > owner.r + bullet.r && distToOwner <= MAGNET_MAX_DIST) {
         const pullFactor = owner.stats.groundPullSpeed * dt;
-        bullet.x += ((owner.x - bullet.x) / distToOwner) * pullFactor;
-        bullet.y += ((owner.y - bullet.y) / distToOwner) * pullFactor;
+        moveX += ((owner.x - bullet.x) / distToOwner) * pullFactor;
+        moveY += ((owner.y - bullet.y) / distToOwner) * pullFactor;
       }
 
       /*
-       * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px.
+       * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px с силой 300.
+       * Если у игрока есть бумеранг/магнит, силы суммируются векторно (борьба притяжений).
        */
       for (const enemy of world.enemies.values()) {
         if (enemy.type !== "magnetizer" || !enemy.hasEnteredArena || enemy.hp <= 0) continue;
         const distToMag = distance(bullet.x, bullet.y, enemy.x, enemy.y);
         if (distToMag < 400 && distToMag > enemy.r + bullet.r) {
-          const magPull = (350 + (1 - distToMag / 400) * 450) * dt;
-          bullet.x += ((enemy.x - bullet.x) / distToMag) * magPull;
-          bullet.y += ((enemy.y - bullet.y) / distToMag) * magPull;
+          const magPull = 300 * dt;
+          moveX += ((enemy.x - bullet.x) / distToMag) * magPull;
+          moveY += ((enemy.y - bullet.y) / distToMag) * magPull;
         }
       }
+
+      bullet.x += moveX;
+      bullet.y += moveY;
 
       /*
        * Эффект Бумеранга: возвращающаяся пуля
