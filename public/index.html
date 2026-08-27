@@ -6863,6 +6863,7 @@
       const id = opts.id || 0;
 
       if (type === "boss") {
+        // 1. Внешняя 16-зубчатая пилообразная броне-корона с неоновой фаской
         const rotation = now * 0.0005;
         ctx.save();
         ctx.rotate(rotation);
@@ -6879,39 +6880,111 @@
         ctx.closePath();
         ctx.fillStyle = "#76133d";
         ctx.fill();
+        ctx.strokeStyle = "#f43f5e";
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // 8 вентиляционных пазов / заклепок на короне
+        for (let b = 0; b < 8; b++) {
+          const ba = (b / 8) * Math.PI * 2 + (Math.PI / 16);
+          const bx = Math.cos(ba) * (r * 0.72);
+          const by = Math.sin(ba) * (r * 0.72);
+          ctx.beginPath();
+          ctx.arc(bx, by, 2, 0, Math.PI * 2);
+          ctx.fillStyle = "#fb7185";
+          ctx.fill();
+        }
         ctx.restore();
 
+        // 2. Внутреннее контр-вращающееся 8-гранное защитное кольцо
+        ctx.save();
+        ctx.rotate(-rotation * 1.5);
         ctx.beginPath();
-        ctx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
+        for (let s = 0; s < 8; s++) {
+          const sa = (s / 8) * Math.PI * 2;
+          const sx = Math.cos(sa) * (r * 0.54);
+          const sy = Math.sin(sa) * (r * 0.54);
+          if (s === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
         ctx.fillStyle = "#2a0b22";
         ctx.fill();
+        ctx.strokeStyle = "#9f1239";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
+        // 4 направляющие рельсы энергии к ядру
+        ctx.strokeStyle = "#fb7185";
+        ctx.lineWidth = 1.6;
+        for (let ri = 0; ri < 4; ri++) {
+          const ra = (ri / 4) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(ra) * (r * 0.28), Math.sin(ra) * (r * 0.28));
+          ctx.lineTo(Math.cos(ra) * (r * 0.52), Math.sin(ra) * (r * 0.52));
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 3. Тёмная внутренняя реакторная камера
         ctx.beginPath();
-        ctx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffd2e3";
+        ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2);
+        ctx.fillStyle = "#1e0a16";
+        ctx.fill();
+
+        // 4. Пульсирующий многослойный глаз-реактор «Hyper-Core»
+        const corePulse = 1 + Math.sin(now * 0.006) * 0.12;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.22 * corePulse, 0, Math.PI * 2);
+        ctx.fillStyle = "#ff1361";
         ctx.shadowColor = "#ff3f8f";
         ctx.shadowBlur = 16;
         ctx.fill();
+
+        // Центральный яркий зрачок
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.11 * corePulse, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff1f5";
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 8;
+        ctx.fill();
         ctx.shadowBlur = 0;
 
+        // 5. Фаза 2: Шестиугольный щит Эгиды (Aegis Hex Shield)
         if (opts.shieldActive) {
           const shieldPulse = 1 + Math.sin(now * 0.006) * 0.06;
+          const shieldRadius = (r + 15) * shieldPulse;
           ctx.save();
           ctx.rotate(now * 0.001);
           ctx.strokeStyle = "#00f2fe";
           ctx.shadowColor = "#00f2fe";
-          ctx.shadowBlur = 14;
+          ctx.shadowBlur = 16;
           ctx.lineWidth = 2.5;
           ctx.beginPath();
           for (let s = 0; s < 6; s++) {
             const sa = (s / 6) * Math.PI * 2;
-            const sx = Math.cos(sa) * ((r + 14) * shieldPulse);
-            const sy = Math.sin(sa) * ((r + 14) * shieldPulse);
+            const sx = Math.cos(sa) * shieldRadius;
+            const sy = Math.sin(sa) * shieldRadius;
             if (s === 0) ctx.moveTo(sx, sy);
             else ctx.lineTo(sx, sy);
           }
           ctx.closePath();
+          ctx.fillStyle = "rgba(0, 242, 254, 0.08)";
+          ctx.fill();
           ctx.stroke();
+
+          // 6 вершин-узлов щита с неоновыми кристаллическими точками
+          for (let s = 0; s < 6; s++) {
+            const sa = (s / 6) * Math.PI * 2;
+            const sx = Math.cos(sa) * shieldRadius;
+            const sy = Math.sin(sa) * shieldRadius;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+            ctx.fillStyle = "#e0f2fe";
+            ctx.shadowColor = "#00f2fe";
+            ctx.shadowBlur = 8;
+            ctx.fill();
+          }
           ctx.restore();
         }
       } else if (type === "magnetizer") {
