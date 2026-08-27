@@ -12396,19 +12396,24 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               }
             } else if (mobId === "charger") {
-              // Цикл тарана: Накопление заряда (кольцо сжимается, корпус краснеет) -> Рывок на 150px -> Остывание
-              const cycle = (now % 3400) / 3400;
-              if (cycle < 0.35) {
-                // Замирает на месте накопления энергии
-                mx = -65;
+              // Цикл: 1. Проходит вперед пару клеток -> 2. Останавливается и заряжается -> 3. Ускоряется рывком -> 4. Плавно едет в начальную точку
+              const cycle = (now % 4200) / 4200;
+              if (cycle < 0.22) {
+                // 1. Проходит пару клеток вперед в точку атаки (-100 -> -55)
+                const prog = cycle / 0.22;
+                mx = -100 + prog * 45;
                 my = 0;
-              } else if (cycle < 0.58) {
-                // Стремительный рывок ровно на дальность прыжка (150px: от -65 до +85)
-                const prog = (cycle - 0.35) / 0.23;
-                mx = -65 + prog * 150;
+              } else if (cycle < 0.44) {
+                // 2. Останавливается и заряжается (кольцо сжимается, корпус нагревается докрасна)
+                mx = -55;
+                my = 0;
+              } else if (cycle < 0.62) {
+                // 3. Взрывное ускорение / рывок ровно на дальность броска (-55 -> +95, 150px)
+                const prog = (cycle - 0.44) / 0.18;
+                mx = -55 + prog * 150;
                 my = 0;
 
-                // Пламенные шлейфы ускорения
+                // Пламенные шлейфы форсажа
                 bCtx.save();
                 bCtx.strokeStyle = "rgba(239, 68, 68, 0.6)";
                 bCtx.lineWidth = 2.5;
@@ -12419,10 +12424,11 @@ osc.stop(now + 0.05);
                 bCtx.stroke();
                 bCtx.restore();
               } else {
-                // Остывание и плавный разворот
-                const prog = (cycle - 0.58) / 0.42;
-                mx = 85 - Math.sin(prog * Math.PI) * 150;
-                my = Math.sin(prog * Math.PI) * 12;
+                // 4. Плавно возвращается в начальную точку (+95 -> -100) и остывает
+                const prog = (cycle - 0.62) / 0.38;
+                const ease = (1 - Math.cos(prog * Math.PI)) / 2;
+                mx = 95 - ease * 195;
+                my = Math.sin(prog * Math.PI) * 4;
               }
             } else if (mobId === "shooter") {
               // Тактический стрейф
@@ -12625,23 +12631,26 @@ osc.stop(now + 0.05);
             }
 
             let drawColor = color;
-            const cCycle = (now % 3400) / 3400;
-            const isWindup = cCycle < 0.35;
-            const isDashing = cCycle >= 0.35 && cCycle < 0.58;
-            const isCooling = cCycle >= 0.58;
+            const cCycle = (now % 4200) / 4200;
+            const isApproach = cCycle < 0.22;
+            const isWindup = cCycle >= 0.22 && cCycle < 0.44;
+            const isDashing = cCycle >= 0.44 && cCycle < 0.62;
+            const isReturn = cCycle >= 0.62;
             let chargeProgress = 0;
             let coolingProgress = 0;
 
             if (mobId === "charger") {
               let heat = 0;
-              if (isWindup) {
-                chargeProgress = cCycle / 0.35;
+              if (isApproach) {
+                heat = 0;
+              } else if (isWindup) {
+                chargeProgress = (cCycle - 0.22) / 0.22;
                 heat = chargeProgress;
               } else if (isDashing) {
                 heat = 1;
               } else {
-                coolingProgress = (cCycle - 0.58) / 0.42;
-                heat = Math.max(0, 1 - coolingProgress);
+                coolingProgress = (cCycle - 0.62) / 0.38;
+                heat = Math.max(0, 1 - coolingProgress * 1.6);
               }
               if (heat > 0) {
                 drawColor = heat > 0.6 ? "#ef4444" : (heat > 0.2 ? "#f97316" : "#ff814a");
@@ -12669,7 +12678,7 @@ osc.stop(now + 0.05);
               now: now,
               shieldActive: mobId === "boss",
               sporesCount: mobId === "incubator" ? 3 : 5,
-              chargeState: mobId === "charger" ? (isWindup ? "windup" : (isDashing ? "dashing" : "cooling")) : undefined,
+              chargeState: mobId === "charger" ? (isWindup ? "windup" : (isDashing ? "dashing" : (isReturn ? "cooling" : "idle"))) : undefined,
               chargeProgress: mobId === "charger" ? chargeProgress : undefined,
               coolingProgress: mobId === "charger" ? coolingProgress : undefined,
               chargeDx: mobId === "charger" ? 1 : undefined,
