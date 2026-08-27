@@ -120,5 +120,9 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     assert.ok(indexHtml.includes('data-guide-tab="bestiary"'), "Guide modal must have Bestiary tab");
     assert.ok(indexHtml.includes('data-guide-tab="upgrades"'), "Guide modal must have Upgrades tab");
     assert.ok(indexHtml.includes('data-guide-tab="basics"'), "Guide modal must have Basics tab");
+
+    // Check Incubator 5 spores & Boss 4 corner pylons in Bestiary
+    assert.ok(indexHtml.includes("5 летающими по внешней орбите спорами"), "Incubator must describe 5 orbiting spores");
+    assert.ok(indexHtml.includes("4 угловыми энергетическими пилонами арены"), "Boss must describe 4 corner arena pylons");
   });
 });

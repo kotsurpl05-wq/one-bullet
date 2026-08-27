@@ -78,6 +78,32 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       const afterCap = [...world.enemies.values()].filter(e => e.type === "minion");
       assert.equal(afterCap.length, 5, "Should not exceed 5 minions");
     });
+
+    await t1.test("1.4 Incubator tracks 5 orbital spores (sporesCount=5), consumes 1 per minion, and regrows 1 on minion death", () => {
+      const { world, player1 } = createTestWorld(ctx);
+      world.wave = 6;
+      const incubator = ctx.createServerEnemy(world, "incubator", 400, 300, true);
+      incubator.hasEnteredArena = true;
+      assert.equal(incubator.sporesCount, 5, "Initial incubator sporesCount must be 5");
+      world.enemies.set(incubator.id, incubator);
+
+      // Spawn 1 minion
+      incubator.spawnTimer = 0.01;
+      ctx.updateServerEnemies(world, 0.1);
+      assert.equal(incubator.sporesCount, 4, "sporesCount must decrease to 4 after spawning 1 minion");
+
+      // Spawn another minion
+      incubator.spawnTimer = 0.01;
+      ctx.updateServerEnemies(world, 0.1);
+      assert.equal(incubator.sporesCount, 3, "sporesCount must decrease to 3 after spawning 2 minions");
+
+      // Kill 1 minion
+      const minion = [...world.enemies.values()].find(e => e.type === "minion" && e.parentId === incubator.id);
+      assert.ok(minion, "Must find spawned minion");
+      ctx.killServerEnemy(world, minion, player1);
+
+      assert.equal(incubator.sporesCount, 4, "sporesCount must regrow back to 4 after 1 minion dies");
+    });
   });
 
   await t.test("Tier 2: Medkit Drops & Health Recovery System", async (t2) => {

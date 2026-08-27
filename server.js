@@ -2037,7 +2037,8 @@ function createServerEnemy(
     isEnraged: type === "twin" ? false : undefined,
     targetMarked: false,
     targetMarkTimer: 0,
-    spawnTimer: type === "incubator" ? 4.5 : undefined
+    spawnTimer: type === "incubator" ? 4.5 : undefined,
+    sporesCount: type === "incubator" ? 5 : undefined
   };
 }
 
@@ -3481,6 +3482,16 @@ function killServerEnemy(
     }
   }
 
+  /*
+   * При гибели миньона родительский инкубатор восстанавливает 1 спору на свою орбиту.
+   */
+  if (enemy.type === "minion" && enemy.parentId) {
+    const parent = world.enemies.get(enemy.parentId);
+    if (parent && parent.type === "incubator") {
+      parent.sporesCount = Math.min(5, (parent.sporesCount ?? 0) + 1);
+    }
+  }
+
   world.enemies.delete(enemy.id);
 
   world.kills += 1;
@@ -4081,7 +4092,8 @@ function updateServerEnemies(
             livingMinions++;
           }
         }
-        if (livingMinions < 5) {
+        if (livingMinions < 5 && (enemy.sporesCount ?? 5) > 0) {
+          enemy.sporesCount = Math.max(0, (enemy.sporesCount ?? 5) - 1);
           const angle = Math.random() * Math.PI * 2;
           const dist = 28 + Math.random() * 16;
           const mx = clamp(enemy.x + Math.cos(angle) * dist, 20, COOP_WORLD_WIDTH - 20);
@@ -5409,6 +5421,18 @@ function createServerCoopSnapshot(room, options) {
       if (enemy.type === "twin") {
         if (enemy.twinPartnerId) serialized.twinPartnerId = enemy.twinPartnerId;
         if (enemy.isEnraged) serialized.isEnraged = 1;
+      }
+
+      if (enemy.type === "incubator") {
+        serialized.sporesCount = enemy.sporesCount !== undefined ? enemy.sporesCount : 5;
+      }
+
+      if (enemy.type === "boss" && enemy.shieldActive) {
+        serialized.shieldActive = 1;
+      }
+
+      if ((enemy.type === "boss_drone" || enemy.type === "boss_pylon") && enemy.bossId) {
+        serialized.bossId = enemy.bossId;
       }
 
       return serialized;
