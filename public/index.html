@@ -12668,7 +12668,7 @@ osc.stop(now + 0.05);
             drawEnemyModel(bCtx, mobId, r, drawColor, {
               now: now,
               shieldActive: mobId === "boss",
-              sporesCount: 5,
+              sporesCount: mobId === "incubator" ? 3 : 5,
               chargeState: mobId === "charger" ? (isWindup ? "windup" : (isDashing ? "dashing" : "cooling")) : undefined,
               chargeProgress: mobId === "charger" ? chargeProgress : undefined,
               coolingProgress: mobId === "charger" ? coolingProgress : undefined,
