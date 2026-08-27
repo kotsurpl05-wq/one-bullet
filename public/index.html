@@ -10945,7 +10945,7 @@ osc.stop(now + 0.05);
         speed: "32 px/s (Пассивный)",
         wave: "Волна 7+",
         xp: "475 XP",
-        desc: "Тёмно-зеленый био-механический улей (#059669) с 4 вращающимися капсулами спор. Каждые 4.5 секунды выпускает стаю паразитических миньонов (#34d399).",
+        desc: "Тёмно-зеленый био-механический улей (#059669) с 4 летающими по внешней орбите спорами. Каждые 4.5 секунды выпускает стаю паразитических миньонов (#34d399).",
         abilities: [
           "Периодический призыв роя миньонов (до 5 одновременно)",
           "Массивный корпус с высоким запасом прочности",
@@ -10983,7 +10983,7 @@ osc.stop(now + 0.05);
         speed: "40 px/s (+1.2/волна)",
         wave: "Волна 8+",
         xp: "195 XP",
-        desc: "Сиреневый контроллер (#c084fc) с вращающимся пунктирным полем. Создает гравитационное поле (150–500 px/s), искривляя полет пуль и воруя патрон с пола.",
+        desc: "Сиреневый контроллер (#c084fc) с двойными вращающимися электромагнитными кольцами. Создает мощное гравитационное поле (150–500 px/s), искривляя полет пуль и воруя патрон с пола.",
         abilities: [
           "Искривление траектории летящей пули в радиусе 400px",
           "Притяжение лежащей на земле пули с градиентом от 150 до 500 px/s",
@@ -11021,14 +11021,14 @@ osc.stop(now + 0.05);
         speed: "29.5 px/s (Фазовый бой)",
         wave: "Каждые 5 волн",
         xp: "1500 XP",
-        desc: "Титанический страж сектора (#ff3f8f) с 16-зубчатой вращающейся пилой, тёмным ядром, светящимся глазом, щитами и орбитальными пилонами.",
+        desc: "Титанический страж сектора (#ff3f8f) с 16-зубчатой вращающейся пилой, тёмным ядром, светящимся глазом, щитом и 4 угловыми энергетическими пилонами арены.",
         abilities: [
           "Фаза 1: Ударные рывки с радиальной ударной волной",
-          "Фаза 2 (50% HP): Силовой щит и 2 орбитальных защитных пилона",
-          "Фаза 3 (<33% HP): Яростный спиральный шторм пуль и прицельный луч",
-          "Уничтожение щита вводит босса в 2-секундный шок"
+          "Фаза 2 (50% HP): Непробиваемый силовой щит, питаемый 4 пилонами по углам арены",
+          "Фаза 3 (<33% HP): Яростный спиральный шторм пуль и прицельный снайперский луч",
+          "Уничтожение всех 4 угловых пилонов снимает щит и оглушает босса на 2.0 секунды"
         ],
-        tactics: "Сбивайте орбитальные пилоны для оглушения босса, используйте замедление времени и ловите пулю на противоходе."
+        tactics: "В фазе 2 игнорируйте босса и как можно быстрее уничтожьте 4 энергетических пилона по углам арены, чтобы снять щит и оглушить босса."
       }
     ];
 
@@ -11763,16 +11763,51 @@ osc.stop(now + 0.05);
               bCtx.fill();
               bCtx.shadowBlur = 0;
 
-              // Dual orbiting Phase 2 shield pylons
-              for (let pi = 0; pi < 2; pi++) {
-                const pa = now * 0.0015 + pi * Math.PI;
-                const pDist = r + 24;
-                const px = Math.cos(pa) * pDist;
-                const py = Math.sin(pa) * pDist;
+              // Active Phase 2 Hexagonal Energy Shield around Boss
+              const shieldPulse = 1 + Math.sin(now * 0.006) * 0.06;
+              bCtx.save();
+              bCtx.rotate(now * 0.001);
+              bCtx.strokeStyle = "#00f2fe";
+              bCtx.shadowColor = "#00f2fe";
+              bCtx.shadowBlur = 14;
+              bCtx.lineWidth = 2.5;
+              bCtx.beginPath();
+              for (let s = 0; s < 6; s++) {
+                const sa = (s / 6) * Math.PI * 2;
+                const sx = Math.cos(sa) * ((r + 14) * shieldPulse);
+                const sy = Math.sin(sa) * ((r + 14) * shieldPulse);
+                if (s === 0) bCtx.moveTo(sx, sy);
+                else bCtx.lineTo(sx, sy);
+              }
+              bCtx.closePath();
+              bCtx.stroke();
+              bCtx.restore();
 
+              // 4 Arena Corner Energy Pylons (providing boss shield invulnerability)
+              const cornerOffsets = [
+                { x: -105, y: -45 },
+                { x: 105, y: -45 },
+                { x: -105, y: 45 },
+                { x: 105, y: 45 }
+              ];
+
+              cornerOffsets.forEach((cp, idx) => {
                 bCtx.save();
-                bCtx.translate(px, py);
-                bCtx.rotate(now * 0.002);
+                bCtx.translate(cp.x, cp.y);
+
+                // Energy tether ray pointing to boss center
+                bCtx.strokeStyle = "rgba(0, 242, 254, 0.28)";
+                bCtx.lineWidth = 1.5;
+                bCtx.setLineDash([4, 4]);
+                bCtx.beginPath();
+                bCtx.moveTo(0, 0);
+                bCtx.lineTo(-cp.x * 0.65, -cp.y * 0.65);
+                bCtx.stroke();
+                bCtx.setLineDash([]);
+
+                // Rotating 6-sided hex pylon hull
+                const pRot = now * 0.002 + idx * (Math.PI / 2);
+                bCtx.rotate(pRot);
                 bCtx.strokeStyle = "#00f2fe";
                 bCtx.shadowColor = "#00f2fe";
                 bCtx.shadowBlur = 10;
@@ -11780,8 +11815,8 @@ osc.stop(now + 0.05);
                 bCtx.beginPath();
                 for (let s = 0; s < 6; s++) {
                   const sa = (s / 6) * Math.PI * 2;
-                  const sx = Math.cos(sa) * 9;
-                  const sy = Math.sin(sa) * 9;
+                  const sx = Math.cos(sa) * 11;
+                  const sy = Math.sin(sa) * 11;
                   if (s === 0) bCtx.moveTo(sx, sy);
                   else bCtx.lineTo(sx, sy);
                 }
@@ -11789,28 +11824,33 @@ osc.stop(now + 0.05);
                 bCtx.stroke();
 
                 bCtx.beginPath();
-                bCtx.arc(0, 0, 5, 0, Math.PI * 2);
+                bCtx.arc(0, 0, 5.5, 0, Math.PI * 2);
                 bCtx.fillStyle = "#083344";
                 bCtx.fill();
+
                 bCtx.beginPath();
-                bCtx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                bCtx.arc(0, 0, 3, 0, Math.PI * 2);
                 bCtx.fillStyle = "#00f2fe";
                 bCtx.fill();
+
                 bCtx.restore();
-              }
+              });
             } else if (mobId === "magnetizer") {
-              // Rotating dashed aura
+              // Dual 3D counter-rotating electromagnetic flux rings
+              const rot = now * 0.0025;
               bCtx.save();
-              bCtx.rotate(now * 0.003);
-              bCtx.strokeStyle = "#c084fc";
+              bCtx.strokeStyle = "#a855f7";
+              bCtx.lineWidth = 2;
               bCtx.shadowColor = "#a855f7";
               bCtx.shadowBlur = 12;
-              bCtx.lineWidth = 2;
-              bCtx.setLineDash([8, 6]);
               bCtx.beginPath();
-              bCtx.arc(0, 0, r + 6, 0, Math.PI * 2);
+              bCtx.ellipse(0, 0, r * 1.6, r * 0.65, rot, 0, Math.PI * 2);
               bCtx.stroke();
-              bCtx.setLineDash([]);
+              bCtx.strokeStyle = "#c084fc";
+              bCtx.shadowColor = "#c084fc";
+              bCtx.beginPath();
+              bCtx.ellipse(0, 0, r * 1.6, r * 0.65, -rot, 0, Math.PI * 2);
+              bCtx.stroke();
               bCtx.restore();
 
               // Inner ring
@@ -11824,33 +11864,38 @@ osc.stop(now + 0.05);
               bCtx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
               bCtx.fillStyle = "#e9d5ff";
               bCtx.shadowColor = "#c084fc";
-              bCtx.shadowBlur = 10;
+              bCtx.shadowBlur = 12;
               bCtx.fill();
               bCtx.shadowBlur = 0;
             } else if (mobId === "incubator") {
-              // Pulsing inner womb
+              // Pulsing inner bio-womb
               const pulse = 1 + Math.sin(now * 0.006) * 0.12;
               bCtx.beginPath();
               bCtx.arc(0, 0, r * 0.75 * pulse, 0, Math.PI * 2);
               bCtx.fillStyle = "#064e3b";
               bCtx.fill();
 
-              // 4 rotating spore pods
+              // 4 orbiting spore pods revolving around the outer hull
               for (let ni = 0; ni < 4; ni++) {
-                const na = (ni / 4) * Math.PI * 2 + now * 0.001;
-                const nx = Math.cos(na) * (r * 0.45);
-                const ny = Math.sin(na) * (r * 0.45);
+                const na = (ni / 4) * Math.PI * 2 + now * 0.002;
+                const nx = Math.cos(na) * (r * 1.4);
+                const ny = Math.sin(na) * (r * 1.4);
                 bCtx.beginPath();
-                bCtx.arc(nx, ny, r * 0.28, 0, Math.PI * 2);
+                bCtx.arc(nx, ny, r * 0.22, 0, Math.PI * 2);
                 bCtx.fillStyle = "#10b981";
                 bCtx.shadowColor = "#34d399";
                 bCtx.shadowBlur = 8;
+                bCtx.fill();
+
+                bCtx.beginPath();
+                bCtx.arc(nx, ny, r * 0.1, 0, Math.PI * 2);
+                bCtx.fillStyle = "#a7f3d0";
                 bCtx.fill();
               }
 
               // Center dot
               bCtx.beginPath();
-              bCtx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+              bCtx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
               bCtx.fillStyle = "#6ee7b7";
               bCtx.shadowColor = "#a7f3d0";
               bCtx.shadowBlur = 6;
@@ -17039,6 +17084,102 @@ osc.stop(now + 0.05);
         ctx.shadowBlur = 16;
         ctx.fill();
         ctx.shadowBlur = 0;
+      } else if (enemy.type === "magnetizer") {
+        const now = performance.now();
+        const rot = now * 0.0025;
+        ctx.save();
+        ctx.strokeStyle = "#a855f7";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, rot, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#c084fc";
+        ctx.shadowColor = "#c084fc";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, -rot, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#3b0764";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = "#e9d5ff";
+        ctx.shadowColor = "#c084fc";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (enemy.type === "incubator") {
+        const now = performance.now();
+        const pulse = 1 + Math.sin(now * 0.006 + (enemy.id || 0)) * 0.12;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.75 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "#064e3b";
+        ctx.fill();
+
+        // 4 orbiting spore pods revolving around the hull
+        for (let ni = 0; ni < 4; ni++) {
+          const na = (ni / 4) * Math.PI * 2 + now * 0.002;
+          const nx = Math.cos(na) * (enemy.r * 1.4);
+          const ny = Math.sin(na) * (enemy.r * 1.4);
+          ctx.beginPath();
+          ctx.arc(nx, ny, enemy.r * 0.22, 0, Math.PI * 2);
+          ctx.fillStyle = "#10b981";
+          ctx.shadowColor = "#34d399";
+          ctx.shadowBlur = 8;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(nx, ny, enemy.r * 0.1, 0, Math.PI * 2);
+          ctx.fillStyle = "#a7f3d0";
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = "#6ee7b7";
+        ctx.shadowColor = "#a7f3d0";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
+        const now = performance.now();
+        const pylonPulse = 1 + Math.sin(now * 0.008 + (enemy.id || 0)) * 0.15;
+        ctx.save();
+        ctx.rotate(now * 0.002);
+        ctx.strokeStyle = "#00f2fe";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let pi = 0; pi < 6; pi++) {
+          const pa = (pi / 6) * Math.PI * 2;
+          const px = Math.cos(pa) * (enemy.r * 0.9 * pylonPulse);
+          const py = Math.sin(pa) * (enemy.r * 0.9 * pylonPulse);
+          if (pi === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#083344";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = "#00f2fe";
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
       } else if (enemy.type === "tank") {
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r * 0.48, 0, Math.PI * 2);
@@ -18252,17 +18393,20 @@ osc.stop(now + 0.05);
           ctx.shadowBlur = 0;
         } else if (enemy.type === "magnetizer") {
           const now = performance.now();
+          const rot = now * 0.0025;
           ctx.save();
-          ctx.rotate(now * 0.003);
-          ctx.strokeStyle = "#c084fc";
-          ctx.shadowColor = "#a855f7";
-          ctx.shadowBlur = 12;
+          ctx.strokeStyle = "#a855f7";
           ctx.lineWidth = 2;
-          ctx.setLineDash([8, 6]);
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 10;
           ctx.beginPath();
-          ctx.arc(0, 0, enemy.r + 6, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, rot, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.setLineDash([]);
+          ctx.strokeStyle = "#c084fc";
+          ctx.shadowColor = "#c084fc";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, enemy.r * 1.55, enemy.r * 0.65, -rot, 0, Math.PI * 2);
+          ctx.stroke();
           ctx.restore();
 
           ctx.beginPath();
@@ -18276,6 +18420,7 @@ osc.stop(now + 0.05);
           ctx.shadowColor = "#c084fc";
           ctx.shadowBlur = 10;
           ctx.fill();
+          ctx.shadowBlur = 0;
         } else if (enemy.type === "incubator") {
           const now = performance.now();
           const pulse = 1 + Math.sin(now * 0.006 + (enemy.id || 0)) * 0.12;
@@ -18284,22 +18429,31 @@ osc.stop(now + 0.05);
           ctx.fillStyle = "#064e3b";
           ctx.fill();
 
+          // 4 orbiting spore pods revolving around the hull
           for (let ni = 0; ni < 4; ni++) {
-            const na = (ni / 4) * Math.PI * 2 + now * 0.001;
-            const nx = Math.cos(na) * (enemy.r * 0.45);
-            const ny = Math.sin(na) * (enemy.r * 0.45);
+            const na = (ni / 4) * Math.PI * 2 + now * 0.002;
+            const nx = Math.cos(na) * (enemy.r * 1.4);
+            const ny = Math.sin(na) * (enemy.r * 1.4);
             ctx.beginPath();
-            ctx.arc(nx, ny, enemy.r * 0.28, 0, Math.PI * 2);
+            ctx.arc(nx, ny, enemy.r * 0.22, 0, Math.PI * 2);
             ctx.fillStyle = "#10b981";
             ctx.shadowColor = "#34d399";
             ctx.shadowBlur = 8;
             ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(nx, ny, enemy.r * 0.1, 0, Math.PI * 2);
+            ctx.fillStyle = "#a7f3d0";
+            ctx.fill();
           }
 
           ctx.beginPath();
-          ctx.arc(0, 0, enemy.r * 0.22, 0, Math.PI * 2);
+          ctx.arc(0, 0, enemy.r * 0.25, 0, Math.PI * 2);
           ctx.fillStyle = "#6ee7b7";
           ctx.shadowColor = "#a7f3d0";
+          ctx.shadowBlur = 6;
+          ctx.fill();
+          ctx.shadowBlur = 0;
         } else if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
           const now = performance.now();
           const pylonPulse = 1 + Math.sin(now * 0.008 + (enemy.id || 0)) * 0.15;
