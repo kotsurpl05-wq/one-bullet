@@ -12412,17 +12412,6 @@ osc.stop(now + 0.05);
                 const prog = (cycle - 0.44) / 0.18;
                 mx = -55 + prog * 150;
                 my = 0;
-
-                // Пламенные шлейфы форсажа
-                bCtx.save();
-                bCtx.strokeStyle = "rgba(239, 68, 68, 0.6)";
-                bCtx.lineWidth = 2.5;
-                bCtx.beginPath();
-                bCtx.moveTo(mx - 32, my - 6); bCtx.lineTo(mx - 10, my - 6);
-                bCtx.moveTo(mx - 44, my); bCtx.lineTo(mx - 14, my);
-                bCtx.moveTo(mx - 32, my + 6); bCtx.lineTo(mx - 10, my + 6);
-                bCtx.stroke();
-                bCtx.restore();
               } else {
                 // 4. Плавно возвращается в начальную точку (+95 -> -100) и остывает
                 const prog = (cycle - 0.62) / 0.38;
