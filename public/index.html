@@ -9987,7 +9987,7 @@
           <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
             <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
               <span style="font-size: 15px;">📜</span>
-              <span>История обновлений (v2.4)</span>
+              <span>История обновлений (v2.7)</span>
             </button>
           </div>
         </div>
@@ -10389,17 +10389,66 @@
           </div>
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
-            
-            <!-- v2.4 -->
+
+            <!-- v2.7 -->
             <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(0, 242, 254, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(0, 242, 254, 0.16);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.4</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Глобальный ребаланс чисел x100, Опыт и Волна 3</span>
+                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.7</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Семьи Способностей, Процентный скейл и ESC-бейджи</span>
                 </div>
                 <span style="font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>🌳 <strong>10 Семей Способностей:</strong> Молния, Взрыв, Импульс, Бумеранг, Осколки, Стан, Броня, Яд, Паразит, Метка — базовая карта (RARE) + ветки улучшения.</li>
+                <li>📊 <strong>Процентный скейл урона:</strong> Молния (60% → 200%), Взрыв (60% → 160%), Импульс (80% → 250%) — масштабируются от урона пули.</li>
+                <li>🧲 <strong>Бумеранг объединяет магнит:</strong> Базовая карта даёт притяжение (100 px/с), урон при возврате — отдельная ветка «Тяжёлый бумеранг».</li>
+                <li>🎮 <strong>ESC-меню: карточки с угловыми бейджами:</strong> Уровни веток отображаются цифрами в 4 углах карточки + tooltip при наведении.</li>
+                <li>⚔️ <strong>Баланс коопа:</strong> Босс HP ×1.1 (было ×1.8), шутер стреляет чаще и быстрее, твины скейлят урон с волной.</li>
+                <li>⚡ <strong>Сетевая оптимизация:</strong> Снапшоты на 55% легче (статика отправляется раз), ping 3с, экстраполяция позиций.</li>
+              </ul>
+            </div>
+
+            <!-- v2.6 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.6</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Гранулярный XP, Баланс инкубатора и Соло-босс</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>💎 <strong>Уникальный XP за каждого врага:</strong> normal 125, runner 115, tank 275, charger 240, splitter 310, shooter 255, incubator 475, phantom 185, magnetizer 195, twin 165.</li>
+                <li>📈 <strong>Формула уровня:</strong> 775 + p×335 + ⌊p/5⌋×410 — не-круглые числа для тонкой балансировки.</li>
+                <li>🥚 <strong>Инкубатор:</strong> максимум 5 миньонов, 1 за цикл (4.5с). Миньоны и осколки не дают XP.</li>
+                <li>👾 <strong>Соло-босс HP ×55:</strong> Tier 1 = 4180 HP (было 7600) — реально убиваемый даже без апгрейдов.</li>
+              </ul>
+            </div>
+
+            <!-- v2.5 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.5</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Увеличенный баннер волны, XP -20% и визуальные штрихи</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>📢 <strong>Баннер волны ×1.5:</strong> Заголовок 63px, субтитр 20px, punch-in анимация с тряской для босс-волн.</li>
+                <li>❤️ <strong>Полоска HP босса ×1.5:</strong> 36px высота, 20px шрифт — одинаково в обоих режимах.</li>
+                <li>📉 <strong>XP для уровня -20%:</strong> Быстрее прогрессия, больше апгрейдов на тех же волнах.</li>
+              </ul>
+            </div>
+
+            <!-- v2.4 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.4</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Глобальный ребаланс чисел x100, Опыт и Волна 3</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
                 <li>💥 <strong>Масштабирование чисел в 100 раз:</strong> Базовый урон теперь <code>100</code> (криты <code>200</code>), базовое здоровье <code>100 HP</code>. Все враги и боссы масштабированы (обычные <code>100 HP</code>, танки <code>300 HP</code>, боссы от <code>7,600+ HP</code>).</li>
                 <li>💎 <strong>Требование 800 XP для 1-го уровня:</strong> Первый уровень в соло требует ровно <code>800 XP</code>. Кристаллы дают по <code>110 XP</code> (+10% бонус).</li>
                 <li>🌊 <strong>Баланс 3-й волны:</strong> Снижена вероятность появления танков с 56% до 18% для устранения затянутости в начале забега.</li>
