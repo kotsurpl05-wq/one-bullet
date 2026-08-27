@@ -8016,6 +8016,16 @@
           enemy.r,
           SOLO_WORLD_HEIGHT - enemy.r
         );
+
+        if (enemy.type === "runner" && enemy.hasEnteredArena) {
+          if (!enemy.trail) enemy.trail = [];
+          enemy.trailTimer = (enemy.trailTimer || 0) + dt;
+          if (enemy.trailTimer >= 0.03) {
+            enemy.trailTimer = 0;
+            enemy.trail.unshift({ x: enemy.x, y: enemy.y });
+            if (enemy.trail.length > 3) enemy.trail.pop();
+          }
+        }
       }
     
       resolveEnemyOverlaps();
@@ -12251,7 +12261,7 @@ osc.stop(now + 0.05);
               const smx = Math.sin(now * 0.0016) * 16;
               const smy = Math.cos(now * 0.0022) * 10;
 
-              if (splitCycle < 0.44) {
+              if (splitCycle < 0.42) {
                 // Основной кристалл жив и парит
                 bCtx.save();
                 bCtx.translate(smx, smy);
@@ -12275,9 +12285,9 @@ osc.stop(now + 0.05);
                 bCtx.fillRect(-barWidth / 2, -sr - 10, barWidth, 4);
 
                 bCtx.restore();
-              } else if (splitCycle < 0.52) {
+              } else if (splitCycle < 0.48) {
                 // Вспышка деления / гибель кристалла
-                const flashProg = (splitCycle - 0.44) / 0.08;
+                const flashProg = (splitCycle - 0.42) / 0.06;
                 bCtx.save();
                 bCtx.beginPath();
                 bCtx.arc(smx, smy, sr * (1 + flashProg * 1.6), 0, Math.PI * 2);
@@ -12297,14 +12307,14 @@ osc.stop(now + 0.05);
                 }
                 bCtx.restore();
               } else {
-                // Появление двух самостоятельных миньонов-осколков
-                const spawnProg = (splitCycle - 0.52) / 0.48;
-                const sepDist = Math.sin(Math.min(1, spawnProg * 2.2) * Math.PI / 2) * 54;
+                // Появление двух самостоятельных миньонов-осколков с плавным разлётом и схождением
+                const splitProg = (splitCycle - 0.48) / 0.52;
+                const sepDist = Math.sin(splitProg * Math.PI) * 52;
                 const miniR = 11;
 
                 [-1, 1].forEach((dir, sIdx) => {
-                  const mx = smx + dir * sepDist + Math.sin(now * 0.003 + sIdx * 2) * 8;
-                  const my = smy + Math.cos(now * 0.0035 + sIdx * 2) * 12;
+                  const mx = smx + dir * sepDist + Math.sin(now * 0.0025 + sIdx * 2) * 6;
+                  const my = smy + Math.cos(now * 0.003 + sIdx * 2) * 8;
 
                   bCtx.save();
                   bCtx.translate(mx, my);
@@ -12492,32 +12502,24 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               }
             } else if (mobId === "phantom") {
-              // Призрачный телепортационный цикл сквозь 4 точки
-              const phaseCycle = (now % 4400) / 4400;
-              const waypoints = [
-                { x: -45, y: -22 },
-                { x: 45, y: -18 },
-                { x: 28, y: 24 },
-                { x: -38, y: 22 }
-              ];
-              const seg = Math.floor(phaseCycle * 4);
-              const segProg = (phaseCycle * 4) % 1;
-              const currWp = waypoints[seg];
-              const nextWp = waypoints[(seg + 1) % 4];
+              // Плавное парение фантома с призрачными фазовыми волнами
+              mx = Math.sin(now * 0.0016) * 38;
+              my = Math.cos(now * 0.0024) * 16;
+              extraAlpha = 0.35 + Math.sin(now * 0.005) * 0.35;
 
-              if (segProg < 0.28) {
-                mx = currWp.x;
-                my = currWp.y;
-                extraAlpha = 0.9 - (segProg / 0.28) * 0.7;
-              } else if (segProg < 0.58) {
-                const warpP = (segProg - 0.28) / 0.30;
-                mx = currWp.x + (nextWp.x - currWp.x) * warpP;
-                my = currWp.y + (nextWp.y - currWp.y) * warpP;
-                extraAlpha = 0.2;
-              } else {
-                mx = nextWp.x;
-                my = nextWp.y;
-                extraAlpha = 0.2 + ((segProg - 0.58) / 0.42) * 0.75;
+              // 2 призрачных эфирных следа
+              for (let f = 1; f <= 2; f++) {
+                const pastT = now - f * 70;
+                const fx = Math.sin(pastT * 0.0016) * 38;
+                const fy = Math.cos(pastT * 0.0024) * 16;
+                bCtx.save();
+                bCtx.translate(fx, fy);
+                bCtx.globalAlpha = (0.22 / f) * extraAlpha;
+                bCtx.beginPath();
+                bCtx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+                bCtx.fillStyle = "#5eead4";
+                bCtx.fill();
+                bCtx.restore();
               }
             } else if (mobId === "tank") {
               // Тяжелая поступь с сейсмическими ударными волнами
@@ -17938,6 +17940,28 @@ osc.stop(now + 0.05);
           }
         }
 
+        if (enemy.type === "runner") {
+          if (!enemy.trail) enemy.trail = [];
+          const now = performance.now();
+          if (!enemy.lastTrailTime || now - enemy.lastTrailTime > 30) {
+            enemy.lastTrailTime = now;
+            enemy.trail.unshift({ x: enemy.displayX, y: enemy.displayY });
+            if (enemy.trail.length > 3) enemy.trail.pop();
+          }
+          for (let ti = 0; ti < enemy.trail.length; ti++) {
+            const tp = enemy.trail[ti];
+            const tAlpha = 0.28 / (ti + 1);
+            ctx.save();
+            ctx.translate(tp.x - enemy.displayX, tp.y - enemy.displayY);
+            ctx.globalAlpha = tAlpha;
+            ctx.beginPath();
+            ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
+            ctx.fillStyle = enemy.color;
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
         // Внешнее свечение.
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r + 5, 0, Math.PI * 2);
@@ -19166,6 +19190,21 @@ osc.stop(now + 0.05);
             }
             if (heat > 0) {
               enemyColor = heat > 0.6 ? "#ef4444" : (heat > 0.2 ? "#f97316" : "#ff814a");
+            }
+          }
+
+          if (enemy.type === "runner" && enemy.trail && enemy.trail.length > 0) {
+            for (let ti = 0; ti < enemy.trail.length; ti++) {
+              const tp = enemy.trail[ti];
+              const tAlpha = 0.28 / (ti + 1);
+              ctx.save();
+              ctx.translate(tp.x - enemy.x, tp.y - enemy.y);
+              ctx.globalAlpha = tAlpha;
+              ctx.beginPath();
+              ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
+              ctx.fillStyle = enemy.color;
+              ctx.fill();
+              ctx.restore();
             }
           }
 
