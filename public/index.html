@@ -2377,9 +2377,14 @@
     /* Модальные окна (Настройки и Гайд) */
     .cyber-modal-container {
       width: 100%;
-      max-width: 680px;
+      max-width: 1060px;
+      height: calc(100vh - 56px);
+      max-height: calc(100vh - 56px);
       margin: 0 auto;
       text-align: left;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
     }
 
     .cyber-modal-header {
@@ -2389,6 +2394,7 @@
       padding-bottom: 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       margin-bottom: 12px;
+      flex-shrink: 0;
     }
 
     .cyber-modal-icon {
@@ -2531,12 +2537,16 @@
       display: flex;
       gap: 20px;
       align-items: stretch;
-      margin-top: 12px;
+      margin-top: 6px;
+      flex: 1;
+      min-height: 0;
+      height: 100%;
     }
 
     @media (max-width: 768px) {
       .skins-armory-layout {
         flex-direction: column;
+        overflow-y: auto;
       }
     }
 
@@ -2617,9 +2627,10 @@
     .guide-tabs-bar {
       display: flex;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       padding-bottom: 10px;
+      flex-shrink: 0;
     }
 
     .guide-tab-btn {
@@ -2658,6 +2669,7 @@
       gap: 8px;
       margin-bottom: 10px;
       flex-wrap: wrap;
+      flex-shrink: 0;
     }
 
     .guide-filter-pill {
@@ -2696,6 +2708,7 @@
       cursor: pointer;
       text-align: left;
       transition: all 130ms ease;
+      flex-shrink: 0;
     }
 
     .bestiary-item-card:hover, .upgrade-codex-card:hover {
@@ -2726,7 +2739,7 @@
     .guide-cards-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 14px;
+      gap: 12px;
     }
 
     @media (max-width: 600px) {
@@ -2739,7 +2752,7 @@
       background: rgba(18, 28, 45, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.07);
       border-radius: 14px;
-      padding: 16px;
+      padding: 14px 16px;
     }
 
     .guide-card-header {
@@ -10344,8 +10357,8 @@ osc.stop(now + 0.05);
       overlay.classList.remove("hidden");
 
       panel.innerHTML = `
-        <div class="cyber-modal-container" style="max-width: 920px;">
-          <div class="cyber-modal-header">
+        <div class="cyber-modal-container" style="max-width: 960px; width: 100%;">
+          <div class="cyber-modal-header" style="flex-shrink: 0;">
             <div class="cyber-modal-icon">⚙️</div>
             <div>
               <h2 class="cyber-modal-title">Настройки игры // Параметры</h2>
@@ -10353,87 +10366,89 @@ osc.stop(now + 0.05);
             </div>
           </div>
 
-          <div class="settings-group">
-            <div class="settings-group-title">🔊 ЗВУК И МУЗЫКА</div>
-            
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-name">Общая громкость (Master)</span>
-                <span class="setting-desc">Главный регулятор громкости всей игры</span>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px;">
+            <div class="settings-group">
+              <div class="settings-group-title">🔊 ЗВУК И МУЗЫКА</div>
+              
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Общая громкость (Master)</span>
+                  <span class="setting-desc">Главный регулятор громкости всей игры</span>
+                </div>
+                <div class="setting-control">
+                  <input type="range" id="settingVolume" min="0" max="100" value="${Math.round((gameSettings.volume ?? 0.8) * 100)}" class="cyber-range">
+                  <span class="setting-val-badge" id="settingVolumeVal">${Math.round((gameSettings.volume ?? 0.8) * 100)}%</span>
+                </div>
               </div>
-              <div class="setting-control">
-                <input type="range" id="settingVolume" min="0" max="100" value="${Math.round((gameSettings.volume ?? 0.8) * 100)}" class="cyber-range">
-                <span class="setting-val-badge" id="settingVolumeVal">${Math.round((gameSettings.volume ?? 0.8) * 100)}%</span>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">🎵 Музыка (BGM)</span>
+                  <span class="setting-desc">Фоновый киберпанк-саундтрек и боевая музыка</span>
+                </div>
+                <div class="setting-control">
+                  <input type="range" id="settingMusicVolume" min="0" max="100" value="${Math.round((gameSettings.musicVolume ?? 0.7) * 100)}" class="cyber-range">
+                  <span class="setting-val-badge" id="settingMusicVolumeVal">${Math.round((gameSettings.musicVolume ?? 0.7) * 100)}%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">💥 Звуковые эффекты (SFX)</span>
+                  <span class="setting-desc">Выстрелы, рикошеты, взрывы, криты и сигналы</span>
+                </div>
+                <div class="setting-control">
+                  <input type="range" id="settingSfxVolume" min="0" max="100" value="${Math.round((gameSettings.sfxVolume ?? 0.85) * 100)}" class="cyber-range">
+                  <span class="setting-val-badge" id="settingSfxVolumeVal">${Math.round((gameSettings.sfxVolume ?? 0.85) * 100)}%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Отключить весь звук (Mute)</span>
+                  <span class="setting-desc">Быстрое отключение музыки и всех эффектов</span>
+                </div>
+                <div class="setting-control">
+                  <button type="button" id="settingMuteToggle" class="cyber-toggle-btn ${gameSettings.mute ? 'active' : ''}">
+                    ${gameSettings.mute ? '🔇 ВЫКЛЮЧЕН' : '🔊 ВКЛЮЧЕН'}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-name">🎵 Музыка (BGM)</span>
-                <span class="setting-desc">Фоновый киберпанк-саундтрек и боевая музыка</span>
-              </div>
-              <div class="setting-control">
-                <input type="range" id="settingMusicVolume" min="0" max="100" value="${Math.round((gameSettings.musicVolume ?? 0.7) * 100)}" class="cyber-range">
-                <span class="setting-val-badge" id="settingMusicVolumeVal">${Math.round((gameSettings.musicVolume ?? 0.7) * 100)}%</span>
-              </div>
-            </div>
-
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-name">💥 Звуковые эффекты (SFX)</span>
-                <span class="setting-desc">Выстрелы, рикошеты, взрывы, криты и сигналы</span>
-              </div>
-              <div class="setting-control">
-                <input type="range" id="settingSfxVolume" min="0" max="100" value="${Math.round((gameSettings.sfxVolume ?? 0.85) * 100)}" class="cyber-range">
-                <span class="setting-val-badge" id="settingSfxVolumeVal">${Math.round((gameSettings.sfxVolume ?? 0.85) * 100)}%</span>
+            <div class="settings-group">
+              <div class="settings-group-title">🎯 УПРАВЛЕНИЕ И СЕНСА</div>
+              
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Чувствительность мыши</span>
+                  <span class="setting-desc">Скорость перемещения и доводки прицела</span>
+                </div>
+                <div class="setting-control">
+                  <input type="range" id="settingSensitivity" min="40" max="220" value="${Math.round(gameSettings.sensitivity * 100)}" class="cyber-range">
+                  <span class="setting-val-badge" id="settingSensVal">${(gameSettings.sensitivity).toFixed(1)}x</span>
+                </div>
               </div>
             </div>
 
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-name">Отключить весь звук (Mute)</span>
-                <span class="setting-desc">Быстрое отключение музыки и всех эффектов</span>
-              </div>
-              <div class="setting-control">
-                <button type="button" id="settingMuteToggle" class="cyber-toggle-btn ${gameSettings.mute ? 'active' : ''}">
-                  ${gameSettings.mute ? '🔇 ВЫКЛЮЧЕН' : '🔊 ВКЛЮЧЕН'}
-                </button>
+            <div class="settings-group">
+              <div class="settings-group-title">📺 ВИЗУАЛЬНЫЕ ЭФФЕКТЫ</div>
+              
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Тряска экрана (Screen Shake)</span>
+                  <span class="setting-desc">Динамическая отдача при взрывах и рикошетах</span>
+                </div>
+                <div class="setting-control">
+                  <button type="button" id="settingShakeToggle" class="cyber-toggle-btn ${gameSettings.screenShake ? 'active' : ''}">
+                    ${gameSettings.screenShake ? '⚡ ВКЛ' : '✖ ВЫКЛ'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="settings-group">
-            <div class="settings-group-title">🎯 УПРАВЛЕНИЕ И СЕНСА</div>
-            
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-name">Чувствительность мыши</span>
-                <span class="setting-desc">Скорость перемещения и доводки прицела</span>
-              </div>
-              <div class="setting-control">
-                <input type="range" id="settingSensitivity" min="40" max="220" value="${Math.round(gameSettings.sensitivity * 100)}" class="cyber-range">
-                <span class="setting-val-badge" id="settingSensVal">${(gameSettings.sensitivity).toFixed(1)}x</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-group">
-            <div class="settings-group-title">📺 ВИЗУАЛЬНЫЕ ЭФФЕКТЫ</div>
-            
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-name">Тряска экрана (Screen Shake)</span>
-                <span class="setting-desc">Динамическая отдача при взрывах и рикошетах</span>
-              </div>
-              <div class="setting-control">
-                <button type="button" id="settingShakeToggle" class="cyber-toggle-btn ${gameSettings.screenShake ? 'active' : ''}">
-                  ${gameSettings.screenShake ? '⚡ ВКЛ' : '✖ ВЫКЛ'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="network-actions" style="margin-top: 28px; gap: 14px;">
+          <div class="network-actions" style="margin-top: 14px; gap: 14px; flex-shrink: 0;">
             <button type="button" class="secondary-button" id="settingsBackBtn" style="min-width: 150px;">
               ${backLabel}
             </button>
@@ -10567,7 +10582,7 @@ osc.stop(now + 0.05);
       let selectedSkinId = gameSettings.bulletSkin || "neon";
 
       panel.innerHTML = `
-        <div class="cyber-modal-container" style="max-width: 960px; width: 100%;">
+        <div class="cyber-modal-container" style="max-width: 1040px; width: 100%;">
           <div class="cyber-modal-header">
             <div class="cyber-modal-icon" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #c084fc;">🎨</div>
             <div>
@@ -10577,15 +10592,15 @@ osc.stop(now + 0.05);
           </div>
 
           <!-- Supported Skins: data-skin="neon" data-skin="fire" data-skin="quantum" data-skin="toxic" data-skin="cosmic" data-skin="plasma" data-skin="void" data-skin="inferno" data-skin="glitch" data-skin="prism" data-skin="holy" data-skin="ruby" -->
-          <div class="skins-armory-layout">
+          <div class="skins-armory-layout" style="flex: 1; min-height: 0;">
             <!-- Left: Skin Catalog -->
-            <div class="skins-catalog-panel" style="flex: 1.25; display: flex; flex-direction: column; gap: 8px;">
-              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="skins-catalog-panel" style="flex: 1.25; display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <span>Снаряды в арсенале (${BULLET_SKIN_CATALOG.length})</span>
                 <span style="color: #38bdf8;">Экипирован: <strong id="activeSkinLabel" style="color: #f8fafc;">${(BULLET_SKIN_CATALOG.find(s => s.id === (gameSettings.bulletSkin || 'neon'))?.name) || 'Плазмоид'}</strong></span>
               </div>
               
-              <div class="skins-selector-scroll" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 9px; max-height: 360px; overflow-y: auto; padding-right: 6px;">
+              <div class="skins-selector-scroll" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 9px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px;">
                 ${BULLET_SKIN_CATALOG.map(s => {
                   const isEquipped = (gameSettings.bulletSkin || 'neon') === s.id;
                   const isSelected = selectedSkinId === s.id;
@@ -10602,20 +10617,20 @@ osc.stop(now + 0.05);
             </div>
 
             <!-- Right: Interactive Live Preview Window -->
-            <div class="skins-preview-panel" style="flex: 0.95; min-width: 290px; background: rgba(13, 21, 37, 0.85); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 24px rgba(0, 242, 254, 0.04);">
-              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px;">
+            <div class="skins-preview-panel" style="flex: 0.95; min-width: 290px; min-height: 0; height: 100%; background: rgba(13, 21, 37, 0.85); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 24px rgba(0, 242, 254, 0.04); overflow-y: auto;">
+              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px; flex-shrink: 0;">
                 <span style="font-size: 11px; font-weight: 900; color: #7ee7ff; letter-spacing: 1px;">ЖИВАЯ ДЕМОНСТРАЦИЯ</span>
                 <span id="previewTagBadge" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);"></span>
               </div>
 
               <!-- Live Canvas Box -->
-              <div style="position: relative; width: 220px; height: 180px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 24px rgba(0,0,0,0.85);">
+              <div style="position: relative; width: 220px; height: 180px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 24px rgba(0,0,0,0.85); flex-shrink: 0;">
                 <canvas id="skinPreviewCanvas" width="220" height="180" style="width: 220px; height: 180px;"></canvas>
                 <div style="position: absolute; bottom: 6px; right: 8px; font-size: 9px; color: #64748b; font-family: monospace;">REAL-TIME 60FPS</div>
               </div>
 
               <!-- Details info and equip button -->
-              <div style="width: 100%; margin-top: 14px; text-align: center;">
+              <div style="width: 100%; margin-top: 14px; text-align: center; flex-shrink: 0;">
                 <h3 id="previewSkinTitle" style="font-size: 17px; font-weight: 900; color: #ffffff; margin: 0 0 4px 0;"></h3>
                 <p id="previewSkinDesc" style="font-size: 11.5px; color: #94a3b8; line-height: 1.4; margin: 0 0 12px 0; min-height: 32px;"></p>
                 
@@ -10626,7 +10641,7 @@ osc.stop(now + 0.05);
             </div>
           </div>
 
-          <div class="network-actions" style="margin-top: 24px; gap: 14px;">
+          <div class="network-actions" style="margin-top: 14px; gap: 14px; flex-shrink: 0;">
             <button type="button" class="secondary-button" id="skinsBackBtn" style="min-width: 160px;">
               ← Назад в меню
             </button>
@@ -11297,8 +11312,8 @@ osc.stop(now + 0.05);
 
       const renderGuideModal = () => {
         panel.innerHTML = `
-          <div class="cyber-modal-container" style="max-width: 960px; width: 100%;">
-            <div class="cyber-modal-header" style="margin-bottom: 12px;">
+          <div class="cyber-modal-container" style="max-width: 1040px; width: 100%;">
+            <div class="cyber-modal-header" style="margin-bottom: 10px;">
               <div class="cyber-modal-icon">📖</div>
               <div>
                 <h2 class="cyber-modal-title">База знаний // Кибер-Кодекс</h2>
@@ -11321,52 +11336,84 @@ osc.stop(now + 0.05);
 
             <!-- Tab 1: Basics -->
             ${currentGuideTab === 'basics' ? `
-              <div class="guide-cards-grid" style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
+              <div class="guide-cards-grid" style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px;">
                 <div class="guide-card-item">
                   <div class="guide-card-header">
                     <span class="guide-num">01</span>
-                    <h4>🎯 Единственный патрон</h4>
+                    <h4>🎯 Единственный патрон и Магнит</h4>
                   </div>
-                  <p>У вас только <strong>1 патрон</strong> в магазине. Выстрелив, вы остаетесь безоружным, пока не подберете его с пола или не притянете <em>Возвратным магнитом</em>.</p>
+                  <p>В вашем распоряжении <strong>ровно 1 патрон</strong>. После выстрела вы безоружны, пока не подберёте его лично или не притянете зажатием <strong>ПКМ (Right Click) / E / Пробел</strong>. Пролетая через толпу при возврате, патрон наносит сокрушительный урон!</p>
                 </div>
 
                 <div class="guide-card-item">
                   <div class="guide-card-header">
                     <span class="guide-num">02</span>
-                    <h4>⚡ Рикошеты и пробитие</h4>
+                    <h4>⚡ Энергетический рывок (Dash)</h4>
                   </div>
-                  <p>Патрон отскакивает от стен арены. Каждый рикошет <strong>сбрасывает кулдаун урона</strong>, позволяя поражать врагов снова и снова на обратной траектории!</p>
+                  <p>Нажатие <strong>Пробел / Shift</strong> активирует мгновенный рывок. Во время рывка ваш боец получает <strong>фреймы полной неуязвимости (i-frames)</strong>, позволяя уклоняться от снайперских лучей босса и прорываться сквозь окружение врагов.</p>
                 </div>
 
                 <div class="guide-card-item">
                   <div class="guide-card-header">
                     <span class="guide-num">03</span>
-                    <h4>👑 Боссы и 3 фазы боя</h4>
+                    <h4>🔁 Рикошеты, Осколки и Бумеранг</h4>
                   </div>
-                  <p>Каждые 5 волн появляется Босс с 3 фазами: таранные рывки с ударной волной, щиты с орбитальными дронами и яростный спиральный шторм пуль.</p>
+                  <p>Каждый отскок патрона от стен арены <strong>сбрасывает кулдаун урона</strong>. Улучшение <em>Бумеранг</em> усиливает урон при возврате, а <em>Осколочный рикошет (Splinter)</em> выбрасывает дополнительные самонаводящиеся микро-снаряды.</p>
                 </div>
 
                 <div class="guide-card-item">
                   <div class="guide-card-header">
                     <span class="guide-num">04</span>
-                    <h4>👥 Кооперативный бой</h4>
+                    <h4>💎 Кристаллы опыта и Прокачка</h4>
                   </div>
-                  <p>В сетевом режиме напарники делят общий опыт и кристаллы. Если напарник погиб, выживший может спасти раунд, уничтожив остаток волны!</p>
+                  <p>Уничтоженные враги оставляют энерго-кристаллы. Заполнение шкалы открывает выбор из <strong>3 случайных модификаций</strong>. Если предложенные перки не подходят — используйте <strong>Переброс (Reroll)</strong> за накопленные очки/заряды.</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">05</span>
+                    <h4>❤️ Медпаки и Выживание</h4>
+                  </div>
+                  <p>С вероятностью <strong>5%</strong> из поверженных рядовых противников выпадают полевые медкомплекты (+100 HP). В сочетании с улучшениями регенерации и защитных маяков это позволяет восстанавливать корпус прямо в пылу боя.</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">06</span>
+                    <h4>👑 Боссы и Угловые Пилоны</h4>
+                  </div>
+                  <p>Каждые 5 волн арену атакует Босс. В <strong>Фазе 2</strong> он активирует неуязвимый шестигранный щит, питаемый <strong>4 угловыми пилонами</strong> — разрушьте их все, чтобы оглушить босса. В <strong>Фазе 3 (<33% HP)</strong> босс входит в ярость, выпуская спиральный шторм пуль.</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">07</span>
+                    <h4>🤝 Сеть и Маяк воскрешения</h4>
+                  </div>
+                  <p>В совместной игре напарники делят опыт и координируют огонь. Павший союзник оставляет <strong>Маяк воскрешения (Revive Beacon)</strong> — удерживайте позицию в его зоне 3 секунды, чтобы полностью оживить товарища и вернуть его в бой!</p>
+                </div>
+
+                <div class="guide-card-item">
+                  <div class="guide-card-header">
+                    <span class="guide-num">08</span>
+                    <h4>🧪 Элементы: Яд, Стан и Паразиты</h4>
+                  </div>
+                  <p>Комбинируйте стихийные ветки: <strong>Яд</strong> накладывает накапливаемый периодический DoT-урон, <strong>Кинетический удар</strong> оглушает мобов, <strong>Паразиты</strong> взрываются самонаводящимися спорами при гибели жертвы, а <strong>Метка цели</strong> даёт +40% урона.</p>
                 </div>
               </div>
             ` : ''}
 
             <!-- Tab 2: Bestiary -->
             ${currentGuideTab === 'bestiary' ? `
-              <div class="skins-armory-layout" style="margin-top: 6px;">
+              <div class="skins-armory-layout" style="margin-top: 6px; flex: 1; min-height: 0;">
                 <!-- Left: Enemy List -->
-                <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
-                  <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between;">
+                <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%;">
+                  <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; flex-shrink: 0;">
                     <span>Каталог врагов и боссов</span>
                     <span style="color: #38bdf8;">Выбран: <strong id="bestiaryActiveName" style="color: #f8fafc;"></strong></span>
                   </div>
 
-                  <div style="display: flex; flex-direction: column; gap: 7px; max-height: 380px; overflow-y: auto; padding-right: 6px;">
+                  <div style="display: flex; flex-direction: column; gap: 7px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px;">
                     ${BESTIARY_CATALOG.map(mob => {
                       const isSel = selectedBestiaryId === mob.id;
                       return `
@@ -11386,21 +11433,21 @@ osc.stop(now + 0.05);
                 </div>
 
                 <!-- Right: Interactive Live Demonstration Window -->
-                <div style="flex: 1.05; min-width: 310px; background: rgba(13, 21, 37, 0.88); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <div style="flex: 1.05; min-width: 320px; min-height: 0; height: 100%; background: rgba(13, 21, 37, 0.88); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow-y: auto;">
                   <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 10px; flex-shrink: 0;">
                       <span style="font-size: 11px; font-weight: 900; color: #7ee7ff; letter-spacing: 1px;">ДЕМОНСТРАЦИЯ МОДЕЛИ</span>
                       <span id="bestiaryDangerBadge" style="font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 6px; background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3);"></span>
                     </div>
 
                     <!-- Canvas Frame -->
-                    <div style="position: relative; width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+                    <div style="position: relative; width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 12px; overflow: hidden; margin-bottom: 10px; flex-shrink: 0;">
                       <canvas id="bestiaryCanvas" width="280" height="140" style="width: 280px; height: 140px;"></canvas>
                       <div style="position: absolute; bottom: 4px; right: 6px; font-size: 8.5px; color: #64748b; font-family: monospace;">60 FPS SIMULATION</div>
                     </div>
 
                     <!-- Specs Chips -->
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; flex-shrink: 0;">
                       <span class="stat-chip" id="bestiaryHpChip">❤️ HP: -</span>
                       <span class="stat-chip" id="bestiarySpeedChip">⚡ Скорость: -</span>
                       <span class="stat-chip" id="bestiaryXpChip">💎 Опыт: -</span>
@@ -11417,7 +11464,7 @@ osc.stop(now + 0.05);
                   </div>
 
                   <!-- Tactics tip -->
-                  <div style="font-size: 10.5px; color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); border-radius: 8px; padding: 6px 10px;">
+                  <div style="font-size: 10.5px; color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); border-radius: 8px; padding: 6px 10px; flex-shrink: 0;">
                     💡 <strong style="color: #fef08a;">Тактика:</strong> <span id="bestiaryTactics"></span>
                   </div>
                 </div>
@@ -11426,7 +11473,7 @@ osc.stop(now + 0.05);
 
             <!-- Tab 3: Upgrades Codex -->
             ${currentGuideTab === 'upgrades' ? `
-              <div>
+              <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; height: 100%;">
                 <!-- Category Filter Pills -->
                 <div class="guide-filter-pills">
                   <button type="button" class="guide-filter-pill ${currentUpgradeCategoryFilter === 'all' ? 'active' : ''}" data-cat-filter="all">Все улучшения (${UPGRADES_CODEX.length})</button>
@@ -11435,10 +11482,10 @@ osc.stop(now + 0.05);
                   <button type="button" class="guide-filter-pill ${currentUpgradeCategoryFilter === 'survival' ? 'active' : ''}" data-cat-filter="survival">🛡️ Выживание и Защита</button>
                 </div>
 
-                <div class="skins-armory-layout" style="margin-top: 4px;">
+                <div class="skins-armory-layout" style="margin-top: 4px; flex: 1; min-height: 0;">
                   <!-- Left: Upgrades List -->
-                  <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
-                    <div style="display: flex; flex-direction: column; gap: 7px; max-height: 350px; overflow-y: auto; padding-right: 6px;">
+                  <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%;">
+                    <div style="display: flex; flex-direction: column; gap: 7px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px;">
                       ${UPGRADES_CODEX.filter(u => currentUpgradeCategoryFilter === 'all' || u.category === currentUpgradeCategoryFilter).map(u => {
                         const isSel = selectedUpgradeCodexId === u.id;
                         return `
@@ -11458,14 +11505,14 @@ osc.stop(now + 0.05);
                   </div>
 
                   <!-- Right: Upgrade Details -->
-                  <div style="flex: 1.05; min-width: 310px; background: rgba(13, 21, 37, 0.88); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                  <div style="flex: 1.05; min-width: 320px; min-height: 0; height: 100%; background: rgba(13, 21, 37, 0.88); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow-y: auto;">
                     <div>
-                      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px; flex-shrink: 0;">
                         <span style="font-size: 11px; font-weight: 900; color: #7ee7ff; letter-spacing: 1px;">КОДЕКС МОДИФИКАЦИЙ</span>
                         <span id="upgradeRarityBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px;"></span>
                       </div>
 
-                      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-shrink: 0;">
                         <div id="upgradeBigIcon" style="font-size: 36px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 12px; flex-shrink: 0;"></div>
                         <div>
                           <h3 id="upgradeTitle" style="font-size: 16px; font-weight: 900; color: #ffffff; margin: 0 0 3px 0;"></h3>
@@ -11483,7 +11530,7 @@ osc.stop(now + 0.05);
                     </div>
 
                     <!-- Synergy -->
-                    <div style="font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 8px 10px;">
+                    <div style="font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 8px 10px; flex-shrink: 0;">
                       ⚡ <strong style="color: #7ee7ff;">Синергия:</strong> <span id="upgradeSynergy"></span>
                     </div>
                   </div>
@@ -11491,7 +11538,7 @@ osc.stop(now + 0.05);
               </div>
             ` : ''}
 
-            <div class="network-actions" style="margin-top: 22px; gap: 14px;">
+            <div class="network-actions" style="margin-top: 14px; gap: 14px; flex-shrink: 0;">
               <button type="button" class="secondary-button" id="guideBackBtn" style="min-width: 150px;">
                 ← Назад в меню
               </button>
