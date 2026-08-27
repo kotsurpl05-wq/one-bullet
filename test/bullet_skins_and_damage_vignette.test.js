@@ -125,4 +125,19 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     assert.ok(indexHtml.includes("5 летающими по внешней орбите спорами"), "Incubator must describe 5 orbiting spores");
     assert.ok(indexHtml.includes("4 угловыми энергетическими пилонами арены"), "Boss must describe 4 corner arena pylons");
   });
+
+  await t.test("9. Canvas context save/restore state balance in client renderer", () => {
+    const saveMatches = (indexHtml.match(/ctx\.save\(\)/g) || []).length;
+    const restoreMatches = (indexHtml.match(/ctx\.restore\(\)/g) || []).length;
+    assert.equal(saveMatches, restoreMatches, `ctx.save() count (${saveMatches}) must equal ctx.restore() count (${restoreMatches}) to prevent viewport shifting / player disappearing`);
+
+    // Specifically verify drawEnemyStatusEffects has balanced save/restore for targetMarked
+    const statusEffectsFunc = indexHtml.substring(
+      indexHtml.indexOf("function drawEnemyStatusEffects"),
+      indexHtml.indexOf("function drawSplinterShards")
+    );
+    const sfSaves = (statusEffectsFunc.match(/ctx\.save\(\)/g) || []).length;
+    const sfRestores = (statusEffectsFunc.match(/ctx\.restore\(\)/g) || []).length;
+    assert.equal(sfSaves, sfRestores, `drawEnemyStatusEffects must have balanced save/restore (${sfSaves} === ${sfRestores})`);
+  });
 });
