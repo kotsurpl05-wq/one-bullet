@@ -88,4 +88,16 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     assert.ok(indexHtml.includes("${backLabel}"), "showSettingsMenu must use dynamic backLabel");
     assert.ok(indexHtml.includes("${saveLabel}"), "showSettingsMenu must use dynamic saveLabel");
   });
+
+  await t.test("7. Dedicated Armory/Skins menu with real-time live preview demonstration canvas", () => {
+    assert.ok(indexHtml.includes("function showSkinsMenu"), "Client must define showSkinsMenu()");
+    assert.ok(indexHtml.includes('data-main-action="skins"'), "Main menu must have Armory/Skins card");
+    assert.ok(indexHtml.includes("skinPreviewCanvas"), "Skins menu must contain skinPreviewCanvas");
+    assert.ok(indexHtml.includes("renderPreviewFrame"), "Skins menu must have renderPreviewFrame animation loop");
+    assert.ok(indexHtml.includes("skins-preview-panel"), "Skins menu must have skins-preview-panel");
+
+    // Pause menu does NOT contain skins action
+    const pauseMenuChunk = indexHtml.substring(indexHtml.indexOf('id="pauseMenu"'), indexHtml.indexOf('id="pauseMenu"') + 1500);
+    assert.ok(!pauseMenuChunk.includes('data-pause-action="skins"'), "Pause menu (ESC menu) must NOT contain skins action");
+  });
 });
