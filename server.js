@@ -2642,13 +2642,13 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang-speed",
     title: "Турбо-магнит",
-    description: "Увеличивает скорость притягивания пули на +120 px/с (макс. 600 px/с).",
+    description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
     available(player) {
       return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 120) < 600;
     },
     bonus(player, power) {
       const current = player.stats?.groundPullSpeed || 120;
-      const result = Math.min(600, current + 120 * power);
+      const result = Math.min(600, current + 100 * power);
       return `+${result - current} px/с к скорости возврата (итог: ${result} px/с)`;
     }
   },
@@ -2656,13 +2656,13 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang-range",
     title: "Дальний захват",
-    description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 40 кл).",
+    description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 50 кл).",
     available(player) {
-      return Boolean(player.stats?.boomerang) && (player.stats?.magnetRangeBonusCells || 0) < 20;
+      return Boolean(player.stats?.boomerang) && (player.stats?.magnetRangeBonusCells || 0) < 30;
     },
     bonus(player, power) {
       const current = player.stats?.magnetRangeBonusCells || 0;
-      const result = Math.min(20, current + 5 * power);
+      const result = Math.min(30, current + 5 * power);
       return `+${result - current} кл. к радиусу захвата (итог: ${20 + result} кл.)`;
     }
   },
@@ -4726,11 +4726,11 @@ function applyServerUpgrade(
       break;
 
     case "boomerang-speed":
-      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 120) + 120 * power);
+      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 120) + 100 * power);
       break;
 
     case "boomerang-range":
-      player.stats.magnetRangeBonusCells = Math.min(20, (player.stats.magnetRangeBonusCells || 0) + 5 * power);
+      player.stats.magnetRangeBonusCells = Math.min(30, (player.stats.magnetRangeBonusCells || 0) + 5 * power);
       break;
 
     case "splinter":

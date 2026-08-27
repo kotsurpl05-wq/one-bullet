@@ -7902,22 +7902,22 @@
       },
       {
         title: "Турбо-магнит",
-        description: "Увеличивает скорость притягивания пули на +120 px/с (макс. 600 px/с).",
+        description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
         available() {
           return Boolean(stats.boomerang) && (stats.groundPullSpeed || 120) < 600;
         },
         applyWithPower(power) {
-          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 120) + 120 * power);
+          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 120) + 100 * power);
         }
       },
       {
         title: "Дальний захват",
-        description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 40 кл).",
+        description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 50 кл).",
         available() {
-          return Boolean(stats.boomerang) && (stats.magnetRangeBonusCells || 0) < 20;
+          return Boolean(stats.boomerang) && (stats.magnetRangeBonusCells || 0) < 30;
         },
         applyWithPower(power) {
-          stats.magnetRangeBonusCells = Math.min(20, (stats.magnetRangeBonusCells || 0) + 5 * power);
+          stats.magnetRangeBonusCells = Math.min(30, (stats.magnetRangeBonusCells || 0) + 5 * power);
         }
       },
       {
