@@ -7174,27 +7174,38 @@
         ctx.fill();
         ctx.shadowBlur = 0;
       } else if (type === "charger") {
-        if (opts.chargeState === "windup" && opts.chargeDx !== undefined && opts.chargeDy !== undefined) {
+        const windupProg = typeof opts.chargeProgress === "number" ? opts.chargeProgress : 0;
+        let heat = 0;
+        if (opts.chargeState === "windup") {
+          heat = windupProg;
+        } else if (opts.chargeState === "dashing" || opts.isCharging) {
+          heat = 1;
+        } else if (opts.chargeState === "cooling") {
+          heat = typeof opts.coolingProgress === "number" ? Math.max(0, 1 - opts.coolingProgress) : 0.4;
+        }
+
+        // Анимация накопления заряда: кольцо уменьшается в центр
+        if (opts.chargeState === "windup") {
+          const ringR = r * (1 + (1 - windupProg) * 2.2);
           ctx.save();
-          ctx.strokeStyle = "rgba(251, 146, 60, 0.6)";
-          ctx.lineWidth = 1.8;
-          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = `rgba(239, 68, 68, ${0.45 + windupProg * 0.5})`;
+          ctx.lineWidth = 2.2;
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 12;
           ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(opts.chargeDx * 130, opts.chargeDy * 130);
+          ctx.arc(0, 0, Math.max(1, ringR), 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
 
-        const vib = opts.chargeState === "windup" ? Math.sin(now * 0.08) * 2 : 0;
         const pulse = 1 + Math.sin(now * 0.008 + id) * 0.08;
         ctx.save();
-        ctx.translate(vib, 0);
         const chRot = now * 0.002;
         ctx.rotate(chRot);
 
-        ctx.fillStyle = "#7c2d12";
-        ctx.strokeStyle = "#fb923c";
+        // Цвет брони нагревается от тёмно-оранжевого к раскалённому красному
+        ctx.fillStyle = heat > 0.4 ? "#7f1d1d" : "#7c2d12";
+        ctx.strokeStyle = heat > 0.5 ? "#ef4444" : (heat > 0.2 ? "#f97316" : "#fb923c");
         ctx.lineWidth = 1.5;
         for (let i = 0; i < 4; i++) {
           ctx.save();
@@ -7212,14 +7223,14 @@
 
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
-        ctx.fillStyle = "#431407";
+        ctx.fillStyle = heat > 0.4 ? "#450a0a" : "#431407";
         ctx.fill();
 
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
-        ctx.fillStyle = opts.isCharging ? "#ffffff" : "#ffedd5";
-        ctx.shadowColor = opts.isCharging ? "#ea580c" : "#f97316";
-        ctx.shadowBlur = opts.isCharging ? 16 : 12;
+        ctx.fillStyle = heat > 0.6 ? "#ffffff" : (heat > 0.2 ? "#fee2e2" : "#ffedd5");
+        ctx.shadowColor = heat > 0.4 ? "#ef4444" : "#f97316";
+        ctx.shadowBlur = heat > 0.4 ? 18 : 12;
         ctx.fill();
         ctx.shadowBlur = 0;
       } else if (type === "phantom") {
@@ -7935,8 +7946,13 @@
           }
         } else if (enemy.type === "charger") {
           if (!enemy.chargeState) enemy.chargeState = "idle";
-          if (enemy.chargeCooldown === undefined) enemy.chargeCooldown = 1.2;
+          if (enemy.chargeCooldown === undefined) enemy.chargeCooldown = 1.0;
           if (enemy.chargeTimer === undefined) enemy.chargeTimer = 0;
+          if (enemy.coolingTimer === undefined) enemy.coolingTimer = 0;
+
+          const dashDistance = 160;
+          const dashDuration = 0.48;
+          const dashSpeed = dashDistance / dashDuration;
 
           if (enemy.chargeCooldown > 0) {
             enemy.chargeCooldown -= dt;
@@ -7947,22 +7963,31 @@
             enemy.isCharging = false;
             if (enemy.chargeTimer <= 0) {
               enemy.chargeState = "dashing";
-              enemy.chargeTimer = 0.55;
+              enemy.chargeTimer = dashDuration;
               enemy.isCharging = true;
             }
           } else if (enemy.chargeState === "dashing") {
             enemy.chargeTimer -= dt;
             enemy.isCharging = true;
-            enemy.x += (enemy.chargeDx || dx) * enemySpeed * 3.6 * dt;
-            enemy.y += (enemy.chargeDy || dy) * enemySpeed * 3.6 * dt;
+            enemy.x += (enemy.chargeDx || dx) * dashSpeed * dt;
+            enemy.y += (enemy.chargeDy || dy) * dashSpeed * dt;
             if (enemy.chargeTimer <= 0) {
-              enemy.chargeState = "idle";
+              enemy.chargeState = "cooling";
+              enemy.coolingTimer = 1.0;
               enemy.isCharging = false;
-              enemy.chargeCooldown = 2.0;
+              enemy.chargeCooldown = 1.8;
             }
+          } else if (enemy.chargeState === "cooling") {
+            enemy.coolingTimer -= dt;
+            enemy.isCharging = false;
+            if (enemy.coolingTimer <= 0) {
+              enemy.chargeState = "idle";
+            }
+            enemy.x += dx * enemySpeed * dt;
+            enemy.y += dy * enemySpeed * dt;
           } else {
             enemy.isCharging = false;
-            if (enemy.chargeCooldown <= 0 && length < 280 && enemyCanAttack) {
+            if (enemy.chargeCooldown <= 0 && length <= dashDistance && enemyCanAttack) {
               enemy.chargeState = "windup";
               enemy.chargeTimer = 0.65;
               enemy.chargeDx = dx;
@@ -12361,29 +12386,21 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               }
             } else if (mobId === "charger") {
-              // Цикл тарана: Замирание/Прицеливание -> Взрывной рывок -> Остановка
-              const cycle = (now % 3200) / 3200;
+              // Цикл тарана: Накопление заряда (кольцо сжимается, корпус краснеет) -> Рывок на 150px -> Остывание
+              const cycle = (now % 3400) / 3400;
               if (cycle < 0.35) {
-                const vib = Math.sin(now * 0.08) * 2;
-                mx = -55 + vib;
+                // Замирает на месте накопления энергии
+                mx = -65;
+                my = 0;
+              } else if (cycle < 0.58) {
+                // Стремительный рывок ровно на дальность прыжка (150px: от -65 до +85)
+                const prog = (cycle - 0.35) / 0.23;
+                mx = -65 + prog * 150;
                 my = 0;
 
+                // Пламенные шлейфы ускорения
                 bCtx.save();
-                bCtx.strokeStyle = "rgba(251, 146, 60, 0.55)";
-                bCtx.lineWidth = 1.8;
-                bCtx.setLineDash([4, 4]);
-                bCtx.beginPath();
-                bCtx.moveTo(-55, 0);
-                bCtx.lineTo(95, 0);
-                bCtx.stroke();
-                bCtx.restore();
-              } else if (cycle < 0.65) {
-                const prog = (cycle - 0.35) / 0.30;
-                mx = -55 + prog * 115;
-                my = 0;
-
-                bCtx.save();
-                bCtx.strokeStyle = "rgba(255, 237, 213, 0.6)";
+                bCtx.strokeStyle = "rgba(239, 68, 68, 0.6)";
                 bCtx.lineWidth = 2.5;
                 bCtx.beginPath();
                 bCtx.moveTo(mx - 32, my - 6); bCtx.lineTo(mx - 10, my - 6);
@@ -12392,8 +12409,9 @@ osc.stop(now + 0.05);
                 bCtx.stroke();
                 bCtx.restore();
               } else {
-                const prog = (cycle - 0.65) / 0.35;
-                mx = 60 - Math.sin(prog * Math.PI) * 115;
+                // Остывание и плавный разворот
+                const prog = (cycle - 0.58) / 0.42;
+                mx = 85 - Math.sin(prog * Math.PI) * 150;
                 my = Math.sin(prog * Math.PI) * 12;
               }
             } else if (mobId === "shooter") {
@@ -12604,6 +12622,30 @@ osc.stop(now + 0.05);
               }
             }
 
+            let drawColor = color;
+            const cCycle = (now % 3400) / 3400;
+            const isWindup = cCycle < 0.35;
+            const isDashing = cCycle >= 0.35 && cCycle < 0.58;
+            const isCooling = cCycle >= 0.58;
+            let chargeProgress = 0;
+            let coolingProgress = 0;
+
+            if (mobId === "charger") {
+              let heat = 0;
+              if (isWindup) {
+                chargeProgress = cCycle / 0.35;
+                heat = chargeProgress;
+              } else if (isDashing) {
+                heat = 1;
+              } else {
+                coolingProgress = (cCycle - 0.58) / 0.42;
+                heat = Math.max(0, 1 - coolingProgress);
+              }
+              if (heat > 0) {
+                drawColor = heat > 0.6 ? "#ef4444" : (heat > 0.2 ? "#f97316" : "#ff814a");
+              }
+            }
+
             bCtx.save();
             bCtx.translate(mx, my);
             bCtx.globalAlpha = extraAlpha;
@@ -12611,25 +12653,26 @@ osc.stop(now + 0.05);
             // Outer glow
             bCtx.beginPath();
             bCtx.arc(0, 0, r + 6, 0, Math.PI * 2);
-            bCtx.fillStyle = `${color}18`;
+            bCtx.fillStyle = `${drawColor}18`;
             bCtx.fill();
 
             // Body circle
             bCtx.beginPath();
             bCtx.arc(0, 0, r, 0, Math.PI * 2);
-            bCtx.fillStyle = color;
+            bCtx.fillStyle = drawColor;
             bCtx.fill();
 
-            const cCycle = (now % 3200) / 3200;
             // Exact in-game internal distinctive cyber model
-            drawEnemyModel(bCtx, mobId, r, color, {
+            drawEnemyModel(bCtx, mobId, r, drawColor, {
               now: now,
               shieldActive: mobId === "boss",
               sporesCount: 5,
-              chargeState: mobId === "charger" ? (cCycle < 0.35 ? "windup" : (cCycle < 0.65 ? "dashing" : "idle")) : undefined,
+              chargeState: mobId === "charger" ? (isWindup ? "windup" : (isDashing ? "dashing" : "cooling")) : undefined,
+              chargeProgress: mobId === "charger" ? chargeProgress : undefined,
+              coolingProgress: mobId === "charger" ? coolingProgress : undefined,
               chargeDx: mobId === "charger" ? 1 : undefined,
               chargeDy: mobId === "charger" ? 0 : undefined,
-              isCharging: mobId === "charger" ? (cCycle >= 0.35 && cCycle < 0.65) : false
+              isCharging: mobId === "charger" ? isDashing : false
             });
 
             // In-game Health Bar
@@ -17875,19 +17918,39 @@ osc.stop(now + 0.05);
         ctx.fill();
         ctx.shadowBlur = 0;
       } else {
+        let enemyColor = enemy.color;
+        let chargeProgress = 0;
+        let coolingProgress = 0;
+
+        if (enemy.type === "charger") {
+          let heat = 0;
+          if (enemy.chargeState === "windup") {
+            chargeProgress = typeof enemy.chargeProgress === "number" ? enemy.chargeProgress : 0.6;
+            heat = chargeProgress;
+          } else if (enemy.chargeState === "dashing" || enemy.isCharging) {
+            heat = 1;
+          } else if (enemy.chargeState === "cooling") {
+            coolingProgress = typeof enemy.coolingProgress === "number" ? enemy.coolingProgress : 0.5;
+            heat = Math.max(0, 1 - coolingProgress);
+          }
+          if (heat > 0) {
+            enemyColor = heat > 0.6 ? "#ef4444" : (heat > 0.2 ? "#f97316" : "#ff814a");
+          }
+        }
+
         // Внешнее свечение.
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r + 5, 0, Math.PI * 2);
-        ctx.fillStyle = `${enemy.color}18`;
+        ctx.fillStyle = `${enemyColor}18`;
         ctx.fill();
 
         // Тело врага.
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
-        ctx.fillStyle = enemy.color;
+        ctx.fillStyle = enemyColor;
         ctx.fill();
 
-        drawEnemyModel(ctx, enemy.type, enemy.r, enemy.color, {
+        drawEnemyModel(ctx, enemy.type, enemy.r, enemyColor, {
           now: performance.now(),
           id: enemy.id,
           shieldActive: Boolean(enemy.shieldActive),
@@ -17895,6 +17958,8 @@ osc.stop(now + 0.05);
           chargeState: enemy.chargeState,
           chargeDx: enemy.chargeDx,
           chargeDy: enemy.chargeDy,
+          chargeProgress,
+          coolingProgress,
           isCharging: Boolean(enemy.isCharging)
         });
       }
@@ -19084,19 +19149,39 @@ osc.stop(now + 0.05);
           ctx.fill();
           ctx.shadowBlur = 0;
         } else {
+          let enemyColor = enemy.color;
+          let chargeProgress = 0;
+          let coolingProgress = 0;
+
+          if (enemy.type === "charger") {
+            let heat = 0;
+            if (enemy.chargeState === "windup") {
+              chargeProgress = Math.max(0, Math.min(1, 1 - (enemy.chargeTimer / 0.65)));
+              heat = chargeProgress;
+            } else if (enemy.chargeState === "dashing" || enemy.isCharging) {
+              heat = 1;
+            } else if (enemy.chargeState === "cooling") {
+              coolingProgress = Math.max(0, Math.min(1, 1 - (enemy.coolingTimer / 1.0)));
+              heat = Math.max(0, 1 - coolingProgress);
+            }
+            if (heat > 0) {
+              enemyColor = heat > 0.6 ? "#ef4444" : (heat > 0.2 ? "#f97316" : "#ff814a");
+            }
+          }
+
           // Внешнее свечение.
           ctx.beginPath();
           ctx.arc(0, 0, enemy.r + 5, 0, Math.PI * 2);
-          ctx.fillStyle = `${enemy.color}18`;
+          ctx.fillStyle = `${enemyColor}18`;
           ctx.fill();
 
           // Тело врага.
           ctx.beginPath();
           ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
-          ctx.fillStyle = enemy.color;
+          ctx.fillStyle = enemyColor;
           ctx.fill();
 
-          drawEnemyModel(ctx, enemy.type, enemy.r, enemy.color, {
+          drawEnemyModel(ctx, enemy.type, enemy.r, enemyColor, {
             now: performance.now(),
             id: enemy.id,
             shieldActive: Boolean(enemy.shieldActive),
@@ -19104,6 +19189,8 @@ osc.stop(now + 0.05);
             chargeState: enemy.chargeState,
             chargeDx: enemy.chargeDx,
             chargeDy: enemy.chargeDy,
+            chargeProgress,
+            coolingProgress,
             isCharging: Boolean(enemy.isCharging)
           });
         }

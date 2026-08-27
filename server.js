@@ -4332,8 +4332,13 @@ function updateServerEnemies(
       }
     } else if (enemy.type === "charger") {
       if (!enemy.chargeState) enemy.chargeState = "idle";
-      if (enemy.chargeCooldown === undefined) enemy.chargeCooldown = 1.2;
+      if (enemy.chargeCooldown === undefined) enemy.chargeCooldown = 1.0;
       if (enemy.chargeTimer === undefined) enemy.chargeTimer = 0;
+      if (enemy.coolingTimer === undefined) enemy.coolingTimer = 0;
+
+      const dashDistance = 160;
+      const dashDuration = 0.48;
+      const dashSpeed = dashDistance / dashDuration;
 
       if (enemy.chargeCooldown > 0) {
         enemy.chargeCooldown -= dt;
@@ -4344,7 +4349,7 @@ function updateServerEnemies(
         enemy.isCharging = false;
         if (enemy.chargeTimer <= 0) {
           enemy.chargeState = "dashing";
-          enemy.chargeTimer = 0.55;
+          enemy.chargeTimer = dashDuration;
           enemy.isCharging = true;
         }
       } else if (enemy.chargeState === "dashing") {
@@ -4352,24 +4357,39 @@ function updateServerEnemies(
         enemy.isCharging = true;
         enemy.x +=
           (enemy.chargeDx || dx) *
-          enemy.speed *
+          dashSpeed *
           difficulty.enemySpeed *
-          3.6 *
           dt;
         enemy.y +=
           (enemy.chargeDy || dy) *
-          enemy.speed *
+          dashSpeed *
           difficulty.enemySpeed *
-          3.6 *
           dt;
         if (enemy.chargeTimer <= 0) {
-          enemy.chargeState = "idle";
+          enemy.chargeState = "cooling";
+          enemy.coolingTimer = 1.0;
           enemy.isCharging = false;
-          enemy.chargeCooldown = 2.0;
+          enemy.chargeCooldown = 1.8;
         }
+      } else if (enemy.chargeState === "cooling") {
+        enemy.coolingTimer -= dt;
+        enemy.isCharging = false;
+        if (enemy.coolingTimer <= 0) {
+          enemy.chargeState = "idle";
+        }
+        enemy.x +=
+          dx *
+          enemy.speed *
+          difficulty.enemySpeed *
+          dt;
+        enemy.y +=
+          dy *
+          enemy.speed *
+          difficulty.enemySpeed *
+          dt;
       } else {
         enemy.isCharging = false;
-        if (enemy.chargeCooldown <= 0 && targetDistance < 280 && enemy.hasEnteredArena) {
+        if (enemy.chargeCooldown <= 0 && targetDistance <= dashDistance && enemy.hasEnteredArena) {
           enemy.chargeState = "windup";
           enemy.chargeTimer = 0.65;
           enemy.chargeDx = dx;
