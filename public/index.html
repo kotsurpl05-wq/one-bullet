@@ -12110,46 +12110,57 @@ osc.stop(now + 0.05);
 
             const mobId = selectedBestiaryId;
 
+            // 1. TWIN (Связанные близнецы) - Орбитальное вращение вокруг общего центра масс
             if (mobId === "twin") {
-              const tDist = 38 + Math.sin(now * 0.003) * 6;
-              const p1 = { x: -tDist, y: 0 };
-              const p2 = { x: tDist, y: 0 };
+              const orbitAngle = now * 0.0018;
+              const tDist = 42 + Math.sin(now * 0.003) * 8;
+              const p1 = { x: Math.cos(orbitAngle) * tDist, y: Math.sin(orbitAngle) * tDist };
+              const p2 = { x: -Math.cos(orbitAngle) * tDist, y: -Math.sin(orbitAngle) * tDist };
               const tr = 12;
               const tColor = "#ff6b9d";
 
-              // Dashed laser line between them (exact match with in-game drawEnemies)
+              // Dashed laser beam tether between twins
               bCtx.save();
               bCtx.strokeStyle = tColor;
-              bCtx.lineWidth = 2;
-              bCtx.globalAlpha = 0.75;
+              bCtx.lineWidth = 2.2;
+              bCtx.shadowColor = tColor;
+              bCtx.shadowBlur = 10;
+              bCtx.globalAlpha = 0.8;
               bCtx.setLineDash([6, 4]);
               bCtx.beginPath();
               bCtx.moveTo(p1.x, p1.y);
               bCtx.lineTo(p2.x, p2.y);
               bCtx.stroke();
               bCtx.setLineDash([]);
+
+              // Travelling energy pulse along the tether
+              const pulseProg = (now * 0.002) % 1;
+              const sparkX = p1.x + (p2.x - p1.x) * pulseProg;
+              const sparkY = p1.y + (p2.y - p1.y) * pulseProg;
+              bCtx.beginPath();
+              bCtx.arc(sparkX, sparkY, 3, 0, Math.PI * 2);
+              bCtx.fillStyle = "#ffffff";
+              bCtx.shadowColor = "#f472b6";
+              bCtx.shadowBlur = 8;
+              bCtx.fill();
               bCtx.restore();
 
               [p1, p2].forEach((p, pIdx) => {
                 bCtx.save();
                 bCtx.translate(p.x, p.y);
 
-                // Outer glow
                 bCtx.beginPath();
                 bCtx.arc(0, 0, tr + 5, 0, Math.PI * 2);
                 bCtx.fillStyle = `${tColor}18`;
                 bCtx.fill();
 
-                // Body
                 bCtx.beginPath();
                 bCtx.arc(0, 0, tr, 0, Math.PI * 2);
                 bCtx.fillStyle = tColor;
                 bCtx.fill();
 
-                // Distinctive twin cyber model
                 drawEnemyModel(bCtx, "twin", tr, tColor, { now: now + pIdx * 1000, id: pIdx });
 
-                // Health bar
                 const barW = tr * 2;
                 bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
                 bCtx.fillRect(-barW / 2, -tr - 8, barW, 3.5);
@@ -12169,41 +12180,267 @@ osc.stop(now + 0.05);
             let color = "#ff5577";
 
             if (mobId === "normal") {
-              r = 16;
-              color = "#ff5577";
+              r = 16; color = "#ff5577";
             } else if (mobId === "runner") {
-              r = 14;
-              color = "#ffca55";
+              r = 14; color = "#ffca55";
             } else if (mobId === "tank") {
-              r = 25;
-              color = "#b56dff";
+              r = 25; color = "#b56dff";
             } else if (mobId === "shooter") {
-              r = 16;
-              color = "#50d890";
+              r = 16; color = "#50d890";
             } else if (mobId === "splitter") {
-              r = 20;
-              color = "#46b8ff";
+              r = 20; color = "#46b8ff";
             } else if (mobId === "charger") {
-              r = 15;
-              color = "#ff814a";
+              r = 15; color = "#ff814a";
             } else if (mobId === "incubator") {
-              r = 26;
-              color = "#059669";
+              r = 26; color = "#059669";
             } else if (mobId === "phantom") {
-              r = 15;
-              color = "#88eedd";
+              r = 15; color = "#88eedd";
             } else if (mobId === "magnetizer") {
-              r = 19;
-              color = "#c084fc";
+              r = 19; color = "#c084fc";
             } else if (mobId === "boss") {
-              r = 38;
-              color = "#ff3f8f";
+              r = 38; color = "#ff3f8f";
             }
 
-            // Phased alpha for Phantom (exact match with in-game drawEnemies)
-            if (mobId === "phantom") {
-              bCtx.globalAlpha = 0.35 + Math.sin(now * 0.005) * 0.35;
+            let mx = 0;
+            let my = 0;
+            let extraAlpha = 1;
+
+            // Unique movement patterns & behavior showcases
+            if (mobId === "runner") {
+              // Скоростное патрулирование с форсажем и шлейфом
+              const runSpeed = now * 0.003;
+              mx = Math.cos(runSpeed) * 44;
+              my = Math.sin(runSpeed * 2) * 18;
+
+              // Призрачные шлейфы скорости
+              for (let g = 1; g <= 3; g++) {
+                const pastSpeed = (now - g * 45) * 0.003;
+                const gx = Math.cos(pastSpeed) * 44;
+                const gy = Math.sin(pastSpeed * 2) * 18;
+                bCtx.save();
+                bCtx.translate(gx, gy);
+                bCtx.globalAlpha = 0.28 / g;
+                bCtx.beginPath();
+                bCtx.arc(0, 0, r, 0, Math.PI * 2);
+                bCtx.fillStyle = color;
+                bCtx.fill();
+                bCtx.restore();
+              }
+            } else if (mobId === "charger") {
+              // Цикл тарана: Прицеливание -> Рывок -> Остановка
+              const cycle = (now % 3200) / 3200;
+              if (cycle < 0.35) {
+                // Подготовка и прицеливание с лазерной линией
+                const vib = Math.sin(now * 0.06) * 2;
+                mx = -55 + vib;
+                my = 0;
+
+                bCtx.save();
+                bCtx.strokeStyle = "rgba(251, 146, 60, 0.45)";
+                bCtx.lineWidth = 1.5;
+                bCtx.setLineDash([4, 4]);
+                bCtx.beginPath();
+                bCtx.moveTo(-55, 0);
+                bCtx.lineTo(95, 0);
+                bCtx.stroke();
+                bCtx.restore();
+              } else if (cycle < 0.65) {
+                // Молниеносный рывок вперед со шлейфом
+                const prog = (cycle - 0.35) / 0.30;
+                mx = -55 + prog * 115;
+                my = 0;
+
+                bCtx.save();
+                bCtx.strokeStyle = "rgba(255, 237, 213, 0.5)";
+                bCtx.lineWidth = 2;
+                bCtx.beginPath();
+                bCtx.moveTo(mx - 30, my - 6); bCtx.lineTo(mx - 10, my - 6);
+                bCtx.moveTo(mx - 40, my); bCtx.lineTo(mx - 15, my);
+                bCtx.moveTo(mx - 30, my + 6); bCtx.lineTo(mx - 10, my + 6);
+                bCtx.stroke();
+                bCtx.restore();
+              } else {
+                // Торможение и разворот
+                const prog = (cycle - 0.65) / 0.35;
+                mx = 60 - Math.sin(prog * Math.PI) * 115;
+                my = Math.sin(prog * Math.PI) * 12;
+              }
+            } else if (mobId === "shooter") {
+              // Тактический стрейф и снайперский прицельный луч
+              mx = Math.sin(now * 0.002) * 32;
+              my = Math.cos(now * 0.004) * 10;
+
+              const shotCycle = (now % 2200) / 2200;
+              const targetX = 90;
+              const targetY = Math.sin(now * 0.003) * 22;
+
+              bCtx.save();
+              bCtx.strokeStyle = `rgba(52, 211, 153, ${0.25 + shotCycle * 0.7})`;
+              bCtx.lineWidth = shotCycle > 0.88 ? 3 : 1.4;
+              bCtx.setLineDash(shotCycle > 0.88 ? [] : [4, 4]);
+              bCtx.beginPath();
+              bCtx.moveTo(mx, my);
+              bCtx.lineTo(targetX, targetY);
+              bCtx.stroke();
+
+              // Прицельная рамка
+              bCtx.strokeStyle = "#34d399";
+              bCtx.lineWidth = 1.5;
+              bCtx.setLineDash([]);
+              bCtx.strokeRect(targetX - 7, targetY - 7, 14, 14);
+              bCtx.restore();
+            } else if (mobId === "magnetizer") {
+              // Левитация и гравитационная воронка, притягивающая частицы
+              mx = Math.sin(now * 0.0016) * 18;
+              my = Math.cos(now * 0.0022) * 12;
+
+              for (let pi = 0; pi < 7; pi++) {
+                const pLife = ((now * 0.0008 + pi / 7) % 1);
+                const pDist = 85 * (1 - pLife);
+                const pAngle = pi * (Math.PI * 2 / 7) + now * 0.003;
+                const px = mx + Math.cos(pAngle) * pDist;
+                const py = my + Math.sin(pAngle) * pDist;
+
+                bCtx.save();
+                bCtx.beginPath();
+                bCtx.arc(px, py, 2.5 * (1 - pLife), 0, Math.PI * 2);
+                bCtx.fillStyle = "#c084fc";
+                bCtx.shadowColor = "#a855f7";
+                bCtx.shadowBlur = 6;
+                bCtx.fill();
+                bCtx.restore();
+              }
+            } else if (mobId === "incubator") {
+              // Тяжелое покачивание и 2 эскорт-миньона на орбите
+              mx = Math.sin(now * 0.0012) * 15;
+              my = Math.cos(now * 0.0018) * 10;
+
+              for (let m = 0; m < 2; m++) {
+                const ma = now * 0.0022 + m * Math.PI;
+                const minionX = mx + Math.cos(ma) * 56;
+                const minionY = my + Math.sin(ma) * 34;
+
+                bCtx.save();
+                bCtx.translate(minionX, minionY);
+
+                bCtx.beginPath();
+                bCtx.arc(0, 0, 9, 0, Math.PI * 2);
+                bCtx.fillStyle = "#059669";
+                bCtx.fill();
+
+                drawEnemyModel(bCtx, "minion", 9, "#059669", { now });
+                bCtx.restore();
+              }
+            } else if (mobId === "phantom") {
+              // Призрачный телепортационный цикл сквозь 4 точки
+              const phaseCycle = (now % 4400) / 4400;
+              const waypoints = [
+                { x: -45, y: -22 },
+                { x: 45, y: -18 },
+                { x: 28, y: 24 },
+                { x: -38, y: 22 }
+              ];
+              const seg = Math.floor(phaseCycle * 4);
+              const segProg = (phaseCycle * 4) % 1;
+              const currWp = waypoints[seg];
+              const nextWp = waypoints[(seg + 1) % 4];
+
+              if (segProg < 0.28) {
+                mx = currWp.x;
+                my = currWp.y;
+                extraAlpha = 0.9 - (segProg / 0.28) * 0.7;
+              } else if (segProg < 0.58) {
+                const warpP = (segProg - 0.28) / 0.30;
+                mx = currWp.x + (nextWp.x - currWp.x) * warpP;
+                my = currWp.y + (nextWp.y - currWp.y) * warpP;
+                extraAlpha = 0.2;
+              } else {
+                mx = nextWp.x;
+                my = nextWp.y;
+                extraAlpha = 0.2 + ((segProg - 0.58) / 0.42) * 0.75;
+              }
+            } else if (mobId === "splitter") {
+              // Пульсирующая нестабильность кристалла с фантомными осколками
+              mx = Math.sin(now * 0.0016) * 16;
+              my = Math.cos(now * 0.0022) * 12;
+
+              const fissionPulse = (Math.sin(now * 0.004) + 1) / 2;
+              if (fissionPulse > 0.7) {
+                const sep = (fissionPulse - 0.7) * 45;
+                for (let s = 0; s < 3; s++) {
+                  const sa = (s / 3) * Math.PI * 2 + now * 0.002;
+                  const sx = mx + Math.cos(sa) * sep;
+                  const sy = my + Math.sin(sa) * sep;
+                  bCtx.save();
+                  bCtx.translate(sx, sy);
+                  bCtx.globalAlpha = 0.35;
+                  drawEnemyModel(bCtx, "splitter", 10, "#38bdf8", { now });
+                  bCtx.restore();
+                }
+              }
+            } else if (mobId === "tank") {
+              // Тяжелая поступь с сейсмическими ударными волнами
+              mx = Math.sin(now * 0.001) * 22;
+              my = Math.cos(now * 0.0016) * 8;
+
+              for (let st = 0; st < 2; st++) {
+                const stProg = ((now * 0.0009 + st * 0.5) % 1);
+                const stR = r + stProg * 32;
+                bCtx.save();
+                bCtx.strokeStyle = `rgba(181, 109, 255, ${0.55 * (1 - stProg)})`;
+                bCtx.lineWidth = 2 * (1 - stProg);
+                bCtx.beginPath();
+                bCtx.ellipse(mx, my + 8, stR, stR * 0.38, 0, 0, Math.PI * 2);
+                bCtx.stroke();
+                bCtx.restore();
+              }
+            } else if (mobId === "normal") {
+              // Кибер-патрулирование со сканирующим конусом радара
+              mx = Math.sin(now * 0.0018) * 26;
+              my = Math.cos(now * 0.0024) * 14;
+
+              const scanAngle = Math.sin(now * 0.003) * 0.55;
+              bCtx.save();
+              bCtx.translate(mx, my);
+              bCtx.rotate(scanAngle);
+              const scanGrad = bCtx.createRadialGradient(0, 0, 4, 0, 0, 70);
+              scanGrad.addColorStop(0, "rgba(255, 85, 119, 0.22)");
+              scanGrad.addColorStop(1, "rgba(255, 85, 119, 0)");
+              bCtx.fillStyle = scanGrad;
+              bCtx.beginPath();
+              bCtx.moveTo(0, 0);
+              bCtx.arc(0, 0, 70, -0.32, 0.32);
+              bCtx.closePath();
+              bCtx.fill();
+              bCtx.restore();
+            } else if (mobId === "boss") {
+              // Парящий титан с прицельным лучом снайпера
+              mx = Math.sin(now * 0.001) * 8;
+              my = Math.cos(now * 0.0014) * 6;
+
+              const beamAngle = now * 0.0008;
+              const beamLen = 135;
+              const bx = mx + Math.cos(beamAngle) * beamLen;
+              const by = my + Math.sin(beamAngle) * beamLen;
+
+              bCtx.save();
+              bCtx.strokeStyle = "rgba(255, 63, 143, 0.45)";
+              bCtx.lineWidth = 1.5;
+              bCtx.setLineDash([6, 4]);
+              bCtx.beginPath();
+              bCtx.moveTo(mx, my);
+              bCtx.lineTo(bx, by);
+              bCtx.stroke();
+              bCtx.setLineDash([]);
+
+              bCtx.strokeStyle = "#ff3f8f";
+              bCtx.strokeRect(bx - 5, by - 5, 10, 10);
+              bCtx.restore();
             }
+
+            bCtx.save();
+            bCtx.translate(mx, my);
+            bCtx.globalAlpha = extraAlpha;
 
             // Outer glow
             bCtx.beginPath();
@@ -12224,6 +12461,16 @@ osc.stop(now + 0.05);
               sporesCount: 5
             });
 
+            // In-game Health Bar
+            const barWidth = r * 2;
+            const barHeight = 4;
+            bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+            bCtx.fillRect(-barWidth / 2, -r - 10, barWidth, barHeight);
+            bCtx.fillStyle = "#67ff9a";
+            bCtx.fillRect(-barWidth / 2, -r - 10, barWidth, barHeight);
+
+            bCtx.restore();
+
             if (mobId === "boss") {
               // 4 Arena Corner Energy Pylons (providing boss shield invulnerability)
               const cornerOffsets = [
@@ -12243,7 +12490,7 @@ osc.stop(now + 0.05);
                 bCtx.setLineDash([4, 4]);
                 bCtx.beginPath();
                 bCtx.moveTo(0, 0);
-                bCtx.lineTo(-cp.x * 0.65, -cp.y * 0.65);
+                bCtx.lineTo(mx - cp.x * 0.65, my - cp.y * 0.65);
                 bCtx.stroke();
                 bCtx.setLineDash([]);
 
@@ -12278,14 +12525,6 @@ osc.stop(now + 0.05);
                 bCtx.restore();
               });
             }
-
-            // In-game Health Bar
-            const barWidth = r * 2;
-            const barHeight = 4;
-            bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
-            bCtx.fillRect(-barWidth / 2, -r - 10, barWidth, barHeight);
-            bCtx.fillStyle = "#67ff9a";
-            bCtx.fillRect(-barWidth / 2, -r - 10, barWidth, barHeight);
 
             bCtx.restore();
 
