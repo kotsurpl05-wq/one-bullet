@@ -5735,25 +5735,44 @@ io.on("connection", socket => {
 
   socket.on("room:restart", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
-    if (!room || room.hostId !== socket.id) {
-      acknowledge?.({ success: false, message: "Только хозяин может перезапустить игру" });
+    if (!room || !room.started || !room.world) {
+      acknowledge?.({ success: false, message: "Комната не найдена или игра не запущена" });
       return;
     }
     touchRoom(room);
 
-    room.started = true;
-    room.world = createCoopWorld(room);
+    // Инициируем голосование за рестарт
+    if (!room.restartVotes) {
+      room.restartVotes = new Set();
+    }
+    room.restartVotes.add(socket.id);
 
-    io.to(room.code).emit("room:started", {
-      difficulty: room.difficulty
+    // Уведомляем всех о голосе
+    io.to(room.code).emit("net:game-event", {
+      type: "restart-vote",
+      voterId: socket.id,
+      voterName: room.players.get(socket.id)?.name || "Игрок",
+      votesCount: room.restartVotes.size,
+      votesNeeded: room.players.size
     });
 
-    io.to(room.code).emit(
-      "net:snapshot",
-      createServerCoopSnapshot(room, { full: true })
-    );
+    // Если все проголосовали — рестарт
+    if (room.restartVotes.size >= room.players.size) {
+      room.restartVotes = null;
+      room.world = createCoopWorld(room);
 
-    emitRoomState(room);
+      io.to(room.code).emit("room:started", {
+        difficulty: room.difficulty
+      });
+
+      io.to(room.code).emit(
+        "net:snapshot",
+        createServerCoopSnapshot(room, { full: true })
+      );
+
+      emitRoomState(room);
+    }
+
     sendAcknowledgement(acknowledge, { success: true });
   });
 

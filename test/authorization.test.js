@@ -33,29 +33,30 @@ test("R3.1 - R3.3 Authorization & Difficulty Hardening Suite", async (t) => {
     return { hostSocket, guestSocket, room, code };
   }
 
-  await t.test("1. room:restart authorization: guest rejected, host accepted", () => {
+  await t.test("1. room:restart vote: both players must vote to restart", () => {
     const { hostSocket, guestSocket, room } = setupRoomWithSockets("REST01");
     room.started = true;
     room.world = ctx.createCoopWorld(room);
+    const originalWorld = room.world;
 
-    // 1a. Guest attempts restart
+    // 1a. Guest votes for restart — not enough votes yet
     let guestAck;
     guestSocket.emit("room:restart", {}, (ack) => {
       guestAck = ack;
     });
 
-    assert.equal(guestAck.success, false, "Guest restart must fail");
-    assert.equal(guestAck.message, "Только хозяин может перезапустить игру");
+    assert.equal(guestAck.success, true, "Guest vote must succeed");
+    assert.equal(room.world, originalWorld, "World should NOT be recreated with 1 vote");
 
-    // 1b. Host attempts restart
+    // 1b. Host also votes — now restart happens
     let hostAck;
     hostSocket.emit("room:restart", {}, (ack) => {
       hostAck = ack;
     });
 
-    assert.equal(hostAck.success, true, "Host restart must succeed");
+    assert.equal(hostAck.success, true, "Host vote must succeed");
+    assert.notEqual(room.world, originalWorld, "World should be recreated after both voted");
     assert.equal(room.started, true);
-    assert.ok(room.world !== null, "World should be recreated");
   });
 
   await t.test("2. room:return-to-lobby authorization: guest rejected, host accepted", () => {

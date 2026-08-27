@@ -10107,27 +10107,27 @@
                 <span class="setting-desc">Выберите визуальный стиль, анимацию ядра и свечение пули</span>
               </div>
               <div class="skin-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
-                <button type="button" class="cyber-skin-btn ${(gameSettings.bulletSkin || 'neon') === 'neon' ? 'active' : ''}" data-skin="neon" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(0,242,254,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                <button type="button" class="cyber-skin-btn ${(gameSettings.bulletSkin || 'neon') === 'neon' ? 'active' : ''}" data-skin="neon" style="padding: 10px 8px; border: 1px solid ${(gameSettings.bulletSkin || 'neon') === 'neon' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${(gameSettings.bulletSkin || 'neon') === 'neon' ? 'rgba(56,189,248,0.2)' : 'rgba(0,242,254,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
                   <div style="font-size: 20px; margin-bottom: 4px;">⚡</div>
                   <strong>Плазмоид</strong>
                   <div style="font-size: 9px; color: #38bdf8;">Неон Cyan</div>
                 </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'fire' ? 'active' : ''}" data-skin="fire" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(255,69,0,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'fire' ? 'active' : ''}" data-skin="fire" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'fire' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'fire' ? 'rgba(56,189,248,0.2)' : 'rgba(255,69,0,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
                   <div style="font-size: 20px; margin-bottom: 4px;">🔥</div>
                   <strong>Метеор</strong>
                   <div style="font-size: 9px; color: #fb923c;">Огонь & Лава</div>
                 </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'quantum' ? 'active' : ''}" data-skin="quantum" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(56,189,248,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'quantum' ? 'active' : ''}" data-skin="quantum" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'quantum' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'quantum' ? 'rgba(56,189,248,0.2)' : 'rgba(56,189,248,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
                   <div style="font-size: 20px; margin-bottom: 4px;">💠</div>
                   <strong>Сюрикен</strong>
                   <div style="font-size: 9px; color: #818cf8;">Квантовый 4-Blade</div>
                 </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'toxic' ? 'active' : ''}" data-skin="toxic" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(34,197,94,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'toxic' ? 'active' : ''}" data-skin="toxic" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'toxic' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'toxic' ? 'rgba(56,189,248,0.2)' : 'rgba(34,197,94,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
                   <div style="font-size: 20px; margin-bottom: 4px;">☣️</div>
                   <strong>Био-Сгусток</strong>
                   <div style="font-size: 9px; color: #4ade80;">Кислотный Яд</div>
                 </button>
-                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'cosmic' ? 'active' : ''}" data-skin="cosmic" style="padding: 10px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(234,179,8,0.08); color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
+                <button type="button" class="cyber-skin-btn ${gameSettings.bulletSkin === 'cosmic' ? 'active' : ''}" data-skin="cosmic" style="padding: 10px 8px; border: 1px solid ${gameSettings.bulletSkin === 'cosmic' ? '#38bdf8' : 'rgba(255,255,255,0.15)'}; border-radius: 8px; background: ${gameSettings.bulletSkin === 'cosmic' ? 'rgba(56,189,248,0.2)' : 'rgba(234,179,8,0.08)'}; color: #fff; cursor: pointer; text-align: center; font-size: 11px;">
                   <div style="font-size: 20px; margin-bottom: 4px;">✨</div>
                   <strong>Комета</strong>
                   <div style="font-size: 9px; color: #facc15;">Звёздная Аура</div>
@@ -11825,6 +11825,20 @@
           );
         }
       );
+
+      net.addEventListener("game-event", event => {
+        const payload = event.detail;
+        if (payload?.type === "restart-vote") {
+          const isMe = payload.voterId === window.net?.playerId;
+          if (isMe) {
+            coopSession.restartVoteSent = true;
+          }
+          if (!isMe && coopSession.active) {
+            coopSession.restartVoteNotice = `${payload.voterName} хочет начать заново (${payload.votesCount}/${payload.votesNeeded})`;
+            coopSession.restartVoteNoticeTimer = 4.0;
+          }
+        }
+      });
     }
 
     function createCoopPlayer(
@@ -18189,8 +18203,8 @@
       
         if (action === "restart") {
           /*
-           * Локальный restartGame() разрешён только
-           * для настоящего одиночного забега.
+           * Соло: мгновенный перезапуск.
+           * Кооп: голосование — обоим нужно нажать «Начать заново».
            */
           if (
             runMode === "solo" &&
@@ -18198,8 +18212,10 @@
           ) {
             hidePauseMenu();
             restartGame();
+          } else if (window.net?.isMultiplayer) {
+            net.restartRoom();
           }
-        
+
           return;
         }
       
