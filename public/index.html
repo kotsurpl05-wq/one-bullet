@@ -5446,7 +5446,7 @@
           targetY
         );
       
-        const chainDmg = Math.floor((stats.damage || 100) * (stats.chainDamageRatio || 0.6));
+        const chainDmg = Math.max(1, Math.floor((stats.damage || 100) * (stats.chainDamageRatio || 0.6)));
         damageEnemy(targetIndex, chainDmg);
       
         currentX = targetX;
@@ -5563,7 +5563,7 @@
       
         const explosionDamage = Math.max(
           1,
-          Math.floor(stats.damage * 0.5)
+          Math.floor(stats.damage * (stats.explosionDamageRatio || 0.6))
         );
       
         for (let i = enemies.length - 1; i >= 0; i--) {
