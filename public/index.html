@@ -5310,7 +5310,7 @@
            * Эффект Бумеранга: возвращающаяся пуля (pull)
            * наносит +50% урона по врагам на пути.
            */
-          if (stats.boomerang) {
+          if (stats.boomerang && (stats.boomerangPercent || 0) > 0) {
             for (let ei = enemies.length - 1; ei >= 0; ei--) {
               const enemy = enemies[ei];
               if (!enemy || !enemy.hasEnteredArena) continue;
@@ -5325,8 +5325,7 @@
 
               if (eDist <= hitDist) {
                 bullet.hitEnemies.add(enemy.id);
-                const percent = Math.min(1.0, Math.max(0.25, stats.boomerangPercent || 0.25));
-                const boomerangDmg = Number((stats.damage * percent).toFixed(2));
+                const boomerangDmg = Math.max(1, Math.floor(stats.damage * (stats.boomerangPercent || 0.25)));
 
                 damageEnemy(ei, boomerangDmg);
               }
@@ -7708,27 +7707,6 @@
         }
       },
       {
-        title: "Магнитное поле",
-        description: "Притягивает лежащие патроны к игроку со скоростью +110 px/с (радиус 20 клеток).",
-        applyWithPower(power) {
-          stats.pickupRadius = 0;
-          stats.groundPullSpeed = (stats.groundPullSpeed || 0) + 110 * power;
-        }
-      },
-      {
-        title: "Радиус магнита",
-        description: "Увеличивает дистанцию притягивания патронов на +5 клеток (макс. 40 клеток).",
-        available() {
-          return (stats.groundPullSpeed || 0) > 0 && (stats.magnetRangeBonusCells || 0) < 20;
-        },
-        applyWithPower(power) {
-          stats.magnetRangeBonusCells = Math.min(
-            20,
-            (stats.magnetRangeBonusCells || 0) + 5 * power
-          );
-        }
-      },
-      {
         title: "Импульсный захват",
         description: "Пойманная пуля создает импульсную волну, наносящую урон ближайшим врагам.",
         fixedRarity: "rare",
@@ -7901,35 +7879,45 @@
       },
       {
         title: "Эффект Бумеранга",
-        description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+50% за уровень, макс. 150%).",
+        description: "Пуля автоматически притягивается к владельцу (120 px/с, радиус 20 кл).",
         fixedRarity: "rare",
         available() {
-          return (stats.groundPullSpeed || 0) > 0 && !stats.boomerang;
+          return !stats.boomerang;
         },
-        applyWithPower(power) {
+        applyWithPower() {
           stats.boomerang = true;
-          const cur = stats.boomerangPercent || 0;
-          stats.boomerangPercent = cur === 0 ? Math.min(1.5, 0.50 * power) : Math.min(1.5, cur + 0.25 * power);
+          stats.groundPullSpeed = 120;
+          stats.magnetRangeBonusCells = stats.magnetRangeBonusCells || 0;
         }
       },
       {
         title: "Тяжёлый бумеранг",
-        description: "Увеличивает урон возвращающейся пули на +25% (макс. 150% урона пули).",
+        description: "Возвращающаяся пуля наносит урон врагам на пути (+25% за уровень, макс. 150%).",
         available() {
-          return Boolean(stats.boomerang) && (stats.boomerangPercent || 0.50) < 1.5;
+          return Boolean(stats.boomerang) && (stats.boomerangPercent || 0) < 1.5;
         },
         applyWithPower(power) {
-          stats.boomerangPercent = Math.min(1.5, (stats.boomerangPercent || 0.50) + 0.25 * power);
+          stats.boomerangPercent = Math.min(1.5, (stats.boomerangPercent || 0) + 0.25 * power);
         }
       },
       {
         title: "Турбо-магнит",
-        description: "Увеличивает скорость притягивания патронов бумерангом на +120 px/с.",
+        description: "Увеличивает скорость притягивания пули на +120 px/с (макс. 600 px/с).",
         available() {
-          return Boolean(stats.boomerang) && (stats.groundPullSpeed || 0) < 600;
+          return Boolean(stats.boomerang) && (stats.groundPullSpeed || 120) < 600;
         },
         applyWithPower(power) {
-          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 0) + 120 * power);
+          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 120) + 120 * power);
+        }
+      },
+      {
+        title: "Дальний захват",
+        description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 40 кл).",
+        available() {
+          return Boolean(stats.boomerang) && (stats.magnetRangeBonusCells || 0) < 20;
+        },
+        applyWithPower(power) {
+          stats.magnetRangeBonusCells = Math.min(20, (stats.magnetRangeBonusCells || 0) + 5 * power);
         }
       },
       {
@@ -17545,7 +17533,8 @@
         baseIds: ["boomerang", "Эффект Бумеранга"],
         branches: [
           { id: "boomerang-damage", title: "Тяжёлый бумеранг", slot: "tl", icon: "💥", color: "#38bdf8" },
-          { id: "boomerang-speed", title: "Турбо-магнит", slot: "tr", icon: "⚡", color: "#38bdf8" }
+          { id: "boomerang-speed", title: "Турбо-магнит", slot: "tr", icon: "⚡", color: "#38bdf8" },
+          { id: "boomerang-range", title: "Дальний захват", slot: "bl", icon: "📡", color: "#38bdf8" }
         ]
       },
       "splinter": {

@@ -964,7 +964,7 @@ function updateServerBullet(
        * (полный путь возврата), чтобы даже при малом dt
        * пуля поражала врагов на траектории.
        */
-      if (owner.stats?.boomerang) {
+      if (owner.stats?.boomerang && (owner.stats?.boomerangPercent || 0) > 0) {
         for (const enemy of world.enemies.values()) {
           if (!enemy.hasEnteredArena) continue;
           if (enemy.type === "phantom" && enemy.isPhased) continue;
@@ -979,9 +979,9 @@ function updateServerBullet(
 
           if (segDist <= hitDist) {
             bullet.hitEnemies.add(enemy.id);
-            const boomerangDmg = Math.floor(
-              (owner.stats?.damage || 100) * 1.5
-            );
+            const boomerangDmg = Math.max(1, Math.floor(
+              (owner.stats?.damage || 100) * (owner.stats.boomerangPercent || 0.25)
+            ));
 
             bullet.hitsLeft += 1;
             damageServerEnemy(
@@ -2403,30 +2403,6 @@ const SERVER_UPGRADES = [
   },
 
   {
-    id: "pickup",
-    title: "Магнитное поле",
-    description: "Притягивает лежащие патроны к игроку со скоростью +110 px/с (радиус 20 клеток).",
-    bonus(player, power) {
-      const speed = 110 * power;
-      return `+${speed} px/с к скорости притяжения (в радиусе 20 клеток)`;
-    }
-  },
-
-  {
-    id: "magnet-range",
-    title: "Радиус магнита",
-    description: "Увеличивает дистанцию притягивания патронов на +5 клеток (макс. 40 клеток).",
-    available(player) {
-      return (player.stats?.groundPullSpeed || 0) > 0 && (player.stats?.magnetRangeBonusCells || 0) < 20;
-    },
-    bonus(player, power) {
-      const current = player.stats?.magnetRangeBonusCells || 0;
-      const result = Math.min(20, current + 5 * power);
-      return `+${result - current} кл. к радиусу притягивания (итог: ${20 + result} кл.)`;
-    }
-  },
-
-  {
     id: "critical",
     title: "Критический механизм",
     description: "Повышает шанс нанести критический урон x2.0 (макс. 60%).",
@@ -2639,25 +2615,25 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Возвращающаяся магнитом пуля наносит урон на пути возврата (+50% за уровень, макс. 150%).",
+    description: "Пуля автоматически притягивается к владельцу (120 px/с, радиус 20 кл).",
     fixedRarity: "rare",
     available(player) {
-      return (player.stats?.groundPullSpeed || 0) > 0 && !player.stats?.boomerang;
+      return !player.stats?.boomerang;
     },
-    bonus(player, power) {
-      return `Урон при возврате: 50% урона пули (пробивает врагов)`;
+    bonus() {
+      return `Магнитный возврат: 120 px/с, радиус 20 клеток`;
     }
   },
 
   {
     id: "boomerang-damage",
     title: "Тяжёлый бумеранг",
-    description: "Увеличивает урон возвращающейся пули на +25% (макс. 150% урона пули).",
+    description: "Возвращающаяся пуля наносит урон врагам на пути (+25% за уровень, макс. 150%).",
     available(player) {
-      return Boolean(player.stats?.boomerang) && (player.stats?.boomerangPercent || 0.5) < 1.5;
+      return Boolean(player.stats?.boomerang) && (player.stats?.boomerangPercent || 0) < 1.5;
     },
     bonus(player, power) {
-      const current = player.stats?.boomerangPercent || 0.5;
+      const current = player.stats?.boomerangPercent || 0;
       const result = Math.min(1.5, current + 0.25 * power);
       return `+${Math.round((result - current) * 100)}% к урону бумеранга (итог: ${Math.round(result * 100)}%)`;
     }
@@ -2666,14 +2642,28 @@ const SERVER_UPGRADES = [
   {
     id: "boomerang-speed",
     title: "Турбо-магнит",
-    description: "Увеличивает скорость притягивания патронов бумерангом на +120 px/с.",
+    description: "Увеличивает скорость притягивания пули на +120 px/с (макс. 600 px/с).",
     available(player) {
-      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 0) < 600;
+      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 120) < 600;
     },
     bonus(player, power) {
-      const current = player.stats?.groundPullSpeed || 0;
+      const current = player.stats?.groundPullSpeed || 120;
       const result = Math.min(600, current + 120 * power);
       return `+${result - current} px/с к скорости возврата (итог: ${result} px/с)`;
+    }
+  },
+
+  {
+    id: "boomerang-range",
+    title: "Дальний захват",
+    description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 40 кл).",
+    available(player) {
+      return Boolean(player.stats?.boomerang) && (player.stats?.magnetRangeBonusCells || 0) < 20;
+    },
+    bonus(player, power) {
+      const current = player.stats?.magnetRangeBonusCells || 0;
+      const result = Math.min(20, current + 5 * power);
+      return `+${result - current} кл. к радиусу захвата (итог: ${20 + result} кл.)`;
     }
   },
 
@@ -4715,7 +4705,9 @@ function applyServerUpgrade(
 
     case "pickup":
     case "recall-magnet":
-      player.stats.groundPullSpeed = (player.stats.groundPullSpeed || 0) + 110 * power;
+      // Legacy: kept for backward compatibility with old saves
+      player.stats.boomerang = true;
+      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 0) + 120 * power);
       break;
 
     case "magnet-range":
@@ -4724,17 +4716,21 @@ function applyServerUpgrade(
 
     case "boomerang": {
       player.stats.boomerang = true;
-      const cur = player.stats.boomerangPercent || 0;
-      player.stats.boomerangPercent = cur === 0 ? Math.min(1.5, 0.50 * power) : Math.min(1.5, cur + 0.25 * power);
+      player.stats.groundPullSpeed = 120;
+      player.stats.magnetRangeBonusCells = player.stats.magnetRangeBonusCells || 0;
       break;
     }
 
     case "boomerang-damage":
-      player.stats.boomerangPercent = Math.min(1.5, (player.stats.boomerangPercent || 0.50) + 0.25 * power);
+      player.stats.boomerangPercent = Math.min(1.5, (player.stats.boomerangPercent || 0) + 0.25 * power);
       break;
 
     case "boomerang-speed":
-      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 0) + 120 * power);
+      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 120) + 120 * power);
+      break;
+
+    case "boomerang-range":
+      player.stats.magnetRangeBonusCells = Math.min(20, (player.stats.magnetRangeBonusCells || 0) + 5 * power);
       break;
 
     case "splinter":

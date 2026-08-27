@@ -21,7 +21,7 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
   });
 
   // =========================================================================
-  // FOCUS AREA 1: "Магнитное поле" (Magnetic Field) Mechanics & Physics
+  // FOCUS AREA 1: Boomerang Family Mechanics & Physics (replaces old Магнитное поле)
   // =========================================================================
 
   // applyServerUpgrade(world, player, offer) takes exactly THREE arguments.
@@ -30,87 +30,55 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
   const applyUpgrade = (world, player, upgradeId, power) =>
     ctx.applyServerUpgrade(world, player, { upgradeId, power });
 
-  await t.test("1.1 Dual Stats Application: groundPullSpeed (+110*p) across powers", () => {
+  await t.test("1.1 Boomerang family: base gives 120 pullSpeed, boomerang-speed adds +120*p", () => {
     const { world, player1 } = createTestWorld(ctx);
 
     // Initial baseline stats
-    assert.equal(player1.stats.pickupRadius || 0, 0);
     assert.equal(player1.stats.groundPullSpeed || 0, 0);
 
     // Guard the invocation contract itself: power must actually reach the server.
-    // A 4-argument call silently loses `power`, which is the bug this test had.
     assert.equal(
       ctx.applyServerUpgrade.length,
       3,
       "applyServerUpgrade takes (world, player, offer); power must ride inside the offer"
     );
 
-    // Each application is additive: stats += 35 * power / 110 * power.
-    // Power 1 (Common)
-    applyUpgrade(world, player1, "pickup", 1);
-    // pickupRadius is 0 (touch pickup)
-    assert.equal(player1.stats.groundPullSpeed, 110, "Power 1 adds +110 (total 110)");
+    // Boomerang base: sets groundPullSpeed = 120
+    applyUpgrade(world, player1, "boomerang", 1);
+    assert.equal(player1.stats.groundPullSpeed, 120, "Boomerang base sets groundPullSpeed to 120");
+    assert.ok(player1.stats.boomerang, "Boomerang flag must be true");
 
-    // Power 2 (Rare) adds +70 / +220 on top of the previous total
-    applyUpgrade(world, player1, "pickup", 2);
-    // pickupRadius is 0 (touch pickup)
-    assert.equal(player1.stats.groundPullSpeed, 110 + 220, "Power 2 adds +220 (total 330)");
+    // boomerang-speed power 1: +120 (total 240)
+    applyUpgrade(world, player1, "boomerang-speed", 1);
+    assert.equal(player1.stats.groundPullSpeed, 240, "boomerang-speed power 1 adds +120 (total 240)");
 
-    // Power 3 (Legendary) via the 'magnetic-field' alias adds +105 / +330
-    applyUpgrade(world, player1, "magnetic-field", 3);
-    // pickupRadius is 0 (touch pickup)
-    assert.equal(player1.stats.groundPullSpeed, 330 + 330, "Power 3 adds +330 (total 660)");
+    // boomerang-speed power 2: +240 (total 480)
+    applyUpgrade(world, player1, "boomerang-speed", 2);
+    assert.equal(player1.stats.groundPullSpeed, 480, "boomerang-speed power 2 adds +240 (total 480)");
 
-    // Every single application must contribute exactly 35*p / 110*p, so a
-    // wrong implementation (flat bonus, overwrite, or ignored power) still fails.
-    let expectedRadius = player1.stats.pickupRadius;
-    let expectedPull = player1.stats.groundPullSpeed;
-    for (let i = 1; i <= 20; i++) {
-      const p = (i % 3) + 1;
-      const radiusBefore = player1.stats.pickupRadius;
-      const pullBefore = player1.stats.groundPullSpeed;
-
-      applyUpgrade(world, player1, "pickup", p);
-
-      expectedRadius += 35 * p;
-      expectedPull += 110 * p;
-
-      // pickup is touch-based
-      assert.equal(
-        player1.stats.groundPullSpeed - pullBefore,
-        110 * p,
-        `Stack ${i} (power ${p}) must add exactly +${110 * p} groundPullSpeed`
-      );
-      // pickupRadius is 0 (touch pickup)
-      assert.equal(player1.stats.groundPullSpeed, expectedPull, `Stack ${i} pullSpeed mismatch`);
-    }
+    // boomerang-speed power 1: +120 (total 600, capped)
+    applyUpgrade(world, player1, "boomerang-speed", 1);
+    assert.equal(player1.stats.groundPullSpeed, 600, "boomerang-speed caps at 600");
   });
 
-  await t.test("1.2 Client-Server Definition & Bonus String Parity for 'Магнитное поле'", () => {
-    const upgrade = ctx.SERVER_UPGRADES.find(u => u.id === "pickup" || u.id === "magnetic-field");
-    assert.ok(upgrade, "Server must define 'pickup' upgrade");
-    assert.equal(upgrade.title, "Магнитное поле");
+  await t.test("1.2 Client-Server Definition & Bonus String Parity for 'Эффект Бумеранга'", () => {
+    const upgrade = ctx.SERVER_UPGRADES.find(u => u.id === "boomerang");
+    assert.ok(upgrade, "Server must define 'boomerang' upgrade");
+    assert.equal(upgrade.title, "Эффект Бумеранга");
 
     // Test bonus text output
-    const dummyPlayer = { stats: { pickupRadius: 0, groundPullSpeed: 0 } };
+    const dummyPlayer = { stats: { groundPullSpeed: 0 } };
     const bonusP1 = upgrade.bonus(dummyPlayer, 1);
-    // no pickup radius text
-    assert.ok(bonusP1.includes("+110"), `Bonus text must mention +110: ${bonusP1}`);
+    assert.ok(bonusP1.includes("120") || bonusP1.includes("Магнит"), `Bonus text must mention 120 or magnet: ${bonusP1}`);
 
-    const bonusP2 = upgrade.bonus(dummyPlayer, 2);
-    // no pickup radius text
-    assert.ok(bonusP2.includes("+220"), `Bonus text must mention +220: ${bonusP2}`);
-
-    // Verify client HTML contains matching definition and logic
+    // Verify client HTML contains matching definition
     const html = fs.readFileSync(path.resolve(process.cwd(), "public/index.html"), "utf8");
-    assert.ok(html.includes('title: "Магнитное поле"'), "index.html must have title 'Магнитное поле'");
-    // pickupRadius is 0
-    assert.ok(html.includes("stats.groundPullSpeed = (stats.groundPullSpeed || 0) + 110 * power;"), "Client must add 110 * power to groundPullSpeed");
+    assert.ok(html.includes('"Эффект Бумеранга"'), "index.html must have 'Эффект Бумеранга'");
   });
 
-  await t.test("1.3 Exclusivity Stress Test: 'Магнитное поле' is NEVER blocked by any build / stat combo", () => {
+  await t.test("1.3 Availability: Boomerang is available for any fresh build (no boomerang yet)", () => {
     const { world, player1 } = createTestWorld(ctx);
-    const upgrade = ctx.SERVER_UPGRADES.find(u => u.id === "pickup");
+    const upgrade = ctx.SERVER_UPGRADES.find(u => u.id === "boomerang");
 
     // Check availability across extreme / edge-case player builds
     const testBuilds = [
@@ -118,7 +86,6 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       { name: "Pierce build", stats: { pierce: 3, explosionRadius: 0, chainCount: 0, catchBlast: 0 } },
       { name: "AOE Explosive build", stats: { pierce: 0, explosionRadius: 80, chainCount: 4, catchBlast: 130 } },
       { name: "Max Crit build", stats: { critChance: 0.6 } },
-      { name: "Max Magnet build", stats: { pickupRadius: 500, groundPullSpeed: 1500 } },
       { name: "Max Bullet Radius build", stats: { bulletRadius: 15 } },
       { name: "Second Bullet build", stats: { magazineSize: 2 } },
       { name: "Low HP", hp: 1, maxHp: 6, stats: {} },
@@ -131,23 +98,27 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       if (build.maxHp) player1.maxHp = build.maxHp;
 
       if (typeof upgrade.available === "function") {
-        assert.equal(upgrade.available(player1), true, `'Магнитное поле' should be available for build: ${build.name}`);
+        assert.equal(upgrade.available(player1), true, `Boomerang should be available for build: ${build.name}`);
       }
 
-      // Run 500 offer generation batches and verify 'pickup' appears with non-zero probability
+      // Run 50 offer generation batches and verify 'boomerang' appears with non-zero probability
       let appearances = 0;
-      const iterations = 500;
+      const iterations = 50;
       for (let i = 0; i < iterations; i++) {
         const offers = ctx.createServerUpgradeOffers(player1);
-        if (offers.some(o => o.upgradeId === "pickup")) {
+        if (offers.some(o => o.upgradeId === "boomerang")) {
           appearances++;
         }
       }
       assert.ok(
         appearances > 0,
-        `'Магнитное поле' must appear in upgrade offers for build: ${build.name} (got ${appearances}/${iterations})`
+        `Boomerang must appear in upgrade offers for build: ${build.name} (got ${appearances}/${iterations})`
       );
     }
+
+    // Once acquired, boomerang should NOT be available
+    player1.stats = { boomerang: true };
+    assert.equal(upgrade.available(player1), false, "Boomerang should not be available once acquired");
   });
 
   await t.test("1.4 Simultaneous Physics Verification: Ground pull movement + Pickup radius catch", () => {

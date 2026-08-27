@@ -113,31 +113,24 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     );
   });
 
-  await t.test("Tier 1 - Unit 6: Magnetic Field Consolidation (pickupRadius + groundPullSpeed)", () => {
-    const magneticUpgrade = ctx.SERVER_UPGRADES.find(
-      u => u.id === "pickup" || u.id === "magnetic-field"
-    );
-    assert.ok(magneticUpgrade, "Consolidated magnetic field upgrade must exist");
+  await t.test("Tier 1 - Unit 6: Boomerang grants groundPullSpeed=120 and boomerang flag", () => {
+    const boomerangUpgrade = ctx.SERVER_UPGRADES.find(u => u.id === "boomerang");
+    assert.ok(boomerangUpgrade, "Boomerang upgrade must exist in SERVER_UPGRADES");
 
-    const { player1 } = createTestWorld(ctx);
-    const initialRadius = player1.stats.pickupRadius || 0;
+    const { world, player1 } = createTestWorld(ctx);
     const initialPull = player1.stats.groundPullSpeed || 0;
 
-    // Apply consolidated upgrade with power = 1
-    ctx.applyServerUpgrade(player1, magneticUpgrade.id, 1);
+    // Apply boomerang upgrade
+    ctx.applyServerUpgrade(world, player1, { upgradeId: "boomerang", power: 1 });
 
-    assert.equal(player1.stats.pickupRadius || 0, 0, "Pickup radius stays 0 (touch pickup)");
-    assert.equal(
-      player1.stats.groundPullSpeed,
-      initialPull + 110,
-      "Magnetic field must increase groundPullSpeed by +110 per power"
-    );
+    assert.equal(player1.stats.groundPullSpeed, 120, "Boomerang must set groundPullSpeed to 120");
+    assert.ok(player1.stats.boomerang, "Boomerang must set boomerang flag to true");
 
     // Bonus text description check
-    const bonusText = magneticUpgrade.bonus(player1, 1);
+    const bonusText = boomerangUpgrade.bonus(player1, 1);
     assert.ok(
-      bonusText.includes("35") || bonusText.includes("радиус") || bonusText.includes("притяжен"),
-      "Bonus text should describe consolidated magnetic field stats"
+      bonusText.includes("120") || bonusText.includes("радиус") || bonusText.includes("Магнит"),
+      "Bonus text should describe magnetic return stats"
     );
   });
 
@@ -285,7 +278,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
   // TIER 3: CROSS-FEATURE INTEGRATION TESTS
   // =========================================================================
   await t.test("Tier 3 - Cross-Feature 1: Upgrade Offers Pool, Rarity Resolution & Application Synergy", () => {
-    const { player1 } = createTestWorld(ctx);
+    const { world, player1 } = createTestWorld(ctx);
     player1.stats.magazineSize = 1;
     player1.stats.critChance = 0;
     player1.stats.pickupRadius = 0;
@@ -311,12 +304,12 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     // Apply multiple upgrades in synergy
     ctx.applyServerUpgrade(player1, "critical", 1);
     ctx.applyServerUpgrade(player1, "second-bullet", 2);
-    ctx.applyServerUpgrade(player1, "pickup", 1);
+    ctx.applyServerUpgrade(world, player1, { upgradeId: "boomerang", power: 1 });
 
     assert.ok(player1.stats.critChance >= 0.10);
     assert.equal(player1.stats.magazineSize, 2);
     assert.equal(player1.stats.pickupRadius || 0, 0);
-    assert.equal(player1.stats.groundPullSpeed, 110);
+    assert.equal(player1.stats.groundPullSpeed, 120);
   });
 
   await t.test("Tier 3 - Cross-Feature 2: Critical Hit 2.0x Multiplier Execution on Bullet Hit", () => {

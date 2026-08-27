@@ -177,27 +177,25 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
   });
 
   // =========================================================================
-  // 5. MAGNETIC FIELD MERGE (Item 6)
+  // 5. BOOMERANG UPGRADE (replaces old magnetic field merge)
   // =========================================================================
-  await t.test("5.1 'Магнитное поле' grants dual pickup radius (+35) and ground pull (+110) per power", () => {
-    const magneticUpgrade = ctx.SERVER_UPGRADES.find(
-      u => u.id === "pickup" || u.id === "magnetic-field"
-    );
-    assert.ok(magneticUpgrade, "Merged magnetic upgrade must exist");
-    assert.equal(magneticUpgrade.title, "Магнитное поле", "Title must be 'Магнитное поле'");
+  await t.test("5.1 'Эффект Бумеранга' grants groundPullSpeed=120 and boomerang flag (no pickup/magnet-range)", () => {
+    const boomerangUpgrade = ctx.SERVER_UPGRADES.find(u => u.id === "boomerang");
+    assert.ok(boomerangUpgrade, "Boomerang upgrade must exist in SERVER_UPGRADES");
+    assert.equal(boomerangUpgrade.title, "Эффект Бумеранга", "Title must be 'Эффект Бумеранга'");
 
-    const { player1 } = createTestWorld(ctx);
-    player1.stats.pickupRadius = 0;
+    const { world, player1 } = createTestWorld(ctx);
     player1.stats.groundPullSpeed = 0;
 
-    ctx.applyServerUpgrade(player1, magneticUpgrade.id, 1);
-    assert.equal(player1.stats.pickupRadius || 0, 0);
-    assert.equal(player1.stats.groundPullSpeed, 110, "groundPullSpeed should increase by 110");
+    ctx.applyServerUpgrade(world, player1, { upgradeId: "boomerang", power: 1 });
+    assert.equal(player1.stats.groundPullSpeed, 120, "groundPullSpeed should be set to 120");
+    assert.ok(player1.stats.boomerang, "boomerang flag must be set");
 
-    // Apply with power = 2
-    ctx.applyServerUpgrade(player1, magneticUpgrade.id, 2);
-    assert.equal(player1.stats.pickupRadius || 0, 0);
-    assert.equal(player1.stats.groundPullSpeed, 110 + 220, "groundPullSpeed should be 330");
+    // pickup and magnet-range should NOT exist as standalone upgrades
+    const pickup = ctx.SERVER_UPGRADES.find(u => u.id === "pickup");
+    assert.equal(pickup, undefined, "'pickup' upgrade must not exist in SERVER_UPGRADES");
+    const magnetRange = ctx.SERVER_UPGRADES.find(u => u.id === "magnet-range");
+    assert.equal(magnetRange, undefined, "'magnet-range' upgrade must not exist in SERVER_UPGRADES");
   });
 
   await t.test("5.2 Removal of magnet mutual exclusivity in draft availability", () => {
@@ -209,8 +207,8 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
       "Mutual exclusivity check for magnets must be removed from public/index.html"
     );
     assert.ok(
-      html.includes('"Магнитное поле": `<svg'),
-      "upgradeIcons in public/index.html must include 'Магнитное поле'"
+      html.includes('"Эффект Бумеранга": `<svg'),
+      "upgradeIcons in public/index.html must include 'Эффект Бумеранга'"
     );
   });
 

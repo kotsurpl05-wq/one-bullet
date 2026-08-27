@@ -25,11 +25,10 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       assert.ok(boomerang.description, "Boomerang upgrade must have a description");
       assert.equal(typeof boomerang.bonus, "function", "Boomerang must define bonus(player, power) function");
 
-      const dummyPlayer = { stats: { groundPullSpeed: 0 } };
+      // Boomerang is available when player does NOT already have it (no groundPullSpeed prereq)
+      const dummyPlayer = { stats: {} };
       if (typeof boomerang.available === "function") {
-        assert.equal(boomerang.available(dummyPlayer), false, "Boomerang should not be available if groundPullSpeed <= 0");
-        dummyPlayer.stats.groundPullSpeed = 110;
-        assert.equal(boomerang.available(dummyPlayer), true, "Boomerang should be available when groundPullSpeed > 0");
+        assert.equal(boomerang.available(dummyPlayer), true, "Boomerang should be available for fresh player");
         dummyPlayer.stats.boomerang = true;
         assert.equal(boomerang.available(dummyPlayer), false, "Boomerang should not be available once acquired");
         dummyPlayer.stats.boomerang = false;
@@ -37,8 +36,8 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
 
       const bonusStr = boomerang.bonus(dummyPlayer, 1);
       assert.ok(
-        bonusStr.includes("50%") || bonusStr.includes("+50%") || bonusStr.includes("урон"),
-        `Bonus description should mention damage bonus, got: "${bonusStr}"`
+        bonusStr.includes("120") || bonusStr.includes("Магнит") || bonusStr.includes("радиус") || bonusStr.includes("возврат"),
+        `Bonus description should mention magnet return stats, got: "${bonusStr}"`
       );
     });
 
@@ -177,13 +176,15 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
   });
 
   await t.test("Tier 1 - Core In-Game Combat Mechanics", async (t1) => {
-    await t1.test("3.1 Boomerang: Returning ground bullet (+pull) inflicts +50% damage and +1 pierce", () => {
+    await t1.test("3.1 Boomerang: Returning ground bullet (+pull) inflicts damage when boomerang-damage taken", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 200;
       player.y = 200;
       player.stats.damage = 2;
       player.stats.groundPullSpeed = 150;
       player.stats.boomerang = true;
+      // Must have boomerang-damage to deal return damage (boomerangPercent > 0)
+      player.stats.boomerangPercent = 0.25;
 
       const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
       bullet.state = "ground";
@@ -203,11 +204,10 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       const initialHitsLeft = bullet.hitsLeft;
       ctx.updateServerBullet({ world }, bullet, 0.05);
 
-      // Verify damage application (+50% of 2 = 3 damage)
-      // Normal damage = 2, Boomerang damage = 3 (10 - 3 = 7)
+      // Verify damage application (25% of 2 = 0.5, floor -> at least 1 damage)
       assert.ok(
-        enemy.hp <= 7,
-        `Enemy HP should be <= 7 after 3 damage (2 * 1.5), got ${enemy.hp}`
+        enemy.hp <= 9,
+        `Enemy HP should be <= 9 after boomerang-damage hit, got ${enemy.hp}`
       );
     });
 
@@ -535,13 +535,14 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
   // =========================================================================
 
   await t.test("Tier 3 - Cross-Feature Interactions & Parity", async (t3) => {
-    await t3.test("5.1 Boomerang + Target Mark: Compounding damage multipliers (+50% & +40%)", () => {
+    await t3.test("5.1 Boomerang + Target Mark: Compounding damage multipliers (boomerangPercent & +40%)", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 200;
       player.y = 200;
       player.stats.damage = 10;
       player.stats.groundPullSpeed = 150;
       player.stats.boomerang = true;
+      player.stats.boomerangPercent = 0.50; // 2 stacks of boomerang-damage
       player.stats.targetMark = true;
 
       const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
@@ -559,11 +560,12 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
 
       ctx.updateServerBullet({ world }, bullet, 0.05);
 
-      // Base 10 * 1.5 (boomerang) * 1.4 (target mark) = 19.5 -> ~19 or 20 damage
+      // boomerangDmg = max(1, floor(10 * 0.50)) = 5
+      // With target mark: 5 * 1.4 = 7
       const damageTaken = 100 - enemy.hp;
       assert.ok(
-        damageTaken >= 0.2 && damageTaken <= 22,
-        `Expected ~19-20 damage from combined Boomerang + Target Mark, got ${damageTaken}`
+        damageTaken >= 5 && damageTaken <= 10,
+        `Expected ~7 damage from Boomerang (50%) + Target Mark (40%), got ${damageTaken}`
       );
     });
 
