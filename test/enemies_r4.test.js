@@ -131,7 +131,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       assert.equal(bullet.vy, 0, "Bullet outside 400px range should maintain vy = 0");
     });
 
-    await t1.test("2.4 Contested Ground Pull: Player with 500 pull overcomes Magnetizer 300 pull", () => {
+    await t1.test("2.4 Contested Ground Pull: Player with 500 pull overcomes Magnetizer gradient pull at 200px (325 force)", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 100;
       player.y = 300;
@@ -148,13 +148,14 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       const dt = 0.1;
       ctx.updateServerBullet({ world }, bullet, dt);
 
-      // Player pulls left at 500*0.1 = 50px, Magnetizer pulls right at 300*0.1 = 30px
-      // Net movement = -20px -> bullet.x should be ~280
+      // Player pulls left at 500*0.1 = 50px
+      // Magnetizer pulls right at (150 + (1 - 200/400)*350)*0.1 = 32.5px
+      // Net movement = -17.5px -> bullet.x should be 282.5
       assert.ok(bullet.x < 300, `Bullet must move towards player (expected < 300, got ${bullet.x})`);
-      assert.ok(Math.abs(bullet.x - 280) < 0.001, `Bullet x should be exactly 280, got ${bullet.x}`);
+      assert.ok(Math.abs(bullet.x - 282.5) < 0.001, `Bullet x should be exactly 282.5, got ${bullet.x}`);
     });
 
-    await t1.test("2.5 Contested Ground Pull: Magnetizer 300 pull overpowers Player 200 pull", () => {
+    await t1.test("2.5 Contested Ground Pull: Magnetizer gradient pull (325 force at 200px) overpowers Player 200 pull", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 100;
       player.y = 300;
@@ -171,10 +172,11 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       const dt = 0.1;
       ctx.updateServerBullet({ world }, bullet, dt);
 
-      // Player pulls left at 200*0.1 = 20px, Magnetizer pulls right at 300*0.1 = 30px
-      // Net movement = +10px -> bullet.x should be ~310
+      // Player pulls left at 200*0.1 = 20px
+      // Magnetizer pulls right at 32.5px
+      // Net movement = +12.5px -> bullet.x should be 312.5
       assert.ok(bullet.x > 300, `Bullet must move towards magnetizer (expected > 300, got ${bullet.x})`);
-      assert.ok(Math.abs(bullet.x - 310) < 0.001, `Bullet x should be exactly 310, got ${bullet.x}`);
+      assert.ok(Math.abs(bullet.x - 312.5) < 0.001, `Bullet x should be exactly 312.5, got ${bullet.x}`);
     });
   });
 

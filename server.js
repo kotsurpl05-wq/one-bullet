@@ -952,14 +952,14 @@ function updateServerBullet(
       }
 
       /*
-       * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px с силой 300.
+       * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px с градиентом от 150 до 500.
        * Если у игрока есть бумеранг/магнит, силы суммируются векторно (борьба притяжений).
        */
       for (const enemy of world.enemies.values()) {
         if (enemy.type !== "magnetizer" || !enemy.hasEnteredArena || enemy.hp <= 0) continue;
         const distToMag = distance(bullet.x, bullet.y, enemy.x, enemy.y);
         if (distToMag < 400 && distToMag > enemy.r + bullet.r) {
-          const magPull = 300 * dt;
+          const magPull = (150 + (1 - distToMag / 400) * 350) * dt;
           moveX += ((enemy.x - bullet.x) / distToMag) * magPull;
           moveY += ((enemy.y - bullet.y) / distToMag) * magPull;
         }
