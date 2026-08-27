@@ -10824,16 +10824,16 @@ osc.stop(now + 0.05);
         id: "normal",
         name: "Обычный Дроид",
         icon: "🤖",
-        color: "#ffffff",
+        color: "#ff5577",
         tag: "ПЕХОТА",
-        tagColor: "#94a3b8",
-        hp: "100 HP (+100/3 волны)",
-        speed: "50 px/s (+1.2/волна)",
+        tagColor: "#ff5577",
+        hp: "100 HP (+100/5 волн)",
+        speed: "59 px/s (+2.5/волна)",
         wave: "Волна 1+",
         xp: "125 XP",
-        desc: "Базовый патрульный дроид синдиката. Атакует плотными группами, двигаясь напрямую к игроку.",
+        desc: "Базовый патрульный дроид синдиката кораллово-красного цвета (#ff5577) с тёмно-красным ядром. Атакует плотными группами, двигаясь напрямую к игроку.",
         abilities: [
-          "Прямолинейное преследование цели",
+          "Прямолинейное преследование игрока",
           "Опасен при окружении большим числом",
           "Идеальная мишень для отскоков и рикошетов"
         ],
@@ -10843,18 +10843,18 @@ osc.stop(now + 0.05);
         id: "runner",
         name: "Быстрый Бегун",
         icon: "⚡",
-        color: "#38bdf8",
+        color: "#ffca55",
         tag: "РАЗВЕДКА",
-        tagColor: "#38bdf8",
-        hp: "70 HP (+100/4 волны)",
-        speed: "95 px/s (+2.0/волна)",
+        tagColor: "#ffca55",
+        hp: "100 HP (+100/7 волн)",
+        speed: "105 px/s (+3.0/волна)",
         wave: "Волна 2+",
         xp: "115 XP",
-        desc: "Легкий скоростной перехватчик. Стремительно сокращает дистанцию и заходит с флангов.",
+        desc: "Сверхбыстрый золотисто-жёлтый дроид (#ffca55) с вращающимся ромбовидным ядром. Стремительно сокращает дистанцию и заходит с флангов.",
         abilities: [
-          "Высочайшая скорость перемещения (95+ px/s)",
-          "Быстрый фланговый обход",
-          "Пониженный запас прочности"
+          "Высочайшая скорость перемещения (105+ px/s)",
+          "Быстрый фланговый обход игрока",
+          "Низкий порог здоровья"
         ],
         tactics: "Не стреляйте в упор, если не уверены в подборе пули. Используйте рывок с замедлением или ловите пулю обратно."
       },
@@ -10862,14 +10862,14 @@ osc.stop(now + 0.05);
         id: "tank",
         name: "Бронированный Танк",
         icon: "🛡️",
-        color: "#4ade80",
+        color: "#b56dff",
         tag: "ТЯЖЕЛЫЙ",
-        tagColor: "#4ade80",
-        hp: "300 HP (+100/2 волны)",
-        speed: "30 px/s (+0.8/волна)",
+        tagColor: "#b56dff",
+        hp: "300 HP (+100/3 волны)",
+        speed: "39 px/s (+1.5/волна)",
         wave: "Волна 3+",
         xp: "275 XP",
-        desc: "Тяжело бронированная боевая платформа. Медленно, но неумолимо продавливает позицию игрока.",
+        desc: "Тяжелый фиолетовый дроид (#b56dff) с концентрической броней и светлым ядром. Медленно, но неумолимо продавливает позицию игрока.",
         abilities: [
           "Огромный запас здоровья и сопротивление урону",
           "Блокирует полет пули своим массивным корпусом",
@@ -10881,14 +10881,14 @@ osc.stop(now + 0.05);
         id: "charger",
         name: "Чарджер // Таран",
         icon: "🦏",
-        color: "#f97316",
+        color: "#ff814a",
         tag: "ШТУРМ",
-        tagColor: "#f97316",
-        hp: "200 HP (+100/3 волны)",
-        speed: "45 px/s (Рывок: 160 px/s)",
+        tagColor: "#ff814a",
+        hp: "200 HP (+100/6 волн)",
+        speed: "63 px/s (Рывок: 160 px/s)",
         wave: "Волна 4+",
         xp: "240 XP",
-        desc: "Штурмовой дроид-таран. При приближении к игроку переходит в режим яростного рывка.",
+        desc: "Оранжевый штурмовой дроид-таран (#ff814a). При приближении к игроку переходит в режим яростного рывка.",
         abilities: [
           "Внезапный разгон и таранная атака при сближении",
           "Высокий контактный урон",
@@ -10900,14 +10900,14 @@ osc.stop(now + 0.05);
         id: "splitter",
         name: "Делитель // Кластер",
         icon: "💥",
-        color: "#fbbf24",
+        color: "#46b8ff",
         tag: "ОСКОЛОЧНЫЙ",
-        tagColor: "#fbbf24",
-        hp: "150 HP (+100/3 волны)",
-        speed: "40 px/s (+1.0/волна)",
+        tagColor: "#46b8ff",
+        hp: "200 HP (+100/4 волны)",
+        speed: "50 px/s (+1.7/волна)",
         wave: "Волна 5+",
         xp: "310 XP",
-        desc: "Кластерная мина. При уничтожении корпуса распадается на двух быстрых мини-дронов.",
+        desc: "Небесно-голубая кластерная мина (#46b8ff). При уничтожении корпуса распадается на 2 быстрых осколочных дрона (#79d7ff).",
         abilities: [
           "Деление на 2 скоростных осколочных дрона при гибели",
           "Высокая суммарная награда опытом",
@@ -10919,14 +10919,14 @@ osc.stop(now + 0.05);
         id: "shooter",
         name: "Стрелок // Снайпер",
         icon: "🔫",
-        color: "#ef4444",
+        color: "#50d890",
         tag: "ДАЛЬНИЙ БОЙ",
-        tagColor: "#ef4444",
-        hp: "120 HP (+100/4 волны)",
-        speed: "35 px/s (Кайтинг)",
+        tagColor: "#50d890",
+        hp: "200 HP (+100/6 волн)",
+        speed: "48 px/s (Кайтинг)",
         wave: "Волна 6+",
         xp: "255 XP",
-        desc: "Дистанционный боевой модуль. Держит дистанцию и ведет прицельный огонь красными энерго-сгустками.",
+        desc: "Изумрудно-зеленый боевой модуль (#50d890). Держит дистанцию 270px и ведет прицельный огонь плазменными энерго-сгустками.",
         abilities: [
           "Прицельная стрельба плазменными снарядами",
           "Постоянное удержание дистанции от игрока",
@@ -10938,14 +10938,14 @@ osc.stop(now + 0.05);
         id: "incubator",
         name: "Инкубатор // Улей",
         icon: "🥚",
-        color: "#a855f7",
+        color: "#059669",
         tag: "ПРИЗЫВАТЕЛЬ",
-        tagColor: "#a855f7",
-        hp: "400 HP (+100/2 волны)",
-        speed: "25 px/s (Пассивный)",
+        tagColor: "#059669",
+        hp: "600 HP (+100/2 волны)",
+        speed: "32 px/s (Пассивный)",
         wave: "Волна 7+",
         xp: "475 XP",
-        desc: "Био-механический улей. Каждые 4.5 секунды выпускает стаю паразитических миньонов.",
+        desc: "Тёмно-зеленый био-механический улей (#059669) с 4 вращающимися капсулами спор. Каждые 4.5 секунды выпускает стаю паразитических миньонов (#34d399).",
         abilities: [
           "Периодический призыв роя миньонов (до 5 одновременно)",
           "Массивный корпус с высоким запасом прочности",
@@ -10960,11 +10960,11 @@ osc.stop(now + 0.05);
         color: "#88eedd",
         tag: "ФАЗОВЫЙ",
         tagColor: "#88eedd",
-        hp: "120 HP (+100/4 волны)",
-        speed: "55 px/s (+1.5/волна)",
+        hp: "100 HP (+100/8 волн)",
+        speed: "75 px/s (+2.0/волна)",
         wave: "Волна 8+",
         xp: "185 XP",
-        desc: "Квантовый фантом. Циклически переходит в неосязаемую фазу (2 секунды неуязвимости).",
+        desc: "Квантовый бирюзовый фантом (#88eedd). Циклически переходит в неосязаемую фазу (2 секунды неуязвимости).",
         abilities: [
           "Фазовый сдвиг: 2с полной неуязвимости ко всем атакам",
           "3с материальной фазы для нанесения урона",
@@ -10979,11 +10979,11 @@ osc.stop(now + 0.05);
         color: "#c084fc",
         tag: "ГРАВИТАЦИЯ",
         tagColor: "#c084fc",
-        hp: "180 HP (+100/3 волны)",
-        speed: "50 px/s (+1.2/волна)",
+        hp: "500 HP (+100/3 волны)",
+        speed: "40 px/s (+1.2/волна)",
         wave: "Волна 8+",
         xp: "195 XP",
-        desc: "Гравитационный контроллер. Создает мощное силовое поле (150–500 px/s), искривляя полет пуль и воруя патрон с пола.",
+        desc: "Сиреневый контроллер (#c084fc) с вращающимся пунктирным полем. Создает гравитационное поле (150–500 px/s), искривляя полет пуль и воруя патрон с пола.",
         abilities: [
           "Искривление траектории летящей пули в радиусе 400px",
           "Притяжение лежащей на земле пули с градиентом от 150 до 500 px/s",
@@ -10998,11 +10998,11 @@ osc.stop(now + 0.05);
         color: "#ff6b9d",
         tag: "ПАРНЫЙ ОТРЯД",
         tagColor: "#ff6b9d",
-        hp: "140 HP (+100/5 волн)",
+        hp: "200 HP (+100/5 волн)",
         speed: "90 px/s (+2.0/волна)",
         wave: "Волна 9+",
         xp: "165 XP",
-        desc: "Синхронная пара дронов, соединенная смертоносным лазерным лучом. Гибель одного вводит второго в ярость.",
+        desc: "Синхронная пара розовых дронов (#ff6b9d), соединенная пунктирным лазерным лучом. Гибель одного вводит второго в ярость (#ff2244, +40% скорости).",
         abilities: [
           "Лазерная связь: луч между твинами наносит периодический урон",
           "Ярость одиночки: при смерти партнера оставшийся ускоряется на +40%",
@@ -11014,21 +11014,21 @@ osc.stop(now + 0.05);
         id: "boss",
         name: "Кибер-Титан // БОСС",
         icon: "👑",
-        color: "#f43f5e",
+        color: "#ff3f8f",
         tag: "ГЛАВНЫЙ БОСС",
-        tagColor: "#f43f5e",
+        tagColor: "#ff3f8f",
         hp: "4180+ HP (Скейл от волны и режима)",
-        speed: "60 px/s (Фазовый бой)",
+        speed: "29.5 px/s (Фазовый бой)",
         wave: "Каждые 5 волн",
         xp: "1500 XP",
-        desc: "Титанический страж сектора с 3 сложными боевыми фазами, щитами и лазерными системами.",
+        desc: "Титанический страж сектора (#ff3f8f) с 16-зубчатой вращающейся пилой, тёмным ядром, светящимся глазом, щитами и орбитальными пилонами.",
         abilities: [
           "Фаза 1: Ударные рывки с радиальной ударной волной",
-          "Фаза 2 (50% HP): Силовой щит и орбитальные защитные дроны",
+          "Фаза 2 (50% HP): Силовой щит и 2 орбитальных защитных пилона",
           "Фаза 3 (<33% HP): Яростный спиральный шторм пуль и прицельный луч",
           "Уничтожение щита вводит босса в 2-секундный шок"
         ],
-        tactics: "Сбивайте орбитальные дроны для оглушения босса, используйте замедление времени и ловите пулю на противоходе."
+        tactics: "Сбивайте орбитальные пилоны для оглушения босса, используйте замедление времени и ловите пулю на противоходе."
       }
     ];
 
@@ -11581,21 +11581,18 @@ osc.stop(now + 0.05);
             };
           });
 
-          // 60 FPS Canvas Model Renderer for Bestiary
+          // 60 FPS Canvas Model Renderer for Bestiary (100% exact in-game rendering)
           let prevBt = performance.now();
-          let bAngle = 0;
 
           const renderBestiaryFrame = (t) => {
             if (currentMenuSubView !== "guide" || currentGuideTab !== "bestiary" || !bCtx) return;
-            const dt = Math.min(0.05, (t - prevBt) / 1000);
-            prevBt = t;
-            bAngle += dt * 2.0;
+            const now = performance.now();
 
             bCtx.clearRect(0, 0, bCanvas.width, bCanvas.height);
 
             // Cyber grid backdrop
             bCtx.save();
-            bCtx.strokeStyle = "rgba(0, 242, 254, 0.05)";
+            bCtx.strokeStyle = "rgba(0, 242, 254, 0.06)";
             bCtx.lineWidth = 1;
             for (let x = 0; x < bCanvas.width; x += 20) {
               bCtx.beginPath();
@@ -11614,178 +11611,285 @@ osc.stop(now + 0.05);
             const cx = bCanvas.width / 2;
             const cy = bCanvas.height / 2;
 
-            // Draw mob based on selectedBestiaryId
             bCtx.save();
             bCtx.translate(cx, cy);
 
-            const mob = BESTIARY_CATALOG.find(m => m.id === selectedBestiaryId) || BESTIARY_CATALOG[0];
+            const mobId = selectedBestiaryId;
 
-            if (mob.id === "normal") {
-              bCtx.fillStyle = "#ffffff";
-              bCtx.shadowColor = "rgba(255,255,255,0.6)";
-              bCtx.shadowBlur = 12;
+            if (mobId === "twin") {
+              // Exact in-game twin pair with dashed laser tether
+              const tDist = 38 + Math.sin(now * 0.003) * 6;
+              const p1 = { x: -tDist, y: 0 };
+              const p2 = { x: tDist, y: 0 };
+              const tr = 12;
+              const tColor = "#ff6b9d";
+
+              // Dashed laser line between them (exact match with in-game drawEnemies)
+              bCtx.save();
+              bCtx.strokeStyle = tColor;
+              bCtx.lineWidth = 2;
+              bCtx.globalAlpha = 0.75;
+              bCtx.setLineDash([6, 4]);
               bCtx.beginPath();
-              bCtx.arc(0, 0, 16, 0, Math.PI * 2);
-              bCtx.fill();
-              // Core eye
-              bCtx.fillStyle = "#00f2fe";
+              bCtx.moveTo(p1.x, p1.y);
+              bCtx.lineTo(p2.x, p2.y);
+              bCtx.stroke();
+              bCtx.setLineDash([]);
+              bCtx.restore();
+
+              [p1, p2].forEach(p => {
+                bCtx.save();
+                bCtx.translate(p.x, p.y);
+
+                // Outer glow
+                bCtx.beginPath();
+                bCtx.arc(0, 0, tr + 5, 0, Math.PI * 2);
+                bCtx.fillStyle = `${tColor}18`;
+                bCtx.fill();
+
+                // Body
+                bCtx.beginPath();
+                bCtx.arc(0, 0, tr, 0, Math.PI * 2);
+                bCtx.fillStyle = tColor;
+                bCtx.fill();
+
+                // Center core
+                bCtx.beginPath();
+                bCtx.arc(0, 0, tr * 0.34, 0, Math.PI * 2);
+                bCtx.fillStyle = "#641e34";
+                bCtx.fill();
+
+                // Health bar
+                const barW = tr * 2;
+                bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+                bCtx.fillRect(-barW / 2, -tr - 8, barW, 3.5);
+                bCtx.fillStyle = "#67ff9a";
+                bCtx.fillRect(-barW / 2, -tr - 8, barW, 3.5);
+
+                bCtx.restore();
+              });
+
+              bCtx.restore();
+              guidePreviewAnimId = requestAnimationFrame(renderBestiaryFrame);
+              return;
+            }
+
+            // Normal entity specs and scale
+            let r = 16;
+            let color = "#ff5577";
+
+            if (mobId === "normal") {
+              r = 16;
+              color = "#ff5577";
+            } else if (mobId === "runner") {
+              r = 14;
+              color = "#ffca55";
+            } else if (mobId === "tank") {
+              r = 25;
+              color = "#b56dff";
+            } else if (mobId === "shooter") {
+              r = 16;
+              color = "#50d890";
+            } else if (mobId === "splitter") {
+              r = 20;
+              color = "#46b8ff";
+            } else if (mobId === "charger") {
+              r = 15;
+              color = "#ff814a";
+            } else if (mobId === "incubator") {
+              r = 26;
+              color = "#059669";
+            } else if (mobId === "phantom") {
+              r = 15;
+              color = "#88eedd";
+            } else if (mobId === "magnetizer") {
+              r = 19;
+              color = "#c084fc";
+            } else if (mobId === "boss") {
+              r = 38;
+              color = "#ff3f8f";
+            }
+
+            // Phased alpha for Phantom (exact match with in-game drawEnemies)
+            if (mobId === "phantom") {
+              bCtx.globalAlpha = 0.35 + Math.sin(now * 0.005) * 0.35;
+            }
+
+            // Outer glow
+            bCtx.beginPath();
+            bCtx.arc(0, 0, r + 6, 0, Math.PI * 2);
+            bCtx.fillStyle = `${color}18`;
+            bCtx.fill();
+
+            // Body circle
+            bCtx.beginPath();
+            bCtx.arc(0, 0, r, 0, Math.PI * 2);
+            bCtx.fillStyle = color;
+            bCtx.fill();
+
+            // Exact in-game internal distinctive elements
+            if (mobId === "boss") {
+              // 16-spike sawgear armor rotating
+              const rotation = now * 0.0005;
+              bCtx.save();
+              bCtx.rotate(rotation);
               bCtx.beginPath();
-              bCtx.arc(0, 0, 6, 0, Math.PI * 2);
-              bCtx.fill();
-            } else if (mob.id === "runner") {
-              bCtx.rotate(bAngle * 0.5);
-              bCtx.fillStyle = "#38bdf8";
-              bCtx.shadowColor = "#38bdf8";
-              bCtx.shadowBlur = 16;
-              bCtx.beginPath();
-              bCtx.moveTo(0, -18);
-              bCtx.lineTo(13, 14);
-              bCtx.lineTo(0, 8);
-              bCtx.lineTo(-13, 14);
-              bCtx.closePath();
-              bCtx.fill();
-            } else if (mob.id === "tank") {
-              bCtx.rotate(bAngle * 0.2);
-              bCtx.fillStyle = "#4ade80";
-              bCtx.shadowColor = "#4ade80";
-              bCtx.shadowBlur = 16;
-              bCtx.beginPath();
-              for (let i = 0; i < 6; i++) {
-                const a = (i / 6) * Math.PI * 2;
-                const r = 24;
-                const px = Math.cos(a) * r;
-                const py = Math.sin(a) * r;
+              const spikeCount = 16;
+              for (let i = 0; i < spikeCount; i++) {
+                const angle = (Math.PI * 2 * i) / spikeCount;
+                const radius = i % 2 === 0 ? r * 0.88 : r * 0.63;
+                const px = Math.cos(angle) * radius;
+                const py = Math.sin(angle) * radius;
                 if (i === 0) bCtx.moveTo(px, py);
                 else bCtx.lineTo(px, py);
               }
               bCtx.closePath();
+              bCtx.fillStyle = "#76133d";
               bCtx.fill();
-              bCtx.strokeStyle = "#166534";
-              bCtx.lineWidth = 3;
-              bCtx.stroke();
-            } else if (mob.id === "charger") {
-              bCtx.fillStyle = "#f97316";
-              bCtx.shadowColor = "#f97316";
-              bCtx.shadowBlur = 18;
+              bCtx.restore();
+
+              // Inner dark core
               bCtx.beginPath();
-              bCtx.arc(0, 0, 18, 0, Math.PI * 2);
+              bCtx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
+              bCtx.fillStyle = "#2a0b22";
               bCtx.fill();
-              // Ram horns
-              bCtx.fillStyle = "#ffedd5";
+
+              // Glowing center eye
               bCtx.beginPath();
-              bCtx.moveTo(-10, -14);
-              bCtx.lineTo(0, -26);
-              bCtx.lineTo(10, -14);
-              bCtx.fill();
-            } else if (mob.id === "splitter") {
-              bCtx.fillStyle = "#fbbf24";
-              bCtx.shadowColor = "#fbbf24";
+              bCtx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
+              bCtx.fillStyle = "#ffd2e3";
+              bCtx.shadowColor = "#ff3f8f";
               bCtx.shadowBlur = 16;
-              const pulse = 16 + Math.sin(bAngle * 3) * 2;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, pulse, 0, Math.PI * 2);
               bCtx.fill();
-              // Orbiting miniature splitters
-              for (let i = 0; i < 2; i++) {
-                const a = bAngle * 2 + i * Math.PI;
-                bCtx.fillStyle = "#fef08a";
+              bCtx.shadowBlur = 0;
+
+              // Dual orbiting Phase 2 shield pylons
+              for (let pi = 0; pi < 2; pi++) {
+                const pa = now * 0.0015 + pi * Math.PI;
+                const pDist = r + 24;
+                const px = Math.cos(pa) * pDist;
+                const py = Math.sin(pa) * pDist;
+
+                bCtx.save();
+                bCtx.translate(px, py);
+                bCtx.rotate(now * 0.002);
+                bCtx.strokeStyle = "#00f2fe";
+                bCtx.shadowColor = "#00f2fe";
+                bCtx.shadowBlur = 10;
+                bCtx.lineWidth = 2;
                 bCtx.beginPath();
-                bCtx.arc(Math.cos(a) * 32, Math.sin(a) * 32, 6, 0, Math.PI * 2);
-                bCtx.fill();
-              }
-            } else if (mob.id === "shooter") {
-              bCtx.fillStyle = "#ef4444";
-              bCtx.shadowColor = "#ef4444";
-              bCtx.shadowBlur = 16;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, 16, 0, Math.PI * 2);
-              bCtx.fill();
-              // Rotating laser sight
-              const aimA = bAngle * 1.5;
-              bCtx.strokeStyle = "rgba(239, 68, 68, 0.8)";
-              bCtx.lineWidth = 2;
-              bCtx.beginPath();
-              bCtx.moveTo(0, 0);
-              bCtx.lineTo(Math.cos(aimA) * 60, Math.sin(aimA) * 60);
-              bCtx.stroke();
-            } else if (mob.id === "incubator") {
-              bCtx.fillStyle = "#a855f7";
-              bCtx.shadowColor = "#a855f7";
-              bCtx.shadowBlur = 18;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, 22, 0, Math.PI * 2);
-              bCtx.fill();
-              // 4 orbiting spores
-              for (let i = 0; i < 4; i++) {
-                const a = bAngle * 2 + (i / 4) * Math.PI * 2;
-                bCtx.fillStyle = "#e9d5ff";
+                for (let s = 0; s < 6; s++) {
+                  const sa = (s / 6) * Math.PI * 2;
+                  const sx = Math.cos(sa) * 9;
+                  const sy = Math.sin(sa) * 9;
+                  if (s === 0) bCtx.moveTo(sx, sy);
+                  else bCtx.lineTo(sx, sy);
+                }
+                bCtx.closePath();
+                bCtx.stroke();
+
                 bCtx.beginPath();
-                bCtx.arc(Math.cos(a) * 36, Math.sin(a) * 36, 4, 0, Math.PI * 2);
+                bCtx.arc(0, 0, 5, 0, Math.PI * 2);
+                bCtx.fillStyle = "#083344";
                 bCtx.fill();
+                bCtx.beginPath();
+                bCtx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                bCtx.fillStyle = "#00f2fe";
+                bCtx.fill();
+                bCtx.restore();
               }
-            } else if (mob.id === "phantom") {
-              const alpha = 0.35 + Math.sin(bAngle * 2) * 0.45;
-              bCtx.globalAlpha = Math.max(0.15, alpha);
-              bCtx.fillStyle = "#88eedd";
-              bCtx.shadowColor = "#88eedd";
-              bCtx.shadowBlur = 20;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, 17, 0, Math.PI * 2);
-              bCtx.fill();
-            } else if (mob.id === "magnetizer") {
-              bCtx.fillStyle = "#c084fc";
-              bCtx.shadowColor = "#c084fc";
-              bCtx.shadowBlur = 18;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, 16, 0, Math.PI * 2);
-              bCtx.fill();
-              // Dual rotating magnetic flux rings
-              bCtx.strokeStyle = "#a855f7";
-              bCtx.lineWidth = 2;
-              bCtx.beginPath();
-              bCtx.ellipse(0, 0, 36, 14, bAngle, 0, Math.PI * 2);
-              bCtx.stroke();
+            } else if (mobId === "magnetizer") {
+              // Rotating dashed aura
+              bCtx.save();
+              bCtx.rotate(now * 0.003);
               bCtx.strokeStyle = "#c084fc";
-              bCtx.beginPath();
-              bCtx.ellipse(0, 0, 36, 14, -bAngle, 0, Math.PI * 2);
-              bCtx.stroke();
-            } else if (mob.id === "twin") {
-              // Draw 2 twin drones with active laser tether
-              const tDist = 42;
-              const tX1 = -tDist + Math.sin(bAngle) * 6;
-              const tX2 = tDist - Math.sin(bAngle) * 6;
-              bCtx.strokeStyle = "#ff6b9d";
-              bCtx.lineWidth = 3;
-              bCtx.shadowColor = "#ff6b9d";
+              bCtx.shadowColor = "#a855f7";
               bCtx.shadowBlur = 12;
+              bCtx.lineWidth = 2;
+              bCtx.setLineDash([8, 6]);
               bCtx.beginPath();
-              bCtx.moveTo(tX1, 0);
-              bCtx.lineTo(tX2, 0);
+              bCtx.arc(0, 0, r + 6, 0, Math.PI * 2);
               bCtx.stroke();
+              bCtx.setLineDash([]);
+              bCtx.restore();
 
-              bCtx.fillStyle = "#ff6b9d";
+              // Inner ring
               bCtx.beginPath();
-              bCtx.arc(tX1, 0, 11, 0, Math.PI * 2);
-              bCtx.arc(tX2, 0, 11, 0, Math.PI * 2);
-              bCtx.fill();
-            } else if (mob.id === "boss") {
-              // Massive boss titan core with rotating shields
-              bCtx.fillStyle = "#f43f5e";
-              bCtx.shadowColor = "#f43f5e";
-              bCtx.shadowBlur = 24;
-              bCtx.beginPath();
-              bCtx.arc(0, 0, 26, 0, Math.PI * 2);
+              bCtx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+              bCtx.fillStyle = "#3b0764";
               bCtx.fill();
 
-              // Dual orbiting shield drones
-              for (let i = 0; i < 2; i++) {
-                const a = bAngle * 1.8 + i * Math.PI;
-                bCtx.fillStyle = "#fb7185";
+              // Glowing center core
+              bCtx.beginPath();
+              bCtx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+              bCtx.fillStyle = "#e9d5ff";
+              bCtx.shadowColor = "#c084fc";
+              bCtx.shadowBlur = 10;
+              bCtx.fill();
+              bCtx.shadowBlur = 0;
+            } else if (mobId === "incubator") {
+              // Pulsing inner womb
+              const pulse = 1 + Math.sin(now * 0.006) * 0.12;
+              bCtx.beginPath();
+              bCtx.arc(0, 0, r * 0.75 * pulse, 0, Math.PI * 2);
+              bCtx.fillStyle = "#064e3b";
+              bCtx.fill();
+
+              // 4 rotating spore pods
+              for (let ni = 0; ni < 4; ni++) {
+                const na = (ni / 4) * Math.PI * 2 + now * 0.001;
+                const nx = Math.cos(na) * (r * 0.45);
+                const ny = Math.sin(na) * (r * 0.45);
                 bCtx.beginPath();
-                bCtx.arc(Math.cos(a) * 44, Math.sin(a) * 44, 8, 0, Math.PI * 2);
+                bCtx.arc(nx, ny, r * 0.28, 0, Math.PI * 2);
+                bCtx.fillStyle = "#10b981";
+                bCtx.shadowColor = "#34d399";
+                bCtx.shadowBlur = 8;
                 bCtx.fill();
               }
+
+              // Center dot
+              bCtx.beginPath();
+              bCtx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+              bCtx.fillStyle = "#6ee7b7";
+              bCtx.shadowColor = "#a7f3d0";
+              bCtx.shadowBlur = 6;
+              bCtx.fill();
+              bCtx.shadowBlur = 0;
+            } else if (mobId === "tank") {
+              // Concentric purple rings and light core
+              bCtx.beginPath();
+              bCtx.arc(0, 0, r * 0.48, 0, Math.PI * 2);
+              bCtx.fillStyle = "#311c49";
+              bCtx.fill();
+
+              bCtx.beginPath();
+              bCtx.arc(0, 0, r * 0.2, 0, Math.PI * 2);
+              bCtx.fillStyle = "#e5c8ff";
+              bCtx.fill();
+            } else if (mobId === "runner") {
+              // Rotated 45-degree diamond center
+              bCtx.save();
+              bCtx.rotate(Math.PI / 4);
+              const coreSize = r * 0.65;
+              bCtx.fillStyle = "#5b4212";
+              bCtx.fillRect(-coreSize / 2, -coreSize / 2, coreSize, coreSize);
+              bCtx.restore();
+            } else {
+              // Normal, Shooter, Splitter, Charger, Phantom
+              bCtx.beginPath();
+              bCtx.arc(0, 0, r * 0.34, 0, Math.PI * 2);
+              bCtx.fillStyle = "#641e34";
+              bCtx.fill();
             }
+
+            // In-game Health Bar
+            const barWidth = r * 2;
+            const barHeight = 4;
+            bCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+            bCtx.fillRect(-barWidth / 2, -r - 10, barWidth, barHeight);
+            bCtx.fillStyle = "#67ff9a";
+            bCtx.fillRect(-barWidth / 2, -r - 10, barWidth, barHeight);
 
             bCtx.restore();
 
