@@ -9842,11 +9842,39 @@
     let menuDemoVelX = 0;
     let menuDemoVelY = 0;
 
+    // Пул типов рядовых врагов для фонового боя (без боссов и служебных под-мобов)
+    const MENU_DEMO_ENEMY_POOL = [
+      "normal", "normal", "runner", "runner",
+      "tank", "charger", "splitter", "shooter",
+      "phantom", "mirage", "sentinel", "magnetizer", "incubator"
+    ];
+
+    // Случайные бонусы фонового боя: своя изолированная система, не пересекается с боевым геймплеем
+    const MENU_DEMO_BONUS_TYPES = ["heal", "speed", "damage", "shield", "magnet"];
+    const MENU_DEMO_BONUS_META = {
+      heal: { color: "#22c55e", glow: "#4ade80", label: "+HP" },
+      speed: { color: "#facc15", glow: "#fde68a", label: "СКОРОСТЬ" },
+      damage: { color: "#f97316", glow: "#fb923c", label: "УРОН" },
+      shield: { color: "#38bdf8", glow: "#7dd3fc", label: "ЩИТ" },
+      magnet: { color: "#c084fc", glow: "#e9d5ff", label: "МАГНИТ" }
+    };
+    let menuDemoBonuses = [];
+    let menuDemoBonusTimer = random(3, 5);
+    let nextMenuDemoBonusId = 1;
+    let menuDemoBaseDamage = 100;
+    const menuDemoBuffs = { speedTimer: 0, damageTimer: 0, magnetTimer: 0 };
+
     function updateMenuDemo(dt) {
       if (!player || !bullets.length) {
         resetEntities();
         menuDemoVelX = 0;
         menuDemoVelY = 0;
+        menuDemoBonuses.length = 0;
+        menuDemoBonusTimer = random(3, 5);
+        menuDemoBaseDamage = stats.damage;
+        menuDemoBuffs.speedTimer = 0;
+        menuDemoBuffs.damageTimer = 0;
+        menuDemoBuffs.magnetTimer = 0;
       }
 
       // Всегда стабилизируем экран меню (без тряски интерфейса)
@@ -9862,27 +9890,128 @@
         createParticles(player.x, player.y, "#00f2fe", 16, 200);
       }
 
-      // 2. Умеренный спавн врагов для комфортного и зрелищного боя (3-5 врагов)
+      // 2. Разнообразный спавн врагов для зрелищного боя (3-6 главных врагов, много типов)
       menuDemoSpawnTimer -= dt;
-      if ((enemies.length < 3 || menuDemoSpawnTimer <= 0) && enemies.length < 5) {
-        const types = ["runner", "normal", "splitter", "shooter"];
-        const randType = types[Math.floor(Math.random() * types.length)];
-        const side = Math.floor(Math.random() * 4);
+      // Личинки инкубатора и осколки сплиттера не считаются «основными» — иначе они
+      // забивают лимит и душат разнообразие спавна новых типов.
+      const primaryEnemyCount = enemies.reduce(
+        (count, e) => count + (e.type === "minion" || e.type === "shard" ? 0 : 1),
+        0
+      );
+      if ((primaryEnemyCount < 3 || menuDemoSpawnTimer <= 0) && primaryEnemyCount < 6 && enemies.length < 18) {
         const curW = width || SOLO_WORLD_WIDTH;
         const curH = height || SOLO_WORLD_HEIGHT;
-        let ex = random(120, curW - 120);
-        let ey = random(120, curH - 120);
-        if (side === 0) ey = 70;
-        else if (side === 1) ex = curW - 70;
-        else if (side === 2) ey = curH - 70;
-        else ex = 70;
+        const randomEdgeSpot = () => {
+          const side = Math.floor(Math.random() * 4);
+          let ex = random(120, curW - 120);
+          let ey = random(120, curH - 120);
+          if (side === 0) ey = 70;
+          else if (side === 1) ex = curW - 70;
+          else if (side === 2) ey = curH - 70;
+          else ex = 70;
+          return { ex, ey };
+        };
 
-        const enemy = createEnemy(randType, ex, ey);
-        enemy.hasEnteredArena = true;
-        enemy.spawnDelay = 0;
-        enemy.spawnEdge = null;
-        enemies.push(enemy);
-        menuDemoSpawnTimer = random(2.5, 4.0);
+        // Изредка — эффектная парочка близнецов, иначе один случайный тип из широкого пула
+        if (Math.random() < 0.12 && primaryEnemyCount <= 5) {
+          const spotA = randomEdgeSpot();
+          const spotB = randomEdgeSpot();
+          const twin1 = createEnemy("twin", spotA.ex, spotA.ey);
+          const twin2 = createEnemy("twin", spotB.ex, spotB.ey);
+          twin1.twinPartnerId = twin2.id;
+          twin2.twinPartnerId = twin1.id;
+          for (const twin of [twin1, twin2]) {
+            twin.hasEnteredArena = true;
+            twin.spawnDelay = 0;
+            twin.spawnEdge = null;
+            enemies.push(twin);
+          }
+        } else {
+          const randType = MENU_DEMO_ENEMY_POOL[Math.floor(Math.random() * MENU_DEMO_ENEMY_POOL.length)];
+          const spot = randomEdgeSpot();
+          const enemy = createEnemy(randType, spot.ex, spot.ey);
+          enemy.hasEnteredArena = true;
+          enemy.spawnDelay = 0;
+          enemy.spawnEdge = null;
+          enemies.push(enemy);
+        }
+        menuDemoSpawnTimer = random(2.2, 3.8);
+      }
+
+      // 2b. Случайные бонусы: периодически появляются в произвольной точке арены
+      menuDemoBonusTimer -= dt;
+      if (menuDemoBonusTimer <= 0 && menuDemoBonuses.length < 2) {
+        const curW = width || SOLO_WORLD_WIDTH;
+        const curH = height || SOLO_WORLD_HEIGHT;
+        const type = MENU_DEMO_BONUS_TYPES[Math.floor(Math.random() * MENU_DEMO_BONUS_TYPES.length)];
+        menuDemoBonuses.push({
+          id: nextMenuDemoBonusId++,
+          type,
+          x: random(140, curW - 140),
+          y: random(140, curH - 140),
+          r: 14,
+          life: 12.0
+        });
+        menuDemoBonusTimer = random(6, 10);
+      }
+
+      // 2c. Подбор бонусов игроком-ботом и применение временных эффектов
+      for (let i = menuDemoBonuses.length - 1; i >= 0; i--) {
+        const bonus = menuDemoBonuses[i];
+        bonus.life -= dt;
+        if (bonus.life <= 0) {
+          menuDemoBonuses.splice(i, 1);
+          continue;
+        }
+        const bd = distance(player.x, player.y, bonus.x, bonus.y);
+        if (bd <= player.r + bonus.r + 4) {
+          const meta = MENU_DEMO_BONUS_META[bonus.type];
+          createParticles(bonus.x, bonus.y, meta.color, 18, 220);
+          createRing(player.x, player.y, 44, meta.color);
+          damageNumbers.push({
+            x: player.x,
+            y: player.y - 24,
+            text: meta.label,
+            color: meta.color,
+            size: 15,
+            life: 0.9,
+            vy: -46
+          });
+          if (bonus.type === "heal") {
+            player.hp = player.maxHp;
+            soundManager.playHeal();
+          } else if (bonus.type === "speed") {
+            menuDemoBuffs.speedTimer = 4.0;
+          } else if (bonus.type === "damage") {
+            menuDemoBuffs.damageTimer = 5.0;
+            stats.damage = menuDemoBaseDamage * 1.6;
+          } else if (bonus.type === "shield") {
+            player.invulnerability = 3.0;
+          } else if (bonus.type === "magnet") {
+            menuDemoBuffs.magnetTimer = 4.5;
+            stats.pickupRadius = 220;
+            stats.groundPullSpeed = 480;
+            stats.boomerang = true;
+          }
+          menuDemoBonuses.splice(i, 1);
+        }
+      }
+
+      // 2d. Обратный отсчёт временных бонусов и снятие эффекта урона/магнита по истечении
+      if (menuDemoBuffs.speedTimer > 0) menuDemoBuffs.speedTimer -= dt;
+      if (menuDemoBuffs.magnetTimer > 0) {
+        menuDemoBuffs.magnetTimer -= dt;
+        if (menuDemoBuffs.magnetTimer <= 0) {
+          stats.pickupRadius = 0;
+          stats.groundPullSpeed = 0;
+          stats.boomerang = false;
+        }
+      }
+      if (menuDemoBuffs.damageTimer > 0) {
+        menuDemoBuffs.damageTimer -= dt;
+        if (menuDemoBuffs.damageTimer <= 0) {
+          stats.damage = menuDemoBaseDamage;
+        }
       }
 
       // 3. Поиск целей и проверка патрона
@@ -9997,16 +10126,35 @@
             forceY += Math.sin(baitAngle) * 220;
           }
         } else {
-          // Путь чист: решительный рывок за патроном
-          const pull = d < 160 ? 580 : 440;
+          // Путь чист: решительный рывок за патроном (бонус «магнит» усиливает притяжение и радиус подбора)
+          const magnetActive = menuDemoBuffs.magnetTimer > 0;
+          const pull = (d < 160 ? 580 : 440) * (magnetActive ? 1.6 : 1.0);
           forceX += ((nearestGroundBullet.x - player.x) / d) * pull;
           forceY += ((nearestGroundBullet.y - player.y) / d) * pull;
 
-          if (nearestGroundBullet.state === "ground" && d <= player.r + nearestGroundBullet.r + 18) {
+          const catchRange = player.r + nearestGroundBullet.r + (magnetActive ? 60 : 18);
+          if (nearestGroundBullet.state === "ground" && d <= catchRange) {
             catchBullet(nearestGroundBullet);
             menuDemoShootTimer = 0; // Мгновенный ответный выстрел после подбора!
           }
         }
+      }
+
+      // Г2. Активное сближение со случайными бонусами (бот целенаправленно идёт за наградой)
+      let nearestBonus = null;
+      let minBonusDist = Infinity;
+      for (const bonus of menuDemoBonuses) {
+        const bDist = distance(player.x, player.y, bonus.x, bonus.y);
+        if (bDist < minBonusDist) {
+          minBonusDist = bDist;
+          nearestBonus = bonus;
+        }
+      }
+      if (nearestBonus) {
+        const d = minBonusDist || 1;
+        const bonusPull = d < 180 ? 520 : 400;
+        forceX += ((nearestBonus.x - player.x) / d) * bonusPull;
+        forceY += ((nearestBonus.y - player.y) / d) * bonusPull;
       }
 
       // Д. Тактический круговой стрейф вокруг цели (при наличии патрона)
@@ -10034,7 +10182,8 @@
 
       // Е. Плавная физическая интерполяция скорости игрока
       const speedBoost = (!hasHeldBullet && !isBulletGuarded && minBulletDist < 160) ? 1.15 : 1.0;
-      const maxSpeed = (stats.speed || 240) * speedBoost;
+      const bonusSpeedBoost = menuDemoBuffs.speedTimer > 0 ? 1.7 : 1.0;
+      const maxSpeed = (stats.playerSpeed || BASE_PLAYER_SPEED) * speedBoost * bonusSpeedBoost;
       const targetVelX = clamp(forceX, -maxSpeed, maxSpeed);
       const targetVelY = clamp(forceY, -maxSpeed, maxSpeed);
 
@@ -10050,6 +10199,22 @@
       // Сброс вспышки урона и неуязвимости
       playerHitFlash = Math.max(0, playerHitFlash - 6 * dt);
       player.invulnerability = Math.max(0, (player.invulnerability || 0) - dt);
+
+      // Бонус «магнит»: подтягивает лежащий на земле патрон к боту (демо не вызывает
+      // updatePlayer(), поэтому обычная физика бумеранга тут не работает сама по себе)
+      if (menuDemoBuffs.magnetTimer > 0) {
+        for (const groundBullet of bullets) {
+          if (groundBullet.state !== "ground") continue;
+          const mdx = player.x - groundBullet.x;
+          const mdy = player.y - groundBullet.y;
+          const magnetDist = Math.hypot(mdx, mdy) || 1;
+          if (magnetDist > player.r + groundBullet.r) {
+            const magnetPullStep = 480 * dt;
+            groundBullet.x += (mdx / magnetDist) * magnetPullStep;
+            groundBullet.y += (mdy / magnetDist) * magnetPullStep;
+          }
+        }
+      }
 
       // 6. Обновление мира симуляции
       updateBullets(dt);
@@ -12140,7 +12305,7 @@ osc.stop(now + 0.05);
         rarity: "COMMON",
         category: "survival",
         color: "#34d399",
-        desc: "Увеличивает максимальный запас здоровья на +100 HP и пропорционально восстанавливает здоровье.",
+        desc: "Увеличивает максимальный запас здоровья на +100 HP за уровень и мгновенно восстанавливает столько же текущего здоровья.",
         tree: ["Повышает живучесть в затяжных босс-файтах."],
         synergy: "Снижает риск фатального урона."
       },
@@ -12154,6 +12319,28 @@ osc.stop(now + 0.05);
         desc: "Дает +15% к шансу нанесения критического урона (200% урона с остановкой времени hit-stop).",
         tree: ["Может наносить сокрушительный урон боссам."],
         synergy: "Умножает весь урон пули и наложенные метки."
+      },
+      {
+        id: "resilience",
+        title: "Стойкость",
+        icon: "🧱",
+        rarity: "RARE",
+        category: "survival",
+        color: "#38bdf8",
+        desc: "Снижает получаемый урон на +6% за уровень (максимум 42%).",
+        tree: ["Пассивное сопротивление урону, суммируется до потолка 42%."],
+        synergy: "Отлично сочетается с «Усиленной бронёй» — больше урона выдержит запас HP."
+      },
+      {
+        id: "resurrection",
+        title: "Воскрешение",
+        icon: "💀",
+        rarity: "LEGENDARY",
+        category: "survival",
+        color: "#ffd36b",
+        desc: "Одноразовое за матч. При смерти — QTE: 5 нажатий Пробела за 5 секунд, иначе — окончательная смерть.",
+        tree: ["Успех — возрождение со 100 HP (без неуязвимости)."],
+        synergy: "Страховка от фатальной ошибки на поздних волнах и в бою с боссом."
       }
     ];
 
@@ -13125,6 +13312,9 @@ osc.stop(now + 0.05);
                 <li>🎨 <strong>Узоры брони вместо плоской заливки:</strong> каждый скин бойца рисуется собственным анимированным узором (технологичные швы, боевые полосы, чешуя, рунные метки, трещины мороза/тьмы, языки пламени, лучи света и т.д.) — скины больше не сводятся к смене одного цвета.</li>
                 <li>🤝 <strong>Полная синхронизация в коопе:</strong> скин бойца больше не «прибит» к слоту игрока — выбранный облик передаётся по сети (комната, лобби, live-снапшоты) и одинаково отображается у себя и у напарника, включая узор брони.</li>
                 <li>🗂️ <strong>Оружейная переведена на вкладки:</strong> «Скины снаряда» и «Скины бойца» с отдельными каталогами, живой демонстрацией 60FPS и мгновенным переключением/экипировкой прямо из меню.</li>
+                <li>📖 <strong>База знаний дополнена:</strong> в каталог улучшений добавлены недостающие карточки «Воскрешение» и «Стойкость», описания сокращены и уточнены (не выезжают за экран).</li>
+                <li>🤖 <strong>Фоновый демо-бой на главном меню стал разнообразнее:</strong> расширен пул противников (танк, бегун, заряжающийся, разделитель, стрелок, фантом, мираж, страж, магнетизатор, инкубатор и пары близнецов), добавлены случайные бонусы прямо на арене (лечение, скорость, урон, щит, магнит) со свечением и подбором.</li>
+                <li>🧲 <strong>Демо-бот теперь целенаправленно бежит за бонусами</strong>, а не просто мимо них, а бонус «магнит» реально притягивает патрон с земли к боту (раньше эффект был только визуальным).</li>
               </ul>
             </div>
 
@@ -13158,9 +13348,9 @@ osc.stop(now + 0.05);
                 </div>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
-                <li>🛠️ <strong>Критичный фикс умной пули в кооп-режиме:</strong> самонаведение вообще не работало ни на одного врага в мультиплеере — сервер перебирал Map врагов без <code>.values()</code>, из-за чего все проверки цели превращались в NaN/undefined. Баг жил с 20 августа, до этого не был замечен.</li>
                 <li>👻 <strong>Мираж — правильный цикл невидимости:</strong> 6 секунд полностью невидим (неуязвим для наведения умной пули), появляется ровно на 1 секунду с плавным проявлением, затем снова прячется. Починена рассинхронизация соло-режима, где мираж всегда игнорировался наведением из-за незаполненного флага видимости.</li>
                 <li>🛡️ <strong>Часовой — паритет щита соло/кооп:</strong> на сервере фронтальный щит блокировал только 20% урона вместо заявленных 80% — теперь оба режима одинаково блокируют 80% урона в передний сектор ~130°.</li>
+                <li>🔢 <strong>Изменена логика расчёта урона.</strong></li>
               </ul>
             </div>
 
@@ -14899,9 +15089,11 @@ osc.stop(now + 0.05);
         coopSession.isHost = false;
       
         coopSession.players.clear();
-        coopSession.inputs.clear();
         coopSession.bullets.clear();
         coopSession.enemies.clear();
+        coopSession.enemyProjectiles.clear();
+        coopSession.parasites.clear();
+        coopSession.splinters.clear();
         coopParticles.length = 0;
 
         coopSession.experienceCrystals.clear();
@@ -16798,8 +16990,18 @@ osc.stop(now + 0.05);
           );
 
           /*
-           * Серверная реконсиляция: подтягиваем позицию
-           * к серверной, если рассинхрон > 30px.
+           * Серверная реконсиляция: сервер в основном просто
+           * подтверждает позицию, присланную клиентом (эхо),
+           * поэтому "рассинхрон" тут почти всегда равен обычной
+           * задержке сети (RTT), а не реальному расхождению
+           * физики. Старый вариант с жёстким порогом 30px
+           * включал/выключал коррекцию рывками — именно это и
+           * ощущалось как периодическая "остановка" при
+           * держании кнопки движения. Теперь коррекция всегда
+           * непрерывная и её сила растёт вместе с ошибкой:
+           * обычная сетевая задержка почти не заметна, а
+           * настоящий рассинхрон (толчок, столкновение,
+           * телепорт) подтягивается быстро.
            *
            * Во время рывка и 0.25с после него (grace period)
            * реконсиляция отключена — иначе сервер, не успевший
@@ -16816,17 +17018,15 @@ osc.stop(now + 0.05);
               coopPlayer.serverX - coopPlayer.x,
               coopPlayer.serverY - coopPlayer.y
             );
-            if (desyncDist > 30) {
-              if (desyncDist > 200) {
-                coopPlayer.x = coopPlayer.serverX;
-                coopPlayer.y = coopPlayer.serverY;
-              } else {
-                const lerpFactor = Math.min(1, dt * 10.0);
-                coopPlayer.x +=
-                  (coopPlayer.serverX - coopPlayer.x) * lerpFactor;
-                coopPlayer.y +=
-                  (coopPlayer.serverY - coopPlayer.y) * lerpFactor;
-              }
+            if (desyncDist > 220) {
+              /* Явный телепорт/большой рассинхрон — мгновенно принимаем сервер. */
+              coopPlayer.x = coopPlayer.serverX;
+              coopPlayer.y = coopPlayer.serverY;
+            } else if (desyncDist > 5) {
+              const corrPerSec = 1.5 + Math.min(20, Math.max(0, desyncDist - 20) * 0.3);
+              const correctionFactor = Math.min(0.4, dt * corrPerSec);
+              coopPlayer.x += (coopPlayer.serverX - coopPlayer.x) * correctionFactor;
+              coopPlayer.y += (coopPlayer.serverY - coopPlayer.y) * correctionFactor;
             }
           }
 
@@ -20367,6 +20567,45 @@ osc.stop(now + 0.05);
       }
     }
 
+    function drawMenuDemoBonuses() {
+      const now = performance.now();
+      for (const bonus of menuDemoBonuses) {
+        const meta = MENU_DEMO_BONUS_META[bonus.type];
+        if (!meta) continue;
+        const bob = Math.sin(now * 0.004 + bonus.id) * 4;
+        const pulse = 1 + Math.sin(now * 0.007 + bonus.id) * 0.16;
+        const fade = bonus.life < 2.5 ? Math.max(0.25, bonus.life / 2.5) : 1;
+
+        ctx.save();
+        ctx.globalAlpha = fade;
+        ctx.translate(bonus.x, bonus.y + bob);
+        ctx.rotate(now * 0.0012);
+
+        // Светящаяся аура бонуса
+        ctx.shadowColor = meta.glow;
+        ctx.shadowBlur = 20 * pulse;
+        ctx.fillStyle = meta.color + "40";
+        ctx.beginPath();
+        ctx.arc(0, 0, (bonus.r || 14) * 1.7 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ромбовидный кристалл бонуса
+        ctx.fillStyle = meta.color;
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(9, 0);
+        ctx.lineTo(0, 12);
+        ctx.lineTo(-9, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
     function drawExperienceCrystals() {
       const currentTime =
         performance.now();
@@ -21057,6 +21296,7 @@ osc.stop(now + 0.05);
       }
     
       drawMedkits();
+      if (isMenu) drawMenuDemoBonuses();
       drawExperienceCrystals();
       drawAimLine();
       drawEnemies();

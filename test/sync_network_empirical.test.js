@@ -11,6 +11,10 @@ const networkJsPath = path.resolve(process.cwd(), "public/network.js");
 const networkJsContent = fs.readFileSync(networkJsPath, "utf-8");
 
 // Exact reconciliation algorithm from public/index.html
+// (continuous soft correction — replaces the old 30/200px hard-threshold
+// scheme that flickered on/off under ordinary network latency and felt
+// like the local player periodically "stopped" while a movement key was
+// held. See v2.10+ netcode jitter fix.)
 function reconcilePlayerPosition(player, dt) {
   if (
     Number.isFinite(player.serverX) &&
@@ -20,17 +24,16 @@ function reconcilePlayerPosition(player, dt) {
       player.serverX - player.x,
       player.serverY - player.y
     );
-    if (desyncDist > 30) {
-      if (desyncDist > 200) {
-        player.x = player.serverX;
-        player.y = player.serverY;
-      } else {
-        const lerpFactor = Math.min(1, dt * 10.0);
-        player.x +=
-          (player.serverX - player.x) * lerpFactor;
-        player.y +=
-          (player.serverY - player.y) * lerpFactor;
-      }
+    if (desyncDist > 220) {
+      player.x = player.serverX;
+      player.y = player.serverY;
+    } else if (desyncDist > 5) {
+      const corrPerSec = 1.5 + Math.min(20, Math.max(0, desyncDist - 20) * 0.3);
+      const correctionFactor = Math.min(0.4, dt * corrPerSec);
+      player.x +=
+        (player.serverX - player.x) * correctionFactor;
+      player.y +=
+        (player.serverY - player.y) * correctionFactor;
     }
   }
 }
@@ -101,14 +104,15 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
 
   describe("1. Server Reconciliation Under Desync Magnitudes", () => {
 
-    it("verifies index.html contains exact reconciliation lerp and snap thresholds (30px, 200px, dt * 10.0)", () => {
-      assert.match(indexHtmlContent, /if\s*\(\s*desyncDist\s*>\s*30\s*\)/);
-      assert.match(indexHtmlContent, /if\s*\(\s*desyncDist\s*>\s*200\s*\)/);
-      assert.match(indexHtmlContent, /Math\.min\(\s*1\s*,\s*dt\s*\*\s*10\.0\s*\)/);
+    it("verifies index.html contains exact reconciliation deadzone, snap threshold and correction formula (5px, 220px, dt-scaled corrPerSec)", () => {
+      assert.match(indexHtmlContent, /if\s*\(\s*desyncDist\s*>\s*220\s*\)/);
+      assert.match(indexHtmlContent, /desyncDist\s*>\s*5\s*\)/);
+      assert.match(indexHtmlContent, /const\s+corrPerSec\s*=\s*1\.5\s*\+\s*Math\.min\(\s*20\s*,\s*Math\.max\(\s*0\s*,\s*desyncDist\s*-\s*20\s*\)\s*\*\s*0\.3\s*\)/);
+      assert.match(indexHtmlContent, /Math\.min\(\s*0\.4\s*,\s*dt\s*\*\s*corrPerSec\s*\)/);
     });
 
-    it("desync <= 30px (e.g. 0px, 10px, 25px, 30px): does NOT snap or lerp (zero correction)", () => {
-      const magnitudes = [0, 10, 25, 30];
+    it("desync <= 5px (e.g. 0px, 2px, 5px): does NOT correct (zero-motion deadzone)", () => {
+      const magnitudes = [0, 2, 5];
       const dt = 1 / 60;
 
       for (const mag of magnitudes) {
@@ -137,10 +141,9 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
       }
     });
 
-    it("desync > 30px and <= 200px (e.g. 31px, 100px, 150px, 200px): lerps smoothly with factor dt * 10.0", () => {
-      const testCases = [31, 100, 150, 200];
+    it("desync > 5px and <= 220px (e.g. 10px, 31px, 100px, 200px): applies a continuous soft correction scaled by error magnitude", () => {
+      const testCases = [10, 31, 100, 150, 200];
       const dt = 1 / 60;
-      const lerpFactor = dt * 10.0;
 
       for (const mag of testCases) {
         const player = {
@@ -150,7 +153,9 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
           serverY: 200
         };
 
-        const expectedNewX = player.x + (player.serverX - player.x) * lerpFactor;
+        const corrPerSec = 1.5 + Math.min(20, Math.max(0, mag - 20) * 0.3);
+        const correctionFactor = Math.min(0.4, dt * corrPerSec);
+        const expectedNewX = player.x + (player.serverX - player.x) * correctionFactor;
 
         reconcilePlayerPosition(player, dt);
 
@@ -162,8 +167,8 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
       }
     });
 
-    it("desync > 200px (e.g. 200.01px, 350px, 1000px): snaps immediately to server position", () => {
-      const testCases = [200.01, 350, 500, 1000, 5000];
+    it("desync > 220px (e.g. 220.01px, 350px, 1000px): snaps immediately to server position", () => {
+      const testCases = [220.01, 350, 500, 1000, 5000];
       const dt = 1 / 60;
 
       for (const mag of testCases) {
@@ -189,8 +194,8 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
       }
     });
 
-    it("convergence time stress test: 30px < desync <= 200px converges to deadzone (<=30px) within <= 500ms", () => {
-      const initialDesyncs = [31, 60, 100, 150, 200];
+    it("convergence time stress test: 5px < desync <= 220px converges to deadzone (<=5px) within <= 1.5s", () => {
+      const initialDesyncs = [10, 31, 60, 100, 150, 200, 219];
       const frameRates = [30, 60, 120];
 
       for (const fps of frameRates) {
@@ -206,11 +211,11 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
 
           let elapsedTime = 0;
           let frames = 0;
-          const maxTime = 1.0;
+          const maxTime = 2.0;
 
           while (elapsedTime < maxTime) {
             const currentDesync = Math.hypot(player.serverX - player.x, player.serverY - player.y);
-            if (currentDesync <= 30) {
+            if (currentDesync <= 5) {
               break;
             }
             reconcilePlayerPosition(player, dt);
@@ -220,14 +225,16 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
 
           const finalDesync = Math.hypot(player.serverX - player.x, player.serverY - player.y);
 
-          // Convergence must complete in <= 500ms
+          // Deliberately gentle: full convergence must still complete within <= 1.5s
+          // (much softer than the old 500ms hard-threshold scheme, on purpose —
+          // ordinary network latency no longer fights the local prediction).
           assert.ok(
-            elapsedTime <= 0.50001,
-            `Convergence took ${elapsedTime * 1000}ms at ${fps} FPS for initial desync ${initialDesync}px (expected <= 500ms)`
+            elapsedTime <= 1.50001,
+            `Convergence took ${elapsedTime * 1000}ms at ${fps} FPS for initial desync ${initialDesync}px (expected <= 1500ms)`
           );
           assert.ok(
-            finalDesync <= 30.0,
-            `Final desync was ${finalDesync}px, expected <= 30px`
+            finalDesync <= 5.0,
+            `Final desync was ${finalDesync}px, expected <= 5px`
           );
         }
       }
@@ -256,7 +263,7 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
       }
     });
 
-    it("edge case stress test: massive frame spike (dt = 2.0s) clamps lerpFactor to 1.0 without overshooting", () => {
+    it("edge case stress test: massive frame spike (dt = 2.0s, desync=150px) clamps correctionFactor to 0.4 without overshooting past server position", () => {
       const player = {
         x: 100,
         y: 100,
@@ -264,10 +271,29 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
         serverY: 100
       };
 
-      // dt = 2.0s -> dt * 6.0 = 12.0 -> min(1, 12.0) = 1.0
+      // desync = 150 -> corrPerSec = 1.5 + min(20, (150-20)*0.3) = 21.5
+      // dt = 2.0s -> dt * 21.5 = 43.0 -> min(0.4, 43.0) = 0.4 (capped, no overshoot)
       reconcilePlayerPosition(player, 2.0);
 
-      assert.equal(player.x, 250);
+      const expectedX = 100 + (250 - 100) * 0.4;
+      assert.ok(
+        Math.abs(player.x - expectedX) < 1e-6,
+        `Expected player.x to be ${expectedX} (40% corrected, not fully snapped), got ${player.x}`
+      );
+      assert.ok(player.x < player.serverX, "A capped correction factor must never overshoot past the server position");
+    });
+
+    it("edge case stress test: massive frame spike (dt = 2.0s, desync > 220px) still snaps immediately regardless of dt", () => {
+      const player = {
+        x: 100,
+        y: 100,
+        serverX: 400,
+        serverY: 100
+      };
+
+      reconcilePlayerPosition(player, 2.0);
+
+      assert.equal(player.x, 400);
       assert.equal(player.y, 100);
     });
   });

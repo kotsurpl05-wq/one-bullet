@@ -14,7 +14,6 @@ const { getEnemyExperience, getContactDamage } = require("./shared/enemy-xp");
 const { createPlayerStats } = require("./shared/player-stats");
 const { createEnemyBase } = require("./shared/enemy-factory");
 const { UPGRADE_DEFS, applyUpgrade } = require("./shared/upgrades");
-const { getMirageVisibility } = require("./shared/mirage");
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -320,7 +319,14 @@ const COOP_WORLD_HEIGHT = WORLD_HEIGHT;
 
 const COOP_PLAYER_SPEED = PLAYER_SPEED;
 const COOP_SIMULATION_RATE = 60;
-const COOP_SNAPSHOT_RATE = 20;
+/*
+ * 20 Hz давал слишком редкие обновления позиции: клиент
+ * сверял себя со "старой" серверной точкой раз в 50мс, из-за
+ * чего обычная сетевая задержка выглядела как рассинхрон и
+ * включала рывковую коррекцию. 30 Hz почти вдвое снижает
+ * устаревание опорной точки при небольшом росте трафика.
+ */
+const COOP_SNAPSHOT_RATE = 30;
 
 const COOP_INPUT_TIMEOUT = 1200;
 
@@ -793,7 +799,7 @@ function applyServerSmartHoming(bullet, candidateEnemies, homingPower, dt) {
   let bestScore = Infinity;
   const maxRange = 245 + homingPower * 28; // Сбалансированный радиус (-20%)
 
-  for (const enemy of candidateEnemies) {
+  for (const enemy of candidateEnemies.values()) {
     if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) continue;
     if (bullet.hitEnemies && bullet.hitEnemies.has(enemy.id)) continue;
     if (enemy.hasEnteredArena === false) continue;
