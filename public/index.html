@@ -10928,7 +10928,7 @@ osc.stop(now + 0.05);
           <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
             <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
               <span style="font-size: 15px;">📜</span>
-              <span>История обновлений (v2.8)</span>
+              <span>История обновлений (v2.11)</span>
             </button>
           </div>
         </div>
@@ -11602,19 +11602,20 @@ osc.stop(now + 0.05);
           // Draw the player avatar using the chosen skin palette
           const playerSkinColors = getPlayerSkinColors(selectedPlayerSkinId);
           const bobY = cy + Math.sin(t * 0.004) * 6;
+          const previewPlayerR = 32;
           pCtx.save();
           pCtx.translate(cx, bobY);
 
           pCtx.beginPath();
-          pCtx.arc(0, 0, 20, 0, Math.PI * 2);
+          pCtx.arc(0, 0, previewPlayerR + 14, 0, Math.PI * 2);
           pCtx.fillStyle = playerSkinColors.glow;
           pCtx.fill();
 
-          drawPlayerSkinBody(pCtx, selectedPlayerSkinId, 13, null);
+          drawPlayerSkinBody(pCtx, selectedPlayerSkinId, previewPlayerR, null);
 
           pCtx.rotate(pAngle);
           pCtx.beginPath();
-          pCtx.arc(13 * 0.45, 0, 3.5, 0, Math.PI * 2);
+          pCtx.arc(previewPlayerR * 0.45, 0, 6, 0, Math.PI * 2);
           pCtx.fillStyle = playerSkinColors.light || "#ffffff";
           pCtx.fill();
 
@@ -13109,16 +13110,69 @@ osc.stop(now + 0.05);
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
 
-            <!-- v2.8 -->
-            <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(0, 242, 254, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(0, 242, 254, 0.16);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.25); padding-bottom: 8px;">
+            <!-- v2.11 -->
+            <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(168, 85, 247, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(168, 85, 247, 0.16);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(168, 85, 247, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.8</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Рывок-апгрейд, Админ 3.0 и Полный паритет</span>
+                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.11</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Оружейная: 6 новых скинов пули и облики бойца с узорами брони</span>
                 </div>
-                <span style="font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
+                <span style="font-size: 11px; color: #c084fc; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>🔫 <strong>6 новых скинов пули:</strong> Ледяной Шип (Frost), Теневой Клинок (Shadow), Мидас (Gold), Кибер-Схема (Circuit), Грозовой Фронт (Storm) и Леденец (Candy) — каждый с уникальной геометрией, орбиталями и цветным шлейфом. Всего в арсенале 18 скинов пули.</li>
+                <li>🛡️ <strong>Новая система «Скины бойца»:</strong> 11 обликов персонажа (Кибер-Страж, Багровый Мститель, Янтарный Страж, Изумрудный Страж, Пурпурный Чародей, Золотой Чемпион, Ледяной Страж, Кислотный Разведчик, Пламенный Страж, Теневой Агент, Священный Паладин) — впервые доступны для выбора и экипировки.</li>
+                <li>🎨 <strong>Узоры брони вместо плоской заливки:</strong> каждый скин бойца рисуется собственным анимированным узором (технологичные швы, боевые полосы, чешуя, рунные метки, трещины мороза/тьмы, языки пламени, лучи света и т.д.) — скины больше не сводятся к смене одного цвета.</li>
+                <li>🤝 <strong>Полная синхронизация в коопе:</strong> скин бойца больше не «прибит» к слоту игрока — выбранный облик передаётся по сети (комната, лобби, live-снапшоты) и одинаково отображается у себя и у напарника, включая узор брони.</li>
+                <li>🗂️ <strong>Оружейная переведена на вкладки:</strong> «Скины снаряда» и «Скины бойца» с отдельными каталогами, живой демонстрацией 60FPS и мгновенным переключением/экипировкой прямо из меню.</li>
+              </ul>
+            </div>
+
+            <!-- v2.10 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(0, 242, 254, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.10</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Воскрешение, Список серверов и Фикс неткода</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>💀 <strong>Легендарный бонус «Воскрешение»:</strong> одноразовый за матч. При смерти — окно QTE: 5 нажатий пробела за 5 секунд, иначе — окончательная смерть. Успех — возрождение со 100 HP (без неуязвимости).</li>
+                <li>📡 <strong>Список серверов:</strong> экран подключения теперь показывает открытые лобби (код, хозяин, кол-во игроков) с автообновлением и мгновенным входом по клику.</li>
+                <li>🌐 <strong>Фикс джиттера неткода:</strong> тиковый цикл симуляции переведён с дрейфующего <code>setInterval</code> на самокорректирующийся планировщик (компенсация задержки event loop) — устранены скачки 30-80-110мс.</li>
+                <li>🛋️ <strong>Надёжность лобби:</strong> комнаты больше не закрываются за простой, пока в них есть подключённые игроки — устранён «вылет при айдл». Кнопка «Вернуться в лобби» больше не залипает при сбое сети.</li>
+                <li>👯 <strong>Близнецы мстят:</strong> враг-близнец теперь целится в первую очередь в убийцу своего погибшего брата.</li>
+                <li>🎯 <strong>Точная длина рывка:</strong> визуальная линия прицела/рывка теперь равна реальной дистанции рывка игрока.</li>
+                <li>🔢 <strong>Точные значения в процентах:</strong> опция в настройках — рядом с любым процентным показателем в скобках отображается точное число.</li>
+                <li>👁️ <strong>Прозрачность босс-бара:</strong> полоска здоровья босса становится на 50% прозрачнее, если игрок в радиусе 2 клеток grid — не загораживает обзор.</li>
+                <li>🖱️ <strong>Перетаскиваемая панель F3:</strong> оверлей сетевой статистики/производительности можно двигать мышью.</li>
+              </ul>
+            </div>
+
+            <!-- v2.9 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(0, 242, 254, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.9</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Мираж, Часовой и критичный фикс умной пули в коопе</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>🛠️ <strong>Критичный фикс умной пули в кооп-режиме:</strong> самонаведение вообще не работало ни на одного врага в мультиплеере — сервер перебирал Map врагов без <code>.values()</code>, из-за чего все проверки цели превращались в NaN/undefined. Баг жил с 20 августа, до этого не был замечен.</li>
+                <li>👻 <strong>Мираж — правильный цикл невидимости:</strong> 6 секунд полностью невидим (неуязвим для наведения умной пули), появляется ровно на 1 секунду с плавным проявлением, затем снова прячется. Починена рассинхронизация соло-режима, где мираж всегда игнорировался наведением из-за незаполненного флага видимости.</li>
+                <li>🛡️ <strong>Часовой — паритет щита соло/кооп:</strong> на сервере фронтальный щит блокировал только 20% урона вместо заявленных 80% — теперь оба режима одинаково блокируют 80% урона в передний сектор ~130°.</li>
+              </ul>
+            </div>
+
+            <!-- v2.8 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.8</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Рывок-апгрейд, Админ 3.0 и Полный паритет</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
                 <li>💨 <strong>Рывок — новое семейство улучшений:</strong> Базовая карта (Rare) разблокирует рывок 120px/10с кд. Ветки: Дальность (+50px, макс 320), Перезарядка (−1.5с, мин 2.0), Разящий рывок (Legendary, 100% урона на пути).</li>
                 <li>🔧 <strong>Админ-панель 3.0:</strong> Полная переработка — панель статов цели, дерево улучшений с ветками, кнопки [+][−][MAX], cascade-удаление, live-обновление каждые 300мс, перетаскивание за заголовок, ресайз за края, кастомные скроллбары, оверлей «Запустите забег» в главном меню.</li>
                 <li>⚖️ <strong>Паритет соло/кооп:</strong> Исправлена математика homing (+power вместо 2.2/3.6/4.8), emergency-repair (16/14/12 убийств вместо 12/10/8). Все 45 апгрейдов идентичны в обоих режимах.</li>
