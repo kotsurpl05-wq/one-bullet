@@ -193,8 +193,8 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       bullet.r = 6;
       bullet.hitsLeft = 1;
 
-      // Enemy positioned between bullet and player
-      const enemy = ctx.createServerEnemy(world, "normal", 240, 200, true);
+      // Enemy positioned next to the bullet (point collision)
+      const enemy = ctx.createServerEnemy(world, "normal", 290, 200, true);
       enemy.hp = 10;
       enemy.maxHp = 10;
       enemy.r = 14;
@@ -550,8 +550,8 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       bullet.x = 280;
       bullet.y = 200;
 
-      // Enemy already marked
-      const enemy = ctx.createServerEnemy(world, "tank", 240, 200, true);
+      // Enemy already marked, positioned next to the bullet (point collision)
+      const enemy = ctx.createServerEnemy(world, "tank", 290, 200, true);
       enemy.hp = 100;
       enemy.maxHp = 100;
       enemy.targetMarked = true;

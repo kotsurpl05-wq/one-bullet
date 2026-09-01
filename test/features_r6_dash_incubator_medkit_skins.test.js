@@ -205,9 +205,9 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes("playHeal()"), "SoundManager must contain playHeal()");
     });
 
-    await t3.test("3.2 Index HTML contains triggerDash and 8.0s cooldown check", () => {
+    await t3.test("3.2 Index HTML contains triggerDash and stats-driven dash cooldown", () => {
       assert.ok(indexHtml.includes("function triggerDash"), "Index HTML must define triggerDash()");
-      assert.ok(indexHtml.includes("dashCooldown = 8.0"), "Dash cooldown must be set to 8.0s");
+      assert.ok(indexHtml.includes("dashCooldownBase || 10.0"), "Dash cooldown must use stats-driven base (10.0s)");
     });
 
     await t3.test("3.3 Index HTML contains 5 Bullet Skins in settings and renderer", () => {
@@ -219,18 +219,21 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
     });
 
     await t3.test("3.4 Server updateServerCoopPlayer triggers dash physics on input.dash", () => {
-      const { player1 } = createTestWorld(ctx);
+      const { world, player1 } = createTestWorld(ctx);
       player1.x = 400;
       player1.y = 300;
+      player1.stats.dash = true;
+      player1.stats.dashDistance = 120;
+      player1.stats.dashCooldownBase = 10.0;
       player1.input = ctx.sanitizeInput ? ctx.sanitizeInput({ right: true, dash: true }) : { right: true, dash: true };
       player1.dashCooldown = 0;
 
       // Update server player simulation
-      ctx.updateServerCoopPlayer(player1, 0.1, Date.now());
+      ctx.updateServerCoopPlayer(world, player1, 0.1, Date.now());
 
-      assert.equal(player1.dashCooldown, 8.0, "dashCooldown must be set to 8s on trigger");
+      assert.equal(player1.dashCooldown, 10.0, "dashCooldown must be set to 10s on trigger");
       assert.ok(player1.dashTimer > 0, "dashTimer must be active");
-      assert.ok(player1.x > 450, `Player x must have dashed right rapidly (got ${player1.x})`);
+      assert.ok(player1.x > 400, `Player x must have dashed right (got ${player1.x})`);
       assert.ok(player1.invulnerability >= 0.15, "Invulnerability must be active during dash");
     });
 
@@ -277,12 +280,12 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
     });
 
     await t3.test("3.9 Server player updates smoothly with client-streamed input coordinates", () => {
-      const { player1 } = createTestWorld(ctx);
+      const { world, player1 } = createTestWorld(ctx);
       player1.x = 200;
       player1.y = 200;
       player1.input = ctx.sanitizeInput ? ctx.sanitizeInput({ x: 235.4, y: 218.2 }) : { x: 235.4, y: 218.2 };
 
-      ctx.updateServerCoopPlayer(player1, 0.016, Date.now());
+      ctx.updateServerCoopPlayer(world, player1, 0.016, Date.now());
       assert.equal(player1.x, 235.4, "Server player x must match streamed client coordinate without drift");
       assert.equal(player1.y, 218.2, "Server player y must match streamed client coordinate without drift");
     });

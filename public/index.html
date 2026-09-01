@@ -3051,6 +3051,7 @@
     let repairHealCooldown = 0;
 
     let runMode = "solo";
+    let trainingMode = false;
     let networkRoom = null;
     let networkMessage = "";
     let networkMessageSuccess = false;
@@ -3445,7 +3446,49 @@
       }
     }
 
-    
+    const SKIN_FX_COLORS = {
+      neon:    { primary: "#7ee7ff", secondary: "#55d8ff", glow: "#00f2fe" },
+      fire:    { primary: "#ff4500", secondary: "#ffa500", glow: "#f59e0b" },
+      quantum: { primary: "#38bdf8", secondary: "#818cf8", glow: "#00f2fe" },
+      toxic:   { primary: "#39ff14", secondary: "#4ade80", glow: "#22c55e" },
+      cosmic:  { primary: "#fde047", secondary: "#c084fc", glow: "#eab308" },
+      plasma:  { primary: "#c084fc", secondary: "#00f2fe", glow: "#a855f7" },
+      void:    { primary: "#a855f7", secondary: "#1e1b4b", glow: "#7c3aed" },
+      inferno: { primary: "#f97316", secondary: "#fbbf24", glow: "#ea580c" },
+      glitch:  { primary: "#00ff66", secondary: "#ff0055", glow: "#22d3ee" },
+      prism:   { primary: null, secondary: null, glow: null },
+      holy:    { primary: "#facc15", secondary: "#ffffff", glow: "#fde047" },
+      ruby:    { primary: "#dc2626", secondary: "#f87171", glow: "#ef4444" }
+    };
+
+    function getSkinFX(skin) {
+      const fx = SKIN_FX_COLORS[skin];
+      if (fx && fx.primary) return fx;
+      if (skin === "prism") {
+        const hue = Math.floor((performance.now() * 0.2) % 360);
+        return { primary: `hsl(${hue},100%,65%)`, secondary: `hsl(${(hue+120)%360},100%,70%)`, glow: `hsl(${(hue+60)%360},100%,60%)` };
+      }
+      return { primary: "#7ee7ff", secondary: "#55d8ff", glow: "#00f2fe" };
+    }
+
+    function spawnSkinBounceEffect(x, y, skin, createPartFn, createRingFn, shakeFn) {
+      const fx = getSkinFX(skin);
+      createPartFn(x, y, fx.primary, 10, 180);
+      createPartFn(x, y, fx.secondary, 6, 120);
+      createRingFn(x, y, 28, fx.glow);
+      if (shakeFn) shakeFn(4);
+    }
+
+    function spawnSkinKillEffect(x, y, skin, createPartFn, createRingFn, shakeFn) {
+      const fx = getSkinFX(skin);
+      createPartFn(x, y, fx.primary, 16, 260);
+      createPartFn(x, y, fx.secondary, 10, 180);
+      createPartFn(x, y, "#ffffff", 6, 140);
+      createRingFn(x, y, 40, fx.glow);
+      createRingFn(x, y, 24, fx.primary);
+      if (shakeFn) shakeFn(6);
+    }
+
     const COOP_WORLD_WIDTH = ARENA_WIDTH;
     const COOP_WORLD_HEIGHT = ARENA_HEIGHT;
 
@@ -3466,8 +3509,7 @@
       enemyProjectiles: new Map(),
       parasites: new Map(),
       splinters: new Map(),
-      inputs: new Map(),
-    
+
       wave: 1,
       lastSeenWave: 1,
       waveToast: 2.2,
@@ -3549,7 +3591,12 @@
         splinter: false,
         stun: 0,
         reactiveArmor: false,
-        targetMark: false
+        targetMark: false,
+
+        dash: false,
+        dashDistance: 0,
+        dashCooldownBase: 0,
+        dashDamage: false
       };
 
       const startingHp =
@@ -3574,7 +3621,39 @@
       ensureMagazine();
     }
 
+    function startTraining() {
+      enemies.length = 0;
+      enemyProjectiles.length = 0;
+      experienceCrystals.length = 0;
+      medkits.length = 0;
+      particles.length = 0;
+      damageNumbers.length = 0;
+      resetVisualTime();
+      hidePauseMenu();
+      hideUpgradeTooltip();
+
+      wavePending = false;
+      waveClearTimer = 0;
+      waveToast = 0;
+      screenShake = 0;
+      playerHitFlash = 0;
+
+      gameState = "playing";
+      trainingMode = true;
+
+      overlay.classList.add("hidden");
+      overlay.classList.remove("fullscreen-menu-mode");
+      overlay.classList.remove("ingame-settings-mode");
+      panel.onclick = null;
+
+      document.querySelector("#hud")?.classList.remove("hidden");
+      document.querySelector("#help")?.classList.remove("hidden");
+
+      resetEntities();
+    }
+
     function restartGame() {
+      trainingMode = false;
       enemies.length = 0;
       enemyProjectiles.length = 0;
       experienceCrystals.length = 0;
@@ -3642,7 +3721,7 @@
       const level = wave - 1;
     
       if (type === "runner") {
-        const hp = (1 + Math.floor(level / 7)) * 100;
+        const hp = 100 + Math.floor(level / 7) * 100;
       
         return {
           id: ++enemyId,
@@ -3658,7 +3737,7 @@
       }
     
       if (type === "tank") {
-        const hp = (3 + Math.floor(level / 3)) * 100;
+        const hp = 300 + Math.floor(level / 3) * 100;
       
         return {
           id: ++enemyId,
@@ -3674,7 +3753,7 @@
       }
     
       if (type === "shooter") {
-        const hp = (2 + Math.floor(level / 6)) * 100;
+        const hp = 200 + Math.floor(level / 6) * 100;
       
         return {
           id: ++enemyId,
@@ -3692,7 +3771,7 @@
       }
     
       if (type === "splitter") {
-        const hp = (2 + Math.floor(level / 4)) * 100;
+        const hp = 200 + Math.floor(level / 4) * 100;
       
         return {
           id: ++enemyId,
@@ -3708,7 +3787,7 @@
       }
     
       if (type === "charger") {
-        const hp = (2 + Math.floor(level / 6)) * 100;
+        const hp = 200 + Math.floor(level / 6) * 100;
       
         return {
           id: ++enemyId,
@@ -3738,34 +3817,33 @@
       
         const progressionMultiplier = 1.3;
       
-        const hp = Math.round(
-          (48 +
-          bossTier * 20 +
-          bossTier * bossTier * 8) * 55
-        );
-      
+        const hp =
+          4800 +
+          bossTier * 2000 +
+          bossTier * bossTier * 800;
+
         const speed =
-          29.5 +
+          38 +
           progressionTier *
-            1.5 *
+            2.2 *
             progressionMultiplier;
-      
+
         return {
           id: ++enemyId,
           type,
           x,
           y,
-          r: 43,
+          r: 46,
           speed,
           hp,
           maxHp: hp,
           color: "#ff3f8f",
-        
+
           bossTier,
           progressionMultiplier,
-        
+
           shootCooldown: 1.4,
-          radialCooldown: 3.8,
+          radialCooldown: 3.6,
         
           preferredDistance: 270,
         
@@ -3800,7 +3878,7 @@
 
 
       if (type === "shard") {
-        const hp = (1 + Math.floor(level / 9)) * 100;
+        const hp = 100 + Math.floor(level / 9) * 100;
       
         return {
           id: ++enemyId,
@@ -3816,7 +3894,7 @@
       }
 
       if (type === "phantom") {
-        const hp = (1 + Math.floor(wave / 8)) * 100;
+        const hp = 100 + Math.floor(wave / 8) * 100;
 
         return {
           id: ++enemyId,
@@ -3834,7 +3912,7 @@
       }
 
       if (type === "magnetizer") {
-        const hp = (5 + Math.floor(wave / 3)) * 100;
+        const hp = 500 + Math.floor(wave / 3) * 100;
 
         return {
           id: ++enemyId,
@@ -3850,7 +3928,7 @@
       }
 
       if (type === "twin") {
-        const hp = (2 + Math.floor(wave / 5)) * 100;
+        const hp = 200 + Math.floor(wave / 5) * 100;
 
         return {
           id: ++enemyId,
@@ -3868,7 +3946,7 @@
       }
 
       if (type === "incubator") {
-        const hp = (6 + Math.floor(wave / 2)) * 100;
+        const hp = 600 + Math.floor(wave / 2) * 100;
         return {
           id: ++enemyId,
           type,
@@ -3914,7 +3992,7 @@
         };
       }
 
-      const hp = (1 + Math.floor(level / 5)) * 100;
+      const hp = 100 + Math.floor(level / 5) * 100;
     
       return {
         id: ++enemyId,
@@ -4056,13 +4134,19 @@
 
       const dashEl = document.getElementById("dashStatus");
       if (dashEl) {
-        const cd = localPlayer?.dashCooldown || 0;
-        if (cd <= 0) {
-          dashEl.textContent = "⚡ ГОТОВ";
-          dashEl.style.color = "#38bdf8";
+        const dashReady = localPlayer?.stats?.dash;
+        if (!dashReady) {
+          dashEl.textContent = "—";
+          dashEl.style.color = "#475569";
         } else {
-          dashEl.textContent = `⏳ ${cd.toFixed(1)}s`;
-          dashEl.style.color = "#94a3b8";
+          const cd = localPlayer?.dashCooldown || 0;
+          if (cd <= 0) {
+            dashEl.textContent = "⚡ ГОТОВ";
+            dashEl.style.color = "#38bdf8";
+          } else {
+            dashEl.textContent = `⏳ ${cd.toFixed(1)}s`;
+            dashEl.style.color = "#94a3b8";
+          }
         }
       }
 
@@ -4277,6 +4361,7 @@
     }
 
     function spawnWave() {
+      if (trainingMode) return;
       const isBossWave =
         wave % 5 === 0;
     
@@ -4526,7 +4611,7 @@
             targetDistance <=
             stats.catchBlast + enemy.r
           ) {
-            damageEnemy(i, blastDmg);
+            damageEnemy(enemy, blastDmg);
           }
         }
       
@@ -5475,14 +5560,17 @@
       const isCoop = gameState === "coop-playing" || (coopSession && coopSession.active);
       const activePlayer = isCoop ? coopSession.players.get(window.net?.playerId) : player;
       if (!activePlayer) return false;
+
+      const activeStats = isCoop ? activePlayer.stats : stats;
+      if (!activeStats?.dash) return false;
       if ((activePlayer.dashCooldown || 0) > 0) return false;
 
       let dx = 0;
       let dy = 0;
-      if (keys.has("KeyW") || keys.has("ArrowUp")) dy -= 1;
-      if (keys.has("KeyS") || keys.has("ArrowDown")) dy += 1;
-      if (keys.has("KeyA") || keys.has("ArrowLeft")) dx -= 1;
-      if (keys.has("KeyD") || keys.has("ArrowRight")) dx += 1;
+      if (keyHeld("moveUp")) dy -= 1;
+      if (keyHeld("moveDown")) dy += 1;
+      if (keyHeld("moveLeft")) dx -= 1;
+      if (keyHeld("moveRight")) dx += 1;
 
       const len = Math.hypot(dx, dy);
       if (len > 0) {
@@ -5496,11 +5584,13 @@
         dy = Math.sin(angle);
       }
 
-      activePlayer.dashCooldown = 8.0;
+      const dashSpeed = (activeStats.dashDistance || 120) / 0.18;
+      activePlayer.dashCooldown = activeStats.dashCooldownBase || 10.0;
       activePlayer.dashTimer = 0.18;
-      activePlayer.dashVx = dx * 850;
-      activePlayer.dashVy = dy * 850;
-      activePlayer.invulnerability = Math.max(activePlayer.invulnerability || 0, 0.25);
+      activePlayer.dashVx = dx * dashSpeed;
+      activePlayer.dashVy = dy * dashSpeed;
+      activePlayer.invulnerability = Math.max(activePlayer.invulnerability || 0, 0.18);
+      activePlayer.dashHitEnemies = new Set();
 
       soundManager.playDash();
 
@@ -5526,28 +5616,50 @@
     function updatePlayer(dt) {
       player.dashCooldown = Math.max(0, (player.dashCooldown || 0) - dt);
       if (player.dashTimer > 0) {
+        const prevX = player.x;
+        const prevY = player.y;
         player.dashTimer -= dt;
         player.x += (player.dashVx || 0) * dt;
         player.y += (player.dashVy || 0) * dt;
         createParticles(player.x, player.y, "#00f2fe", 2, 40);
+
+        if (stats.dashDamage && player.dashHitEnemies) {
+          for (let ei = enemies.length - 1; ei >= 0; ei--) {
+            const enemy = enemies[ei];
+            if (!enemy || !enemy.hasEnteredArena) continue;
+            if (enemy.type === "phantom" && enemy.isPhased) continue;
+            if (player.dashHitEnemies.has(enemy.id)) continue;
+
+            const segDist = distToSegment(
+              enemy.x, enemy.y,
+              prevX, prevY,
+              player.x, player.y
+            );
+
+            if (segDist <= player.r + enemy.r) {
+              player.dashHitEnemies.add(enemy.id);
+              damageEnemy(enemy, stats.damage);
+            }
+          }
+        }
       }
 
       let x = 0;
       let y = 0;
     
-      if (keys.has("KeyW") || keys.has("ArrowUp")) {
+      if (keyHeld("moveUp")) {
         y -= 1;
       }
-    
-      if (keys.has("KeyS") || keys.has("ArrowDown")) {
+
+      if (keyHeld("moveDown")) {
         y += 1;
       }
-    
-      if (keys.has("KeyA") || keys.has("ArrowLeft")) {
+
+      if (keyHeld("moveLeft")) {
         x -= 1;
       }
-    
-      if (keys.has("KeyD") || keys.has("ArrowRight")) {
+
+      if (keyHeld("moveRight")) {
         x += 1;
       }
     
@@ -5648,7 +5760,7 @@
               bullet.hitEnemies.add(enemy.id);
               const boomerangDmg = Math.max(1, Math.floor(stats.damage * (stats.boomerangPercent || 0.25)));
 
-              damageEnemy(ei, boomerangDmg);
+              damageEnemy(enemy, boomerangDmg);
             }
           }
         }
@@ -5750,23 +5862,20 @@
          * её повторно после изменения массива enemies.
          */
         usedEnemies.add(targetId);
-      
-        const targetIndex =
-          getEnemyIndexById(targetId);
-      
-        if (targetIndex === -1) {
+
+        if (!bestEnemy || bestEnemy.hp <= 0) {
           continue;
         }
-      
+
         createLightning(
           currentX,
           currentY,
           targetX,
           targetY
         );
-      
+
         const chainDmg = Math.max(1, Math.floor((stats.damage || 100) * (stats.chainDamageRatio || 0.6)));
-        damageEnemy(targetIndex, chainDmg);
+        damageEnemy(bestEnemy, chainDmg);
       
         currentX = targetX;
         currentY = targetY;
@@ -5900,7 +6009,7 @@
               nearbyEnemy.y
             ) <= stats.explosionRadius + nearbyEnemy.r
           ) {
-            damageEnemy(i, explosionDamage);
+            damageEnemy(nearbyEnemy, explosionDamage);
           }
         }
       }
@@ -6151,22 +6260,13 @@
             bullet.bouncesLeft -= 1;
             bullet.hitEnemies.clear();
             if (bullet.hitCooldowns) bullet.hitCooldowns.clear();
-            if (gameSettings.screenShake) screenShake = Math.max(screenShake, 3);
             soundManager.playBounce();
-          
-            createParticles(
-              bullet.x,
-              bullet.y,
-              "#7ee7ff",
-              8,
-              150
-            );
 
-            createRing(
-              bullet.x,
-              bullet.y,
-              18,
-              "#7ee7ff"
+            spawnSkinBounceEffect(
+              bullet.x, bullet.y,
+              gameSettings.bulletSkin || "neon",
+              createParticles, createRing,
+              gameSettings.screenShake ? (v) => { screenShake = Math.max(screenShake, v); } : null
             );
 
             /*
@@ -7414,7 +7514,7 @@
               distance(projectile.x, projectile.y, enemy.x, enemy.y) <=
               projectile.r + enemy.r
             ) {
-              damageEnemy(ei, projectile.damage);
+              damageEnemy(enemy, projectile.damage);
               createParticles(
                 projectile.x, projectile.y,
                 "#7ee7ff", 5, 100
@@ -7668,7 +7768,7 @@
           enemy.poisonTickTimer = (enemy.poisonTickTimer || 1.0) - dt;
           if (enemy.poisonTickTimer <= 0) {
             enemy.poisonTickTimer = 1.0;
-            damageEnemy(i, enemy.poisonDamage || 0.5);
+            damageEnemy(enemy, enemy.poisonDamage || 0.5);
             createParticles(enemy.x, enemy.y, "#39ff14", 4, 90);
             if (!enemies[i] || enemies[i] !== enemy || enemy.hp <= 0) {
               continue;
@@ -8349,6 +8449,7 @@
        * и вражеских снарядов переход не блокирует.
        */
       if (enemies.length === 0) {
+        if (trainingMode) return;
         if (!wavePending) {
           wavePending = true;
           waveClearTimer = 3.5;
@@ -8399,23 +8500,15 @@
       power
     ) {
       if (currentInterval === 0) {
-        return getRarityTierValue(
-          power,
-          12,
-          10,
-          8
-        );
+        if (power >= 3) return 12;
+        if (power >= 2) return 14;
+        return 16;
       }
-    
-      const reduction = getRarityTierValue(
-        power,
-        2,
-        3,
-        4
-      );
-    
+
+      const reduction = power >= 3 ? 4 : power >= 2 ? 3 : 2;
+
       return Math.max(
-        5,
+        8,
         currentInterval - reduction
       );
     }
@@ -8692,7 +8785,7 @@
         title: "Умная пуля",
         description: "Пуля корректирует траекторию в сторону ближайшей цели.",
         applyWithPower(power) {
-          stats.homing = (stats.homing || 0) + getHomingBonus(power);
+          stats.homing = (stats.homing || 0) + power;
         }
       },
       {
@@ -8704,7 +8797,7 @@
         applyWithPower(power) {
           stats.bulletRadius = Math.min(
             15,
-            (stats.bulletRadius || 6) + 1.5 * power
+            (stats.bulletRadius || 7) + 1.5 * power
           );
         
           for (const bullet of bullets) {
@@ -8975,6 +9068,50 @@
           stats.magazineSize = 2;
           ensureMagazine();
         }
+      },
+      {
+        title: "Рывок",
+        description: "Мгновенный рывок с неуязвимостью (120px, 10с перезарядка).",
+        fixedRarity: "rare",
+        available() {
+          return !stats.dash;
+        },
+        applyWithPower() {
+          stats.dash = true;
+          stats.dashDistance = Math.max(120, stats.dashDistance || 120);
+          stats.dashCooldownBase = Math.max(2.0, stats.dashCooldownBase || 10.0);
+        }
+      },
+      {
+        title: "Дальность рывка",
+        description: "Увеличивает дистанцию рывка на +50px (макс. 320px).",
+        available() {
+          return Boolean(stats.dash) && (stats.dashDistance || 120) < 320;
+        },
+        applyWithPower(power) {
+          stats.dashDistance = Math.min(320, (stats.dashDistance || 120) + 50 * power);
+        }
+      },
+      {
+        title: "Перезарядка рывка",
+        description: "Уменьшает перезарядку рывка на -1.5с (мин. 2.0с).",
+        available() {
+          return Boolean(stats.dash) && (stats.dashCooldownBase || 10.0) > 2.0;
+        },
+        applyWithPower(power) {
+          stats.dashCooldownBase = Number(Math.max(2.0, (stats.dashCooldownBase || 10.0) - 1.5 * power).toFixed(1));
+        }
+      },
+      {
+        title: "Разящий рывок",
+        description: "Рывок наносит 100% урона всем врагам на пути.",
+        fixedRarity: "legendary",
+        available() {
+          return Boolean(stats.dash) && !stats.dashDamage;
+        },
+        applyWithPower() {
+          stats.dashDamage = true;
+        }
       }
     ];
 
@@ -9057,13 +9194,13 @@
         }
       
         case "Разогнанный ствол": {
-          const percentBonus = 18 * power;
-        
+          const percentBonus = 25 * power;
+
           const speedBonus =
             BASE_BULLET_SPEED *
-            0.18 *
+            0.25 *
             power;
-        
+
           return (
             `+${percentBonus}% к скорости пули, ` +
             `+${formatBonusNumber(speedBonus, 0)} ед./с`
@@ -9186,19 +9323,15 @@
         }
       
         case "Разрывной сердечник": {
-          const resultingRadius =
-            getExplosionRadiusResult(
-              stats.explosionRadius,
-              power
-            );
-        
+          const resultingRadius = 40 * power;
+
           const radiusBonus =
             resultingRadius -
-            stats.explosionRadius;
-        
+            (stats.explosionRadius || 0);
+
           return (
             `+${formatCells(radiusBonus)} ` +
-            `к радиусу взрыва (50% урона), итог: ` +
+            `к радиусу взрыва (60% урона), итог: ` +
             `${formatCells(resultingRadius)}`
           );
         }
@@ -9214,9 +9347,8 @@
         }
 
         case "Умная пуля": {
-          const homingBonus =
-            getHomingBonus(power);
-        
+          const homingBonus = power;
+
           return (
             `+${formatBonusNumber(homingBonus, 1)} ` +
             `к силе самонаведения, итог: ` +
@@ -9266,9 +9398,7 @@
         }
       
         case "Эффект Бумеранга": {
-          const current = stats.boomerangPercent || 0;
-          const result = current === 0 ? Math.min(1.0, 0.25 * power) : Math.min(1.0, current + 0.25 * power);
-          return `Урон при возврате: ${Math.round(result * 100)}% урона пули (макс. 100%)`;
+          return `Магнитный возврат: 100 px/с, радиус 20 клеток`;
         }
 
         case "Осколочный Рикошет": {
@@ -9289,9 +9419,8 @@
         }
 
         case "Кинетический Удар": {
-          const current = stats.stunChance || 0;
-          const result = Math.min(0.30, current + 0.05 * power);
-          return `+${Math.round((result - current) * 100)}% шанс оглушения на 0.3с (итог: ${Math.round(result * 100)}%)`;
+          const chance = power >= 2 ? 0.15 : 0.10;
+          return `${Math.round(chance * 100)}% шанс оглушения на 0.4с (прерывает атаки)`;
         }
 
         case "Реактивная Броня": {
@@ -9299,9 +9428,7 @@
         }
 
         case "Метка Цели": {
-          const current = stats.markBonus || 0;
-          const result = Math.min(0.40, current + 0.05 * power);
-          return `+${Math.round((result - current) * 100)}% к урону по метке (итог: +${Math.round(result * 100)}%)`;
+          return `+40% урона по помеченному врагу на 4с`;
         }
 
         case "Ядовитая пуля": {
@@ -9344,6 +9471,26 @@
 
         case "Запасной патрон": {
           return "+1 независимый патрон (всего 2)";
+        }
+
+        case "Рывок": {
+          return `Рывок: 120px, кд 10с, неуязвимость`;
+        }
+
+        case "Дальность рывка": {
+          const current = stats.dashDistance || 120;
+          const result = Math.min(320, current + 50 * power);
+          return `+${result - current}px к дистанции рывка (итог: ${result}px)`;
+        }
+
+        case "Перезарядка рывка": {
+          const current = stats.dashCooldownBase || 10.0;
+          const result = Number(Math.max(2.0, current - 1.5 * power).toFixed(1));
+          return `-${Number((current - result).toFixed(1))}с перезарядки (итог: ${result}с)`;
+        }
+
+        case "Разящий рывок": {
+          return `Урон ${stats.damage} по врагам на пути рывка`;
         }
       }
     }
@@ -9654,7 +9801,11 @@
       "Область отражения": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="4"/></svg>`,
       "Быстрая перезарядка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
       "Уязвимость": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>`,
-      "Глубокая метка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#ff1f4b"/></svg>`
+      "Глубокая метка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#ff1f4b"/></svg>`,
+      "Рывок": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><path d="M3 8l3 4-3 4" opacity="0.5"/></svg>`,
+      "Дальность рывка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h18"/><polyline points="15 6 21 12 15 18"/><line x1="7" y1="8" x2="7" y2="16" stroke-dasharray="2 2"/></svg>`,
+      "Перезарядка рывка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
+      "Разящий рывок": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff3f8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><line x1="10" y1="8" x2="14" y2="16" stroke="#ffd36b" stroke-width="1.8"/><line x1="14" y1="8" x2="10" y2="16" stroke="#ffd36b" stroke-width="1.8"/></svg>`
     };
 
     function getUpgradeIcon(title) {
@@ -10597,6 +10748,62 @@ osc.stop(now + 0.05);
 
     let gameSettings = loadGameSettings();
 
+    const DEFAULT_KEYBINDS = {
+      moveUp: ["KeyW", "ArrowUp"],
+      moveDown: ["KeyS", "ArrowDown"],
+      moveLeft: ["KeyA", "ArrowLeft"],
+      moveRight: ["KeyD", "ArrowRight"],
+      shoot: ["Space"],
+      dash: ["Space"],
+      pause: ["KeyP", "Escape"],
+      restart: ["KeyR"]
+    };
+
+    const KEY_LABELS = {
+      Space: "Пробел", Escape: "Esc", Backquote: "`",
+      KeyW: "W", KeyA: "A", KeyS: "S", KeyD: "D",
+      KeyR: "R", KeyP: "P", KeyQ: "Q", KeyE: "E", KeyF: "F",
+      KeyZ: "Z", KeyX: "X", KeyC: "C", KeyV: "V", KeyB: "B",
+      KeyG: "G", KeyH: "H", KeyJ: "J", KeyK: "K", KeyL: "L",
+      KeyM: "M", KeyN: "N", KeyT: "T", KeyY: "Y", KeyU: "U", KeyI: "I", KeyO: "O",
+      ShiftLeft: "L-Shift", ShiftRight: "R-Shift",
+      ControlLeft: "L-Ctrl", ControlRight: "R-Ctrl",
+      AltLeft: "L-Alt", AltRight: "R-Alt",
+      ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+      Tab: "Tab", Enter: "Enter", Backspace: "Backspace",
+      Digit1: "1", Digit2: "2", Digit3: "3", Digit4: "4", Digit5: "5",
+      Digit6: "6", Digit7: "7", Digit8: "8", Digit9: "9", Digit0: "0"
+    };
+
+    function keyLabel(code) {
+      return KEY_LABELS[code] || code.replace(/^Key/, "").replace(/^Digit/, "").replace(/^Numpad/, "Num ");
+    }
+
+    function loadKeybinds() {
+      try {
+        const raw = localStorage.getItem("one_bullet_keybinds_v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return { ...DEFAULT_KEYBINDS, ...parsed };
+        }
+      } catch {}
+      return JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+    }
+
+    function saveKeybinds() {
+      try { localStorage.setItem("one_bullet_keybinds_v1", JSON.stringify(keybinds)); } catch {}
+    }
+
+    let keybinds = loadKeybinds();
+
+    function keyHeld(action) {
+      return (keybinds[action] || []).some(k => keys.has(k));
+    }
+
+    function isKeyAction(eventCode, action) {
+      return (keybinds[action] || []).includes(eventCode);
+    }
+
     function loadGameStats() {
       try {
         const raw = localStorage.getItem("one_bullet_stats_v1");
@@ -10670,6 +10877,7 @@ osc.stop(now + 0.05);
     }
 
     async function returnToMainMenu() {
+      trainingMode = false;
       if (returningToMainMenu) {
         return;
       }
@@ -10840,7 +11048,7 @@ osc.stop(now + 0.05);
           <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
             <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
               <span style="font-size: 15px;">📜</span>
-              <span>История обновлений (v2.7)</span>
+              <span>История обновлений (v2.8)</span>
             </button>
           </div>
         </div>
@@ -10969,6 +11177,11 @@ osc.stop(now + 0.05);
               </div>
             </div>
 
+            <div class="settings-group" id="keybindsSection">
+              <div class="settings-group-title">🎮 ПРИВЯЗКИ КЛАВИШ</div>
+              <div id="keybindsList"></div>
+            </div>
+
             <div class="settings-group">
               <div class="settings-group-title">📺 ВИЗУАЛЬНЫЕ ЭФФЕКТЫ</div>
               
@@ -11094,9 +11307,80 @@ osc.stop(now + 0.05);
 
       backBtn.onclick = exitSettings;
 
+      const KEYBIND_ACTIONS = [
+        { id: "moveUp", label: "Движение вверх" },
+        { id: "moveDown", label: "Движение вниз" },
+        { id: "moveLeft", label: "Движение влево" },
+        { id: "moveRight", label: "Движение вправо" },
+        { id: "shoot", label: "Стрельба" },
+        { id: "dash", label: "Рывок" },
+        { id: "pause", label: "Пауза" },
+        { id: "restart", label: "Рестарт" }
+      ];
+
+      function renderKeybinds() {
+        const container = panel.querySelector("#keybindsList");
+        if (!container) return;
+        container.innerHTML = KEYBIND_ACTIONS.map(action => {
+          const keys = keybinds[action.id] || [];
+          const badges = keys.map((k, i) =>
+            `<button class="keybind-badge" data-action="${action.id}" data-index="${i}" style="background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.4);color:#7ee7ff;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;min-width:32px;text-align:center;">${keyLabel(k)} <span style="opacity:0.5;font-size:10px;">✕</span></button>`
+          ).join("");
+          return `<div class="setting-row" style="padding:6px 0;">
+            <div class="setting-info"><span class="setting-name">${action.label}</span></div>
+            <div class="setting-control" style="display:flex;align-items:center;flex-wrap:wrap;">
+              ${badges}
+              <button class="keybind-add-btn" data-action="${action.id}" style="background:rgba(255,255,255,0.06);border:1px dashed rgba(255,255,255,0.25);color:#94a3b8;padding:3px 10px;border-radius:6px;font-size:12px;cursor:pointer;">+ Добавить</button>
+            </div>
+          </div>`;
+        }).join("");
+
+        container.querySelectorAll(".keybind-badge").forEach(btn => {
+          btn.onclick = () => {
+            const actionId = btn.dataset.action;
+            const idx = Number(btn.dataset.index);
+            if ((keybinds[actionId] || []).length <= 1) return;
+            keybinds[actionId].splice(idx, 1);
+            saveKeybinds();
+            renderKeybinds();
+          };
+        });
+
+        container.querySelectorAll(".keybind-add-btn").forEach(btn => {
+          btn.onclick = () => {
+            const actionId = btn.dataset.action;
+            btn.textContent = "Нажмите клавишу...";
+            btn.style.borderColor = "#00f2fe";
+            btn.style.color = "#00f2fe";
+
+            const handler = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.code === "Escape") {
+                document.removeEventListener("keydown", handler, true);
+                renderKeybinds();
+                return;
+              }
+              if (!keybinds[actionId]) keybinds[actionId] = [];
+              if (!keybinds[actionId].includes(e.code)) {
+                keybinds[actionId].push(e.code);
+              }
+              saveKeybinds();
+              document.removeEventListener("keydown", handler, true);
+              renderKeybinds();
+            };
+            document.addEventListener("keydown", handler, true);
+          };
+        });
+      }
+
+      renderKeybinds();
+
       resetBtn.onclick = () => {
         gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon" };
+        keybinds = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
         saveGameSettings();
+        saveKeybinds();
         soundManager.playUiClick();
         showSettingsMenu(fromView);
       };
@@ -11172,8 +11456,11 @@ osc.stop(now + 0.05);
                 <h3 id="previewSkinTitle" style="font-size: 17px; font-weight: 900; color: #ffffff; margin: 0 0 4px 0;"></h3>
                 <p id="previewSkinDesc" style="font-size: 11.5px; color: #94a3b8; line-height: 1.4; margin: 0 0 12px 0; min-height: 32px;"></p>
                 
-                <button type="button" id="equipSkinBtn" class="action-button" style="width: 100%; margin: 0; padding: 12px; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; border-radius: 10px;">
+                <button type="button" id="equipSkinBtn" class="action-button" style="width: 100%; margin: 0 0 8px 0; padding: 12px; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; border-radius: 10px;">
                   ✓ Экипировать скин
+                </button>
+                <button type="button" id="trySkinBtn" class="secondary-button" style="width: 100%; margin: 0; padding: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; border-radius: 10px;">
+                  🎯 Опробовать в бою
                 </button>
               </div>
             </div>
@@ -11256,6 +11543,17 @@ osc.stop(now + 0.05);
           }
           soundManager.playUiClick();
           updatePreviewDetails();
+        };
+      }
+
+      const trySkinBtn = panel.querySelector("#trySkinBtn");
+      if (trySkinBtn) {
+        trySkinBtn.onclick = () => {
+          gameSettings.bulletSkin = selectedSkinId;
+          saveGameSettings();
+          soundManager.playUiClick();
+          runMode = "solo";
+          startTraining();
         };
       }
 
@@ -12771,16 +13069,34 @@ osc.stop(now + 0.05);
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
 
-            <!-- v2.7 -->
+            <!-- v2.8 -->
             <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(0, 242, 254, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(0, 242, 254, 0.16);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.7</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Семьи Способностей, Процентный скейл и ESC-бейджи</span>
+                  <span style="background: linear-gradient(135deg, #00f2fe, #38bdf8); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.8</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Рывок-апгрейд, Админ 3.0 и Полный паритет</span>
                 </div>
                 <span style="font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>💨 <strong>Рывок — новое семейство улучшений:</strong> Базовая карта (Rare) разблокирует рывок 120px/10с кд. Ветки: Дальность (+50px, макс 320), Перезарядка (−1.5с, мин 2.0), Разящий рывок (Legendary, 100% урона на пути).</li>
+                <li>🔧 <strong>Админ-панель 3.0:</strong> Полная переработка — панель статов цели, дерево улучшений с ветками, кнопки [+][−][MAX], cascade-удаление, live-обновление каждые 300мс, перетаскивание за заголовок, ресайз за края, кастомные скроллбары, оверлей «Запустите забег» в главном меню.</li>
+                <li>⚖️ <strong>Паритет соло/кооп:</strong> Исправлена математика homing (+power вместо 2.2/3.6/4.8), emergency-repair (16/14/12 убийств вместо 12/10/8). Все 45 апгрейдов идентичны в обоих режимах.</li>
+                <li>🪃 <strong>Бумеранг — точечная коллизия:</strong> Урон при возврате теперь проверяет позицию пули (как в соло), а не весь отрезок до игрока.</li>
+                <li>🏃 <strong>Рывок — grace period реконсиляции:</strong> 0.25с после рывка сервер не тянет игрока назад — полная дистанция в коопе.</li>
+                <li>📜 <strong>GAME_BALANCE.md обновлён:</strong> 13 разделов каталога улучшений с точными формулами, максимумами, зависимостями и таблицей несовместимостей.</li>
+              </ul>
+            </div>
+
+            <!-- v2.7 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: #0284c7; color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.7</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Семьи Способностей, Процентный скейл и ESC-бейджи</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
                 <li>🌳 <strong>10 Семей Способностей:</strong> Молния, Взрыв, Импульс, Бумеранг, Осколки, Стан, Броня, Яд, Паразит, Метка — базовая карта (RARE) + ветки улучшения.</li>
                 <li>📊 <strong>Процентный скейл урона:</strong> Молния (60% → 200%), Взрыв (60% → 160%), Импульс (80% → 250%) — масштабируются от урона пули.</li>
                 <li>🧲 <strong>Бумеранг объединяет магнит:</strong> Базовая карта даёт притяжение (100 px/с), урон при возврате — отдельная ветка «Тяжёлый бумеранг».</li>
@@ -13057,6 +13373,7 @@ osc.stop(now + 0.05);
           "start-solo"
         ) {
           panel.onclick = null;
+          trainingMode = false;
           restartGame();
         }
       };
@@ -14303,21 +14620,6 @@ osc.stop(now + 0.05);
       };
     }
 
-    function createEmptyCoopInput() {
-      return {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-      
-        aimX:
-          COOP_WORLD_WIDTH / 2,
-      
-        aimY:
-          COOP_WORLD_HEIGHT / 2
-      };
-    }
-
     function startCoopMovementSession() {
       const room =
         networkRoom ||
@@ -14343,7 +14645,6 @@ osc.stop(now + 0.05);
         Boolean(window.net?.isHost);
     
       coopSession.players.clear();
-      coopSession.inputs.clear();
       coopSession.bullets.clear();
       coopSession.enemies.clear();
       if (coopSession.parasites) coopSession.parasites.clear();
@@ -14418,11 +14719,6 @@ osc.stop(now + 0.05);
             roomPlayer.id,
             coopPlayer
           );
-        
-          coopSession.inputs.set(
-            roomPlayer.id,
-            createEmptyCoopInput()
-          );
         }
       );
       
@@ -14495,22 +14791,10 @@ osc.stop(now + 0.05);
       const dash = Boolean(coopSession.dashTriggered);
       coopSession.dashTriggered = false;
       return {
-        up:
-          keys.has("KeyW") ||
-          keys.has("ArrowUp"),
-      
-        down:
-          keys.has("KeyS") ||
-          keys.has("ArrowDown"),
-      
-        left:
-          keys.has("KeyA") ||
-          keys.has("ArrowLeft"),
-      
-        right:
-          keys.has("KeyD") ||
-          keys.has("ArrowRight"),
-      
+        up: keyHeld("moveUp"),
+        down: keyHeld("moveDown"),
+        left: keyHeld("moveLeft"),
+        right: keyHeld("moveRight"),
         dash,
         aimX: coopPointer.x,
         aimY: coopPointer.y,
@@ -14534,6 +14818,14 @@ osc.stop(now + 0.05);
         coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
         coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
         createCoopParticles(coopPlayer.x, coopPlayer.y, "#00f2fe", 2, 40);
+
+        if (coopPlayer.dashTimer <= 0) {
+          coopPlayer.dashReconcileGrace = 0.25;
+        }
+      }
+
+      if ((coopPlayer.dashReconcileGrace || 0) > 0) {
+        coopPlayer.dashReconcileGrace = Math.max(0, coopPlayer.dashReconcileGrace - dt);
       }
 
       let movementX = 0;
@@ -14615,6 +14907,8 @@ osc.stop(now + 0.05);
         hidePauseMenu();
         overlay.classList.remove("hidden");
         overlay.setAttribute("aria-hidden", "false");
+        overlay.style.background = "rgba(2, 4, 10, 0.35)";
+        overlay.style.backdropFilter = "none";
 
         if (count !== lastUnpauseCountdownSec) {
           lastUnpauseCountdownSec = count;
@@ -14626,21 +14920,9 @@ osc.stop(now + 0.05);
           unpauseTimerEl.textContent = count;
         } else {
           panel.innerHTML = `
-            <div class="coop-reconnect-screen">
-              <div class="coop-reconnect-badge" style="color: #00f2fe; border-color: rgba(0, 242, 254, 0.45); background: rgba(0, 242, 254, 0.15);">
-                <span class="coop-reconnect-pulse-dot" style="background: #00f2fe; box-shadow: 0 0 10px #00f2fe;"></span>
-                <span>СНЯТИЕ С ПАУЗЫ // ВОЗОБНОВЛЕНИЕ БОЯ</span>
-              </div>
-
-              <div class="coop-reconnect-timer-box" style="border-color: rgba(0, 242, 254, 0.5); background: rgba(0, 242, 254, 0.12); padding: 20px 40px;">
-                <div class="coop-reconnect-timer-val" id="coopUnpauseTimer" style="font-size: 54px; color: #00f2fe; letter-spacing: 2px;">${count}</div>
-                <div class="coop-reconnect-timer-label" style="color: #7ee7ff;">БОЙ ВОЗОБНОВИТСЯ ЧЕРЕЗ...</div>
-              </div>
-
-              <h2 class="coop-reconnect-title">Приготовьтесь к бою!</h2>
-              <p class="coop-reconnect-subtitle">
-                Пауза снята игроком. Симуляция возобновится через несколько секунд.
-              </p>
+            <div style="text-align: center; user-select: none;">
+              <div id="coopUnpauseTimer" style="font-size: 120px; font-weight: 900; color: #00f2fe; text-shadow: 0 0 40px rgba(0,242,254,0.6), 0 0 80px rgba(0,242,254,0.3); line-height: 1; letter-spacing: 4px;">${count}</div>
+              <div style="font-size: 14px; font-weight: 700; color: #7ee7ff; text-transform: uppercase; letter-spacing: 3px; margin-top: 8px; text-shadow: 0 0 12px rgba(0,242,254,0.4);">Бой возобновится...</div>
             </div>
           `;
         }
@@ -14648,6 +14930,8 @@ osc.stop(now + 0.05);
       }
 
       if (!unpauseCountdown && coopUnpauseUiActive) {
+        overlay.style.background = "";
+        overlay.style.backdropFilter = "";
         coopUnpauseUiActive = false;
         lastUnpauseCountdownSec = null;
         if (!coopUpgradeUiActive && !coopGameOverUiActive && !coopReconnectUiActive && !coopSession.manualPaused) {
@@ -15229,8 +15513,8 @@ osc.stop(now + 0.05);
             } else {
               const rawVelX = jumpX / elapsed;
               const rawVelY = jumpY / elapsed;
-              /* Ограничение по максимальной скорости (2× нормальной) */
-              const maxVel = 700;
+              /* Ограничение по максимальной скорости (3× нормальной, с запасом на рывок) */
+              const maxVel = 1000;
               const velMag = Math.hypot(rawVelX, rawVelY);
               const clampedVelX = velMag > maxVel ? rawVelX * (maxVel / velMag) : rawVelX;
               const clampedVelY = velMag > maxVel ? rawVelY * (maxVel / velMag) : rawVelY;
@@ -15255,7 +15539,7 @@ osc.stop(now + 0.05);
               const startedMoving = prevSpeed < 40 && newSpeed >= 40;
               const maneuvered = speedDelta > 150;
 
-              const smooth = startedMoving || maneuvered ? 1 : 0.6;
+              const smooth = startedMoving || maneuvered ? 1 : 0.85;
               coopPlayer.velX = (coopPlayer.velX || 0) * (1 - smooth) + clampedVelX * smooth;
               coopPlayer.velY = (coopPlayer.velY || 0) * (1 - smooth) + clampedVelY * smooth;
             }
@@ -15342,37 +15626,7 @@ osc.stop(now + 0.05);
           Number.isFinite(snapshotPlayer.totalDamageDealt)
             ? snapshotPlayer.totalDamageDealt
             : (coopPlayer.totalDamageDealt || 0);
-      
-        const nextHp =
-          Number.isFinite(snapshotPlayer.hp)
-            ? snapshotPlayer.hp
-            : coopPlayer.hp;
 
-        if (nextHp < coopPlayer.hp) {
-          coopPlayer.hitFlash = 1;
-
-          if (
-            coopPlayer.id === window.net?.playerId
-          ) {
-            coopScreenShake = Math.max(
-              coopScreenShake,
-              10
-            );
-          }
-        }
-
-        coopPlayer.hp = nextHp;
-      
-        coopPlayer.maxHp =
-          Number.isFinite(
-            snapshotPlayer.maxHp
-          )
-            ? snapshotPlayer.maxHp
-            : coopPlayer.maxHp;
-      
-        coopPlayer.alive =
-          snapshotPlayer.alive !== false;
-      
         coopPlayer.invulnerability =
           Number.isFinite(
             snapshotPlayer.invulnerability
@@ -15570,9 +15824,13 @@ osc.stop(now + 0.05);
         if (previousState === "flying" && newBounces < previousBounces) {
           // Отскок пули от границы арены или препятствия
           soundManager.playBounce();
-          createCoopParticles(snapshotBullet.x, snapshotBullet.y, "#7ee7ff", 10, 160);
-          createCoopRing(snapshotBullet.x, snapshotBullet.y, 22, "#7ee7ff");
-          coopScreenShake = Math.max(coopScreenShake, 3);
+          const bounceSkin = snapshotBullet.skin || "neon";
+          spawnSkinBounceEffect(
+            snapshotBullet.x, snapshotBullet.y, bounceSkin,
+            (x, y, c, n, s) => createCoopParticles(x, y, c, n, s),
+            (x, y, r, c) => createCoopRing(x, y, r, c),
+            (v) => { coopScreenShake = Math.max(coopScreenShake, v); }
+          );
         }
 
         if (previousState !== "held" && newState === "held") {
@@ -16373,7 +16631,18 @@ osc.stop(now + 0.05);
             dt
           );
 
+          /*
+           * Серверная реконсиляция: подтягиваем позицию
+           * к серверной, если рассинхрон > 30px.
+           *
+           * Во время рывка и 0.25с после него (grace period)
+           * реконсиляция отключена — иначе сервер, не успевший
+           * обработать dash-инпут, тянет игрока назад и рывок
+           * «схлопывается».
+           */
           if (
+            (coopPlayer.dashTimer || 0) <= 0 &&
+            (coopPlayer.dashReconcileGrace || 0) <= 0 &&
             Number.isFinite(coopPlayer.serverX) &&
             Number.isFinite(coopPlayer.serverY)
           ) {
@@ -16420,8 +16689,8 @@ osc.stop(now + 0.05);
           const errX = coopPlayer.targetX - coopPlayer.displayX;
           const errY = coopPlayer.targetY - coopPlayer.displayY;
           const errDist = Math.hypot(errX, errY);
-          const corrPerSec = 8 + Math.min(30, Math.max(0, errDist - 24) * 0.12);
-          const correctionFactor = Math.min(0.75, dt * corrPerSec);
+          const corrPerSec = 20 + Math.min(60, Math.max(0, errDist - 16) * 0.2);
+          const correctionFactor = Math.min(0.85, dt * corrPerSec);
           coopPlayer.displayX += errX * correctionFactor;
           coopPlayer.displayY += errY * correctionFactor;
         }
@@ -17098,33 +17367,68 @@ osc.stop(now + 0.05);
     }
 
     function drawBulletWithSkin(ctx, skin, r, pulse, isOwnBullet, colors) {
+      const t = performance.now();
       if (skin === "fire") {
-        const rot = performance.now() * 0.005;
+        const rot = t * 0.005;
         ctx.rotate(rot);
+        // Outer heat distortion ring
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.8 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 69, 0, 0.12)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Glow
         ctx.beginPath();
         ctx.arc(0, 0, r * 2.4 * pulse, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 69, 0, 0.25)";
         ctx.shadowColor = "#ff4500";
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 22;
         ctx.fill();
-
-        for (let f = 0; f < 4; f++) {
-          const fa = (f / 4) * Math.PI * 2;
+        // Orbiting embers
+        for (let f = 0; f < 6; f++) {
+          const fa = (f / 6) * Math.PI * 2 + t * 0.008;
+          const emberDist = r * 1.4 + Math.sin(t * 0.012 + f * 3) * r * 0.4;
           ctx.beginPath();
-          ctx.arc(Math.cos(fa) * r * 1.1, Math.sin(fa) * r * 1.1, r * 0.55, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffa500";
+          ctx.arc(Math.cos(fa) * emberDist, Math.sin(fa) * emberDist, r * 0.3 + Math.sin(t * 0.02 + f) * r * 0.15, 0, Math.PI * 2);
+          ctx.fillStyle = f % 2 === 0 ? "#ffa500" : "#ff6b35";
+          ctx.shadowColor = "#ff4500";
+          ctx.shadowBlur = 8;
           ctx.fill();
         }
-
+        // Inner flame tongues
+        for (let f = 0; f < 4; f++) {
+          const fa = (f / 4) * Math.PI * 2;
+          const flicker = 1 + Math.sin(t * 0.025 + f * 2) * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(fa - 0.2) * r * 0.6, Math.sin(fa - 0.2) * r * 0.6);
+          ctx.lineTo(Math.cos(fa) * r * 1.6 * flicker, Math.sin(fa) * r * 1.6 * flicker);
+          ctx.lineTo(Math.cos(fa + 0.2) * r * 0.6, Math.sin(fa + 0.2) * r * 0.6);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(255, 200, 50, 0.6)";
+          ctx.fill();
+        }
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#fffbeb";
+        const fireGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        fireGrad.addColorStop(0, "#ffffff");
+        fireGrad.addColorStop(0.4, "#fffbeb");
+        fireGrad.addColorStop(1, "#f59e0b");
+        ctx.fillStyle = fireGrad;
         ctx.shadowColor = "#f59e0b";
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 16;
         ctx.fill();
+
       } else if (skin === "quantum") {
-        const rot = performance.now() * 0.008;
+        const rot = t * 0.008;
         ctx.rotate(rot);
+        // Energy field
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(56, 189, 248, 0.08)";
+        ctx.fill();
+        // Blades
         const bladeLen = r * 2.2 * pulse;
         const bladeW = r * 0.6;
         ctx.fillStyle = "#38bdf8";
@@ -17140,41 +17444,95 @@ osc.stop(now + 0.05);
           ctx.lineTo(-bladeW, 0);
           ctx.closePath();
           ctx.fill();
+          // Blade edge glow
+          ctx.strokeStyle = "rgba(0, 242, 254, 0.6)";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
           ctx.restore();
         }
-
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "#818cf8";
-        ctx.shadowBlur = 10;
-        ctx.fill();
-      } else if (skin === "toxic") {
-        const wobble = Math.sin(performance.now() * 0.015) * 0.15;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, r * 2.2 * (1 + wobble), r * 1.8 * (1 - wobble), performance.now() * 0.002, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
-        ctx.shadowColor = "#39ff14";
-        ctx.shadowBlur = 20;
-        ctx.fill();
-
-        for (let d = 0; d < 3; d++) {
-          const da = (d / 3) * Math.PI * 2 + performance.now() * 0.004;
+        // Energy arcs between blades
+        ctx.strokeStyle = "rgba(129, 140, 248, 0.5)";
+        ctx.lineWidth = 1.0;
+        for (let a = 0; a < 4; a++) {
+          const a1 = (a / 4) * Math.PI * 2;
+          const a2 = ((a + 1) / 4) * Math.PI * 2;
+          const mid = (a1 + a2) / 2;
+          const arcR = r * 1.3 + Math.sin(t * 0.01 + a * 2) * r * 0.3;
           ctx.beginPath();
-          ctx.arc(Math.cos(da) * r * 1.2, Math.sin(da) * r * 1.2, r * 0.4, 0, Math.PI * 2);
-          ctx.fillStyle = "#4ade80";
-          ctx.fill();
+          ctx.moveTo(Math.cos(a1) * r * 0.8, Math.sin(a1) * r * 0.8);
+          ctx.quadraticCurveTo(Math.cos(mid) * arcR, Math.sin(mid) * arcR, Math.cos(a2) * r * 0.8, Math.sin(a2) * r * 0.8);
+          ctx.stroke();
         }
-
+        // Core with pulse
+        const corePulse = 0.65 + Math.sin(t * 0.015) * 0.1;
         ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#dcfce7";
-        ctx.shadowColor = "#22c55e";
+        ctx.arc(0, 0, r * corePulse, 0, Math.PI * 2);
+        const qGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * corePulse);
+        qGrad.addColorStop(0, "#ffffff");
+        qGrad.addColorStop(0.5, "#e0f2fe");
+        qGrad.addColorStop(1, "#818cf8");
+        ctx.fillStyle = qGrad;
+        ctx.shadowColor = "#818cf8";
         ctx.shadowBlur = 12;
         ctx.fill();
+
+      } else if (skin === "toxic") {
+        const wobble = Math.sin(t * 0.015) * 0.15;
+        // Acid splash ring
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.6 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(57, 255, 20, 0.15)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Outer glow
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 2.2 * (1 + wobble), r * 1.8 * (1 - wobble), t * 0.002, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(57, 255, 20, 0.25)";
+        ctx.shadowColor = "#39ff14";
+        ctx.shadowBlur = 22;
+        ctx.fill();
+        // Bubbles
+        for (let d = 0; d < 5; d++) {
+          const da = (d / 5) * Math.PI * 2 + t * 0.004;
+          const bDist = r * 1.0 + Math.sin(t * 0.008 + d * 4) * r * 0.5;
+          const bSize = r * 0.25 + Math.sin(t * 0.012 + d * 3) * r * 0.12;
+          ctx.beginPath();
+          ctx.arc(Math.cos(da) * bDist, Math.sin(da) * bDist, bSize, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(74, 222, 128, 0.7)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(57, 255, 20, 0.5)";
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+        // Core
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const toxGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        toxGrad.addColorStop(0, "#f0fdf4");
+        toxGrad.addColorStop(0.5, "#dcfce7");
+        toxGrad.addColorStop(1, "#22c55e");
+        ctx.fillStyle = toxGrad;
+        ctx.shadowColor = "#22c55e";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+
       } else if (skin === "cosmic") {
-        const rot = performance.now() * 0.004;
+        const rot = t * 0.004;
         ctx.rotate(rot);
+        // Orbiting star particles
+        for (let s = 0; s < 4; s++) {
+          const sa = (s / 4) * Math.PI * 2 + t * 0.006;
+          const sDist = r * 2.0 + Math.sin(t * 0.01 + s * 3) * r * 0.4;
+          ctx.beginPath();
+          ctx.arc(Math.cos(sa) * sDist, Math.sin(sa) * sDist, r * 0.2, 0, Math.PI * 2);
+          ctx.fillStyle = s % 2 === 0 ? "#fde047" : "#c084fc";
+          ctx.shadowColor = s % 2 === 0 ? "#eab308" : "#a855f7";
+          ctx.shadowBlur = 6;
+          ctx.fill();
+        }
+        // Star shape
         const outerR = r * 2.4 * pulse;
         const innerR = r * 0.8;
         ctx.beginPath();
@@ -17187,60 +17545,89 @@ osc.stop(now + 0.05);
         ctx.closePath();
         ctx.fillStyle = "rgba(253, 224, 71, 0.3)";
         ctx.shadowColor = "#eab308";
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 20;
         ctx.fill();
-
+        ctx.strokeStyle = "rgba(192, 132, 252, 0.4)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Core with rainbow shimmer
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
+        const cosGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        cosGrad.addColorStop(0, "#ffffff");
+        cosGrad.addColorStop(0.5, "#fef9c3");
+        cosGrad.addColorStop(1, "#c084fc");
+        ctx.fillStyle = cosGrad;
         ctx.shadowColor = "#c084fc";
-        ctx.shadowBlur = 15;
-        ctx.fill();
-      } else if (skin === "plasma") {
-        const rot = performance.now() * 0.012;
-        ctx.rotate(rot);
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 2.3 * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(168, 85, 247, 0.22)";
-        ctx.shadowColor = "#c084fc";
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = 16;
         ctx.fill();
 
+      } else if (skin === "plasma") {
+        const rot = t * 0.012;
+        ctx.rotate(rot);
+        // Outer energy field
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.6 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(168, 85, 247, 0.1)";
+        ctx.fill();
+        // Pulsing energy ring
+        const ringPulse = 1 + Math.sin(t * 0.02) * 0.15;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.3 * ringPulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 242, 254, 0.3)";
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+        // Electric arcs
         ctx.strokeStyle = "#00f2fe";
         ctx.lineWidth = 1.8;
         ctx.shadowColor = "#00f2fe";
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 14;
         for (let sp = 0; sp < 6; sp++) {
           const sa = (sp / 6) * Math.PI * 2;
-          const sDist1 = r * 0.9;
-          const sDist2 = r * 2.2 * (0.85 + Math.sin(performance.now() * 0.02 + sp) * 0.25);
+          const sDist2 = r * 2.2 * (0.85 + Math.sin(t * 0.02 + sp) * 0.25);
           const midA = sa + ((sp % 2 === 0 ? 1 : -1) * 0.3);
           ctx.beginPath();
-          ctx.moveTo(Math.cos(sa) * sDist1, Math.sin(sa) * sDist1);
-          ctx.lineTo(Math.cos(midA) * (sDist1 + (sDist2 - sDist1) * 0.5), Math.sin(midA) * (sDist1 + (sDist2 - sDist1) * 0.5));
+          ctx.moveTo(Math.cos(sa) * r * 0.9, Math.sin(sa) * r * 0.9);
+          ctx.lineTo(Math.cos(midA) * (r * 0.9 + (sDist2 - r * 0.9) * 0.5), Math.sin(midA) * (r * 0.9 + (sDist2 - r * 0.9) * 0.5));
           ctx.lineTo(Math.cos(sa) * sDist2, Math.sin(sa) * sDist2);
           ctx.stroke();
         }
-
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
-        ctx.fillStyle = "#f3e8ff";
+        const plGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.9);
+        plGrad.addColorStop(0, "#ffffff");
+        plGrad.addColorStop(0.5, "#f3e8ff");
+        plGrad.addColorStop(1, "#a855f7");
+        ctx.fillStyle = plGrad;
         ctx.shadowColor = "#a855f7";
-        ctx.shadowBlur = 16;
-        ctx.fill();
-      } else if (skin === "void") {
-        const rot = -performance.now() * 0.007;
-        ctx.rotate(rot);
-        
-        const accGrad = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 2.5 * pulse);
-        accGrad.addColorStop(0, "rgba(147, 51, 234, 0.8)");
-        accGrad.addColorStop(0.5, "rgba(88, 28, 135, 0.4)");
-        accGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 2.5 * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = accGrad;
+        ctx.shadowBlur = 18;
         ctx.fill();
 
+      } else if (skin === "void") {
+        const rot = -t * 0.007;
+        ctx.rotate(rot);
+        // Dark matter swirl
+        const accGrad = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 2.8 * pulse);
+        accGrad.addColorStop(0, "rgba(147, 51, 234, 0.8)");
+        accGrad.addColorStop(0.4, "rgba(88, 28, 135, 0.4)");
+        accGrad.addColorStop(0.7, "rgba(30, 27, 75, 0.2)");
+        accGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.8 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = accGrad;
+        ctx.fill();
+        // Event horizon ring
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(168, 85, 247, 0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 5]);
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Inner ring
         ctx.beginPath();
         ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2);
         ctx.strokeStyle = "#c084fc";
@@ -17248,68 +17635,110 @@ osc.stop(now + 0.05);
         ctx.shadowColor = "#a855f7";
         ctx.shadowBlur = 15;
         ctx.stroke();
-
+        // Void core
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
-        ctx.fillStyle = "#050508";
+        const voidGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.95);
+        voidGrad.addColorStop(0, "#1e1b4b");
+        voidGrad.addColorStop(0.6, "#050508");
+        voidGrad.addColorStop(1, "#000000");
+        ctx.fillStyle = voidGrad;
         ctx.shadowColor = "#000000";
         ctx.shadowBlur = 8;
         ctx.fill();
+
       } else if (skin === "inferno") {
-        const rot = performance.now() * 0.006;
+        const rot = t * 0.006;
         ctx.rotate(rot);
-        
+        // Fire ring
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.4 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.35)";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#f97316";
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        // Pulsing spikes
         for (let sp = 0; sp < 8; sp++) {
           const sa = (sp / 8) * Math.PI * 2;
-          const flarePulse = 1 + Math.sin(performance.now() * 0.015 + sp * 2) * 0.3;
-          const fx = Math.cos(sa) * r * 2.1 * flarePulse;
-          const fy = Math.sin(sa) * r * 2.1 * flarePulse;
+          const flarePulse = 1 + Math.sin(t * 0.015 + sp * 2) * 0.3;
+          const spikeLen = r * 2.3 * flarePulse;
           ctx.beginPath();
-          ctx.arc(fx, fy, r * 0.45, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(234, 88, 12, 0.55)";
-          ctx.shadowColor = "#ea580c";
-          ctx.shadowBlur = 12;
+          ctx.moveTo(Math.cos(sa - 0.15) * r * 0.8, Math.sin(sa - 0.15) * r * 0.8);
+          ctx.lineTo(Math.cos(sa) * spikeLen, Math.sin(sa) * spikeLen);
+          ctx.lineTo(Math.cos(sa + 0.15) * r * 0.8, Math.sin(sa + 0.15) * r * 0.8);
+          ctx.closePath();
+          ctx.fillStyle = sp % 2 === 0 ? "rgba(234, 88, 12, 0.7)" : "rgba(251, 191, 36, 0.6)";
           ctx.fill();
         }
-
+        // Inner glow
         ctx.beginPath();
         ctx.arc(0, 0, r * 1.8 * pulse, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(249, 115, 22, 0.3)";
         ctx.shadowColor = "#f97316";
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 22;
         ctx.fill();
-
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#fef08a";
+        const infGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        infGrad.addColorStop(0, "#ffffff");
+        infGrad.addColorStop(0.4, "#fef08a");
+        infGrad.addColorStop(1, "#fbbf24");
+        ctx.fillStyle = infGrad;
         ctx.shadowColor = "#fbbf24";
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 18;
         ctx.fill();
-      } else if (skin === "glitch") {
-        const jitterX = (Math.random() - 0.5) * 3;
-        const jitterY = (Math.random() - 0.5) * 3;
-        ctx.translate(jitterX, jitterY);
 
+      } else if (skin === "glitch") {
+        const jitterX = (Math.random() - 0.5) * 4;
+        const jitterY = (Math.random() - 0.5) * 4;
+        ctx.translate(jitterX, jitterY);
+        // RGB split layers
+        const splitAmt = 2 + Math.sin(t * 0.02) * 1.5;
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = "#ff0055";
+        ctx.fillRect(-r * 1.4 - splitAmt, -r * 1.4, r * 2.8, r * 2.8);
+        ctx.fillStyle = "#0066ff";
+        ctx.fillRect(-r * 1.4 + splitAmt, -r * 1.4, r * 2.8, r * 2.8);
+        ctx.globalAlpha = 1;
+        // Background
         const boxSize = r * 1.8 * pulse;
         ctx.fillStyle = "rgba(0, 255, 102, 0.18)";
         ctx.fillRect(-boxSize, -boxSize, boxSize * 2, boxSize * 2);
-
+        // Glitch cross
         const glitchCol = Math.random() < 0.5 ? "#00ff66" : "#ff0055";
         ctx.fillStyle = glitchCol;
         ctx.shadowColor = glitchCol;
         ctx.shadowBlur = 14;
         ctx.fillRect(-r * 1.2, -r * 0.4, r * 2.4, r * 0.8);
         ctx.fillRect(-r * 0.4, -r * 1.2, r * 0.8, r * 2.4);
-
+        // Scanlines
+        ctx.strokeStyle = "rgba(0, 255, 102, 0.15)";
+        ctx.lineWidth = 0.8;
+        for (let sl = -r * 1.5; sl < r * 1.5; sl += 3) {
+          ctx.beginPath();
+          ctx.moveTo(-r * 1.5, sl);
+          ctx.lineTo(r * 1.5, sl);
+          ctx.stroke();
+        }
+        // Core
         ctx.fillStyle = "#ecfdf5";
+        ctx.shadowBlur = 0;
         ctx.fillRect(-r * 0.6, -r * 0.6, r * 1.2, r * 1.2);
+
       } else if (skin === "prism") {
-        const rot = performance.now() * 0.005;
+        const rot = t * 0.005;
         ctx.rotate(rot);
-        const hue = Math.floor((performance.now() * 0.15) % 360);
+        const hue = Math.floor((t * 0.15) % 360);
         const prismColor = `hsl(${hue}, 100%, 60%)`;
         const prismGlow = `hsl(${(hue + 60) % 360}, 100%, 70%)`;
-
+        // Rainbow aura
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.6 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, 100%, 60%, 0.08)`;
+        ctx.fill();
+        // Hexagon
         ctx.beginPath();
         for (let g = 0; g < 6; g++) {
           const ga = (g / 6) * Math.PI * 2;
@@ -17319,25 +17748,45 @@ osc.stop(now + 0.05);
           else ctx.lineTo(gx, gy);
         }
         ctx.closePath();
-        ctx.fillStyle = `hsla(${hue}, 100%, 60%, 0.25)`;
+        const prismGrad = ctx.createLinearGradient(-r * 2, -r * 2, r * 2, r * 2);
+        prismGrad.addColorStop(0, `hsla(${hue}, 100%, 60%, 0.3)`);
+        prismGrad.addColorStop(0.5, `hsla(${(hue+120)%360}, 100%, 60%, 0.3)`);
+        prismGrad.addColorStop(1, `hsla(${(hue+240)%360}, 100%, 60%, 0.3)`);
+        ctx.fillStyle = prismGrad;
         ctx.shadowColor = prismColor;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 22;
         ctx.fill();
-
         ctx.strokeStyle = prismGlow;
-        ctx.lineWidth = 1.8;
+        ctx.lineWidth = 2.0;
         ctx.stroke();
-
+        // Sparkle dots at vertices
+        for (let g = 0; g < 6; g++) {
+          const ga = (g / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(ga) * r * 2.0 * pulse, Math.sin(ga) * r * 2.0 * pulse, r * 0.2, 0, Math.PI * 2);
+          ctx.fillStyle = `hsl(${(hue + g * 60) % 360}, 100%, 80%)`;
+          ctx.fill();
+        }
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
         ctx.fillStyle = "#ffffff";
         ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 14;
         ctx.fill();
-      } else if (skin === "holy") {
-        const rot = performance.now() * 0.003;
-        ctx.rotate(rot);
 
+      } else if (skin === "holy") {
+        const rot = t * 0.003;
+        ctx.rotate(rot);
+        // Halo ring
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.5 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(253, 224, 71, 0.35)";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#facc15";
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+        // Second halo
         ctx.beginPath();
         ctx.arc(0, 0, r * 2.1 * pulse, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(253, 224, 71, 0.85)";
@@ -17345,7 +17794,7 @@ osc.stop(now + 0.05);
         ctx.shadowColor = "#facc15";
         ctx.shadowBlur = 18;
         ctx.stroke();
-
+        // Light rays
         ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
         for (let cr = 0; cr < 4; cr++) {
           ctx.save();
@@ -17358,17 +17807,40 @@ osc.stop(now + 0.05);
           ctx.fill();
           ctx.restore();
         }
-
+        // Small diagonal rays
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        for (let cr = 0; cr < 4; cr++) {
+          ctx.save();
+          ctx.rotate((cr * Math.PI) / 2 + Math.PI / 4);
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.15, 0);
+          ctx.lineTo(0, -r * 1.8 * pulse);
+          ctx.lineTo(r * 0.15, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
-        ctx.fillStyle = "#fffbeb";
+        const holyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.9);
+        holyGrad.addColorStop(0, "#ffffff");
+        holyGrad.addColorStop(0.5, "#fffbeb");
+        holyGrad.addColorStop(1, "#fde047");
+        ctx.fillStyle = holyGrad;
         ctx.shadowColor = "#fde047";
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 18;
         ctx.fill();
-      } else if (skin === "ruby") {
-        const rot = performance.now() * 0.004;
-        ctx.rotate(rot);
 
+      } else if (skin === "ruby") {
+        const rot = t * 0.004;
+        ctx.rotate(rot);
+        // Outer gem glow
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.3 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(220, 38, 38, 0.12)";
+        ctx.fill();
+        // Hexagon gem shape
         ctx.beginPath();
         for (let g = 0; g < 6; g++) {
           const ga = (g / 6) * Math.PI * 2;
@@ -17378,32 +17850,69 @@ osc.stop(now + 0.05);
           else ctx.lineTo(gx, gy);
         }
         ctx.closePath();
-        ctx.fillStyle = "rgba(220, 38, 38, 0.35)";
+        const rubyGrad = ctx.createLinearGradient(-r * 2, -r * 2, r * 2, r * 2);
+        rubyGrad.addColorStop(0, "rgba(220, 38, 38, 0.45)");
+        rubyGrad.addColorStop(0.5, "rgba(239, 68, 68, 0.35)");
+        rubyGrad.addColorStop(1, "rgba(185, 28, 28, 0.45)");
+        ctx.fillStyle = rubyGrad;
         ctx.shadowColor = "#dc2626";
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 20;
         ctx.fill();
-
         ctx.strokeStyle = "#f87171";
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 1.8;
         ctx.stroke();
-
+        // Facet lines
+        ctx.strokeStyle = "rgba(248, 113, 113, 0.4)";
+        ctx.lineWidth = 0.8;
+        for (let g = 0; g < 6; g++) {
+          const ga = (g / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(ga) * r * 1.9 * pulse, Math.sin(ga) * r * 1.9 * pulse);
+          ctx.stroke();
+        }
+        // Inner sparkle
+        const sparkleAngle = (t * 0.003) % (Math.PI * 2);
+        ctx.beginPath();
+        ctx.arc(Math.cos(sparkleAngle) * r * 0.4, Math.sin(sparkleAngle) * r * 0.4, r * 0.15, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fill();
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
-        ctx.fillStyle = "#fee2e2";
+        const rubCoreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.8);
+        rubCoreGrad.addColorStop(0, "#fee2e2");
+        rubCoreGrad.addColorStop(0.5, "#fecaca");
+        rubCoreGrad.addColorStop(1, "#ef4444");
+        ctx.fillStyle = rubCoreGrad;
         ctx.shadowColor = "#ef4444";
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 16;
         ctx.fill();
+
       } else {
+        // Default neon
+        // Energy ring pulse
+        const ringPulse = 1 + Math.sin(t * 0.018) * 0.1;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.5 * pulse * ringPulse, 0, Math.PI * 2);
+        ctx.strokeStyle = colors ? `rgba(${colors.body || "85,216,255"}, 0.15)` : "rgba(85, 216, 255, 0.15)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Outer glow
         ctx.beginPath();
         ctx.arc(0, 0, r * 2.2 * pulse, 0, Math.PI * 2);
         ctx.fillStyle = colors ? colors.glow : "rgba(126, 231, 255, 0.12)";
         ctx.fill();
-
+        // Core
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fillStyle = colors ? colors.light : "#e9fcff";
+        const neonGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        neonGrad.addColorStop(0, "#ffffff");
+        neonGrad.addColorStop(0.5, colors ? colors.light : "#e9fcff");
+        neonGrad.addColorStop(1, colors ? colors.body : "#55d8ff");
+        ctx.fillStyle = neonGrad;
         ctx.shadowColor = colors ? colors.body : "#55d8ff";
-        ctx.shadowBlur = isOwnBullet !== false ? 20 : 14;
+        ctx.shadowBlur = isOwnBullet !== false ? 22 : 14;
         ctx.fill();
       }
     }
@@ -17644,9 +18153,11 @@ osc.stop(now + 0.05);
       const ringRadius = radius + 6 / coopView.scale;
     
       const myPlayer = coopSession.players.get(window.net?.playerId);
+      const dashUnlocked = myPlayer?.stats?.dash;
       const cd = myPlayer ? (myPlayer.dashCooldown || 0) : 0;
+      const maxDashCd = myPlayer?.stats?.dashCooldownBase || 10.0;
       const isReady = cd <= 0;
-      const progress = Math.min(1, Math.max(0, (8.0 - cd) / 8.0));
+      const progress = Math.min(1, Math.max(0, (maxDashCd - cd) / maxDashCd));
 
       ctx.save();
       ctx.translate(coopPointer.x, coopPointer.y);
@@ -17671,7 +18182,7 @@ osc.stop(now + 0.05);
       ctx.stroke();
 
       // Круговой индикатор зарядки рывка вокруг сетевого прицела
-      if (!isReady) {
+      if (dashUnlocked && !isReady) {
         ctx.beginPath();
         ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(0, 242, 254, 0.15)";
@@ -18579,45 +19090,49 @@ osc.stop(now + 0.05);
       }
     
       panel.innerHTML = `
-        <h1>Забег окончен</h1>
-    
-        <p>
-          Сложность:
-          <strong>
-            ${difficultySettings[difficulty].label}
-          </strong>
-          <br>
-        
-          Волна: <strong>${wave}</strong><br>
-        
-          Уничтожено врагов:
-          <strong>${kills}</strong><br>
-        
-          Очки: <strong>${score}</strong><br>
-        
-          Рекорд: <strong>${highScore}</strong>
-        </p>
-      
-        <div class="menu-actions">
-          <button
-            type="button"
-            class="action-button"
-            data-action="restart"
-          >
-            Начать заново
-          </button>
-        
-          <button
-            type="button"
-            class="secondary-button"
-            data-action="menu"
-          >
-            Главное меню
-          </button>
+        <div class="main-menu-fullscreen" style="max-width: 680px; gap: 16px;">
+          <div class="hero-brand-container">
+            <h1 class="hero-cyber-logo" style="background: linear-gradient(135deg, #ff496c 30%, #ff7992 70%, #ffaa55 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: clamp(28px, 4.5vw, 44px); margin: 0;">
+              💀 ЗАБЕГ ОКОНЧЕН
+            </h1>
+            <div class="hero-cyber-subtitle" style="margin-top: 4px;">
+              <span>${difficultySettings[difficulty].label} · ОДИНОЧНЫЙ РЕЙД</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 600px;">
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #283a54; border-radius: 14px; padding: 14px; text-align: center;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Волна</div>
+              <div style="font-size: 26px; font-weight: 900; color: #38bdf8; margin-top: 2px;">${wave}</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #283a54; border-radius: 14px; padding: 14px; text-align: center;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Уничтожено</div>
+              <div style="font-size: 26px; font-weight: 900; color: #4ade80; margin-top: 2px;">${kills}</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #283a54; border-radius: 14px; padding: 14px; text-align: center;">
+              <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Очки</div>
+              <div style="font-size: 26px; font-weight: 900; color: #facc15; margin-top: 2px;">${score}</div>
+            </div>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid rgba(0, 242, 254, 0.35); border-radius: 14px; padding: 14px; text-align: center; width: 100%; max-width: 600px;">
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">🏆 Рекорд</div>
+            <div style="font-size: 24px; font-weight: 900; color: #00f2fe; margin-top: 2px;">${highScore.toLocaleString("ru-RU")}${score >= highScore && score > 0 ? ' <span style="font-size: 13px; color: #4ade80;">✦ НОВЫЙ!</span>' : ''}</div>
+          </div>
+
+          <div class="network-actions" style="margin-top: 8px; gap: 14px;">
+            <button type="button" class="action-button" data-action="restart" style="min-width: 200px;">
+              Начать заново
+            </button>
+            <button type="button" class="secondary-button" data-action="menu" style="min-width: 200px;">
+              Главное меню
+            </button>
+          </div>
         </div>
       `;
-      
+
       overlay.classList.remove("hidden");
+      overlay.classList.add("fullscreen-menu-mode");
       
       panel.onclick = event => {
         const button = event.target.closest(
@@ -18630,6 +19145,7 @@ osc.stop(now + 0.05);
       
         if (button.dataset.action === "restart") {
           panel.onclick = null;
+          trainingMode = false;
           restartGame();
         }
       
@@ -18690,13 +19206,18 @@ osc.stop(now + 0.05);
 
       const dashEl = document.getElementById("dashStatus");
       if (dashEl) {
-        const cd = player.dashCooldown || 0;
-        if (cd <= 0) {
-          dashEl.textContent = "⚡ ГОТОВ";
-          dashEl.style.color = "#38bdf8";
+        if (!stats.dash) {
+          dashEl.textContent = "—";
+          dashEl.style.color = "#475569";
         } else {
-          dashEl.textContent = `⏳ ${cd.toFixed(1)}s`;
-          dashEl.style.color = "#94a3b8";
+          const cd = player.dashCooldown || 0;
+          if (cd <= 0) {
+            dashEl.textContent = "⚡ ГОТОВ";
+            dashEl.style.color = "#38bdf8";
+          } else {
+            dashEl.textContent = `⏳ ${cd.toFixed(1)}s`;
+            dashEl.style.color = "#94a3b8";
+          }
         }
       }
 
@@ -19854,9 +20375,11 @@ osc.stop(now + 0.05);
       const innerOffset = 2 / soloView.scale;
       const ringRadius = radius + 6 / soloView.scale;
     
+      const dashUnlocked = stats.dash;
       const cd = player ? (player.dashCooldown || 0) : 0;
+      const maxDashCd = stats.dashCooldownBase || 10.0;
       const isReady = cd <= 0;
-      const progress = Math.min(1, Math.max(0, (8.0 - cd) / 8.0));
+      const progress = Math.min(1, Math.max(0, (maxDashCd - cd) / maxDashCd));
 
       ctx.save();
       ctx.translate(pointer.x, pointer.y);
@@ -19881,7 +20404,7 @@ osc.stop(now + 0.05);
       ctx.stroke();
 
       // Круговой индикатор зарядки рывка вокруг прицела
-      if (!isReady) {
+      if (dashUnlocked && !isReady) {
         ctx.beginPath();
         ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(0, 242, 254, 0.15)";
@@ -20107,6 +20630,14 @@ osc.stop(now + 0.05);
         );
         drawBossHealthBar();
         drawWaveToast();
+        if (trainingMode) {
+          ctx.save();
+          ctx.font = "bold 14px 'Inter', system-ui, sans-serif";
+          ctx.fillStyle = "rgba(0, 242, 254, 0.7)";
+          ctx.textAlign = "center";
+          ctx.fillText("🎯 ТРЕНИРОВКА — Esc для выхода", SOLO_WORLD_WIDTH / 2, 36);
+          ctx.restore();
+        }
         drawCrosshair();
         drawDamageVignette();
       }
@@ -20807,11 +21338,38 @@ osc.stop(now + 0.05);
       if (gameState !== "paused") {
         return;
       }
-    
+
       hidePauseMenu();
-    
-      gameState = "playing";
-      lastTime = performance.now();
+
+      let countdown = 3;
+      gameState = "countdown";
+      overlay.classList.remove("hidden");
+      overlay.style.background = "rgba(2, 4, 10, 0.35)";
+      overlay.style.backdropFilter = "none";
+      panel.innerHTML = `
+        <div style="text-align: center; user-select: none;">
+          <div id="soloCountdownTimer" style="font-size: 120px; font-weight: 900; color: #00f2fe; text-shadow: 0 0 40px rgba(0,242,254,0.6), 0 0 80px rgba(0,242,254,0.3); line-height: 1; letter-spacing: 4px;">${countdown}</div>
+          <div style="font-size: 14px; font-weight: 700; color: #7ee7ff; text-transform: uppercase; letter-spacing: 3px; margin-top: 8px; text-shadow: 0 0 12px rgba(0,242,254,0.4);">Приготовьтесь...</div>
+        </div>
+      `;
+      soundManager.playUiTick();
+
+      const timer = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          clearInterval(timer);
+          overlay.style.background = "";
+          overlay.style.backdropFilter = "";
+          overlay.classList.add("hidden");
+          gameState = "playing";
+          lastTime = performance.now();
+          player.invulnerability = Math.max(player.invulnerability || 0, 1.5);
+        } else {
+          const el = panel.querySelector("#soloCountdownTimer");
+          if (el) el.textContent = countdown;
+          soundManager.playUiTick();
+        }
+      }, 1000);
     }
 
     function togglePause() {
@@ -20878,6 +21436,7 @@ osc.stop(now + 0.05);
             !window.net?.isMultiplayer
           ) {
             hidePauseMenu();
+            trainingMode = false;
             restartGame();
           } else if (window.net?.isMultiplayer) {
             net.restartRoom();
@@ -20980,10 +21539,10 @@ osc.stop(now + 0.05);
         return;
       }
     
-      if (event.code === "Space") {
+      if (isKeyAction(event.code, "dash") || isKeyAction(event.code, "shoot")) {
         event.preventDefault();
         if (!event.repeat && (gameState === "playing" || gameState === "coop-playing")) {
-          triggerDash();
+          if (isKeyAction(event.code, "dash")) triggerDash();
         }
         return;
       }
@@ -21001,13 +21560,13 @@ osc.stop(now + 0.05);
         event.preventDefault();
       }
 
-      if (event.code === "KeyR") {
+      if (isKeyAction(event.code, "restart")) {
         event.preventDefault();
-      
+
         if (event.repeat) {
           return;
         }
-      
+
         const soloRunCanRestart =
           runMode === "solo" &&
           !coopSession.active &&
@@ -21015,13 +21574,14 @@ osc.stop(now + 0.05);
           (
             gameState === "playing" ||
             gameState === "paused" ||
-            gameState === "gameover"
+            gameState === "gameover" ||
+            gameState === "countdown"
           );
-      
+
         if (soloRunCanRestart) {
           restartGame();
         }
-      
+
         /*
          * В сетевом меню, лобби и сетевой игре
          * клавиша R ничего не делает.
@@ -21030,10 +21590,7 @@ osc.stop(now + 0.05);
       }
 
       if (
-        (
-          event.code === "KeyP" ||
-          event.code === "Escape"
-        ) &&
+        isKeyAction(event.code, "pause") &&
         !event.repeat
       ) {
         if (gameState === "choosing" || coopUpgradeUiActive || coopSession.upgradePaused) {
@@ -21130,8 +21687,20 @@ osc.stop(now + 0.05);
 
       keys.add(event.code);
 
-      if (event.code === "Space" && !event.repeat) {
-        shoot();
+      if (isKeyAction(event.code, "shoot") && !event.repeat) {
+        if (coopSession.active) {
+          const myPlayer = coopSession.players.get(window.net?.playerId);
+          if (myPlayer && window.net) {
+            net.sendShoot(
+              coopPointer.x,
+              coopPointer.y,
+              myPlayer.displayX,
+              myPlayer.displayY
+            );
+          }
+        } else {
+          shoot();
+        }
       }
     });
 
@@ -21351,6 +21920,99 @@ osc.stop(now + 0.05);
       };
     }
 
+    const UPGRADE_FAMILIES = [
+      { id: "core", label: "Основные", members: ["damage", "bounce", "pierce", "bullet-speed", "move-speed", "armor", "repair", "critical", "caliber", "second-bullet", "homing", "emergency-repair"] },
+      { id: "catch-blast", label: "Импульсный захват", base: "catch-blast", members: ["catch-blast-damage", "catch-blast-radius"] },
+      { id: "explosive", label: "Взрыв", base: "explosive", members: ["explosion-damage", "explosion-radius"] },
+      { id: "chain-lightning", label: "Молния", base: "chain-lightning", members: ["lightning-damage", "lightning-targets", "lightning-range"] },
+      { id: "boomerang", label: "Бумеранг", base: "boomerang", members: ["boomerang-damage", "boomerang-speed", "boomerang-range"] },
+      { id: "splinter", label: "Осколки", base: "splinter", members: ["splinter-count", "splinter-damage"] },
+      { id: "stun", label: "Оглушение", base: "stun", members: ["stun-chance", "stun-duration"] },
+      { id: "reactive-armor", label: "Реактивная броня", base: "reactive-armor", members: ["reactive-armor-radius", "reactive-armor-cooldown"] },
+      { id: "target-mark", label: "Метка цели", base: "target-mark", members: ["mark-amplification", "mark-duration"] },
+      { id: "poison", label: "Яд", base: "poison", members: ["poison-damage", "poison-duration"] },
+      { id: "parasite", label: "Паразит", base: "parasite", members: ["parasite-chance", "parasite-count", "parasite-damage"] },
+      { id: "dash", label: "Рывок", base: "dash", members: ["dash-distance", "dash-cooldown", "dash-damage"] }
+    ];
+
+    const UPGRADE_TITLES = {
+      damage: "Тяжёлая пуля", bounce: "Доп. рикошет", pierce: "Пробитие",
+      "bullet-speed": "Разогнанный ствол", "move-speed": "Лёгкие ботинки",
+      armor: "Усиленная броня", repair: "Ремонтный комплект",
+      critical: "Крит. механизм", caliber: "Крупный калибр",
+      "second-bullet": "Запасной патрон",
+      "catch-blast": "Импульсный захват", "catch-blast-damage": "Сила импульса",
+      "catch-blast-radius": "Радиус импульса",
+      "emergency-repair": "Аварийный ремонт",
+      explosive: "Разрывной сердечник", "explosion-damage": "Ударная волна",
+      "explosion-radius": "Радиус детонации",
+      "chain-lightning": "Цепной конденсатор", "lightning-damage": "Мощность разряда",
+      "lightning-targets": "Проводники цепи", "lightning-range": "Радиус дуги",
+      homing: "Умная пуля",
+      boomerang: "Эффект Бумеранга", "boomerang-damage": "Тяжёлый бумеранг",
+      "boomerang-speed": "Турбо-магнит", "boomerang-range": "Дальний захват",
+      splinter: "Осколочный рикошет", "splinter-count": "Кол-во осколков",
+      "splinter-damage": "Урон осколков",
+      stun: "Кинетический удар", "stun-chance": "Частота оглушения",
+      "stun-duration": "Глубокий шок",
+      "reactive-armor": "Реактивная броня", "reactive-armor-radius": "Область отражения",
+      "reactive-armor-cooldown": "Быстрая перезарядка",
+      "target-mark": "Метка цели", "mark-amplification": "Уязвимость",
+      "mark-duration": "Глубокая метка",
+      poison: "Ядовитая пуля", "poison-damage": "Урон яда",
+      "poison-duration": "Длительность яда",
+      parasite: "Пуля с паразитом", "parasite-chance": "Шанс паразита",
+      "parasite-count": "Кол-во паразитов", "parasite-damage": "Урон паразита",
+      dash: "Рывок", "dash-distance": "Дальность рывка",
+      "dash-cooldown": "Перезарядка рывка", "dash-damage": "Разящий рывок"
+    };
+
+    const UPGRADE_MAX = {
+      "bullet-speed": { stat: "bulletSpeed", max: 1625 },
+      critical: { stat: "critChance", max: 0.6 },
+      caliber: { stat: "bulletRadius", max: 15 },
+      "catch-blast-damage": { stat: "catchBlastDamageRatio", max: 2.5 },
+      "catch-blast-radius": { stat: "catchBlast", max: 220 },
+      "explosion-damage": { stat: "explosionDamageRatio", max: 1.6 },
+      "explosion-radius": { stat: "explosionRadius", max: 180 },
+      "lightning-damage": { stat: "chainDamageRatio", max: 2.0 },
+      "lightning-targets": { stat: "chainCount", max: 9 },
+      "lightning-range": { stat: "chainRange", max: 260 },
+      "boomerang-damage": { stat: "boomerangPercent", max: 1.5 },
+      "boomerang-speed": { stat: "groundPullSpeed", max: 600 },
+      "boomerang-range": { stat: "magnetRangeBonusCells", max: 30 },
+      "splinter-count": { stat: "splinterCount", max: 5 },
+      "splinter-damage": { stat: "splinterDamagePercent", max: 1.0 },
+      "stun-chance": { stat: "stunChance", max: 0.45 },
+      "stun-duration": { stat: "stunDuration", max: 1.5 },
+      "reactive-armor-radius": { stat: "reactiveArmorRadius", max: 210 },
+      "reactive-armor-cooldown": { stat: "reactiveArmorCooldownBase", min: 1.5 },
+      "mark-amplification": { stat: "markBonus", max: 0.80 },
+      "mark-duration": { stat: "markDuration", max: 10.0 },
+      "poison-damage": { stat: "poisonDamage", max: 500 },
+      "poison-duration": { stat: "poisonDuration", max: 5.0 },
+      "parasite-chance": { stat: "parasiteChance", max: 0.50 },
+      "parasite-count": { stat: "parasiteCount", max: 5 },
+      "parasite-damage": { stat: "parasiteDamage", max: 400 },
+      "dash-distance": { stat: "dashDistance", max: 320 },
+      "dash-cooldown": { stat: "dashCooldownBase", min: 2.0 },
+      "emergency-repair": { stat: "healEvery", min: 8 },
+
+      "catch-blast": { stat: "catchBlast", boolean: true },
+      explosive: { stat: "explosionRadius", boolean: true },
+      "chain-lightning": { stat: "chainCount", boolean: true },
+      boomerang: { stat: "boomerang", boolean: true },
+      splinter: { stat: "splinter", boolean: true },
+      stun: { stat: "stun", boolean: true },
+      "reactive-armor": { stat: "reactiveArmor", boolean: true },
+      "target-mark": { stat: "targetMark", boolean: true },
+      poison: { stat: "poison", boolean: true },
+      parasite: { stat: "parasite", boolean: true },
+      dash: { stat: "dash", boolean: true },
+      "dash-damage": { stat: "dashDamage", boolean: true },
+      "second-bullet": { stat: "magazineSize", max: 2 }
+    };
+
     const debug = {
       _adminActive: false,
       _godMode: false,
@@ -21376,10 +22038,21 @@ osc.stop(now + 0.05);
           );
           this.help();
           this.showUi();
+          if (!this._autoRefreshTimer) {
+            this._autoRefreshTimer = setInterval(() => {
+              if (this._adminActive && this._uiElement && this._uiElement.style.display !== "none") {
+                this.refreshUi();
+              }
+            }, 300);
+          }
         } else {
           console.log("%c[DEBUG ADMIN DISABLED] Режим разработчика отключен.", "color: #ffaa00; font-size: 13px;");
           this._godMode = false;
           this.hideUi();
+          if (this._autoRefreshTimer) {
+            clearInterval(this._autoRefreshTimer);
+            this._autoRefreshTimer = null;
+          }
         }
       },
 
@@ -21664,6 +22337,69 @@ osc.stop(now + 0.05);
         return true;
       },
 
+      getTargetStats() {
+        if (this.isOnline) {
+          if (this._target === "teammate") {
+            const tm = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
+            return tm?.stats || null;
+          }
+          if (this._target === "all") {
+            const myP = coopSession.players.get(window.net?.playerId);
+            return myP?.stats || null;
+          }
+          const myP = coopSession.players.get(window.net?.playerId);
+          return myP?.stats || null;
+        }
+        return stats;
+      },
+
+      getTargetUpgrades() {
+        if (this.isOnline) {
+          let player;
+          if (this._target === "teammate") {
+            player = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
+          } else {
+            player = coopSession.players.get(window.net?.playerId);
+          }
+          return player?.selectedUpgrades || [];
+        }
+        return selectedUpgradeHistory.map(h => ({
+          upgradeId: this.resolveUpgradeId(h.title || "damage"),
+          power: h.power || 1,
+          rarityKey: h.rarityKey || "common"
+        }));
+      },
+
+      getTargetHp() {
+        if (this.isOnline) {
+          let player;
+          if (this._target === "teammate") {
+            player = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
+          } else {
+            player = coopSession.players.get(window.net?.playerId);
+          }
+          return player ? { hp: player.hp, maxHp: player.maxHp, alive: player.alive } : { hp: 0, maxHp: 0, alive: false };
+        }
+        return player ? { hp: player.hp, maxHp: player.maxHp, alive: player.hp > 0 } : { hp: 0, maxHp: 0, alive: false };
+      },
+
+      isUpgradeMaxed(upgradeId, targetStats) {
+        const maxDef = UPGRADE_MAX[upgradeId];
+        if (!maxDef || !targetStats) return false;
+        if (maxDef.boolean) return Boolean(targetStats[maxDef.stat]);
+        const val = targetStats[maxDef.stat];
+        if (val == null) return false;
+        if (val === 0 && maxDef.min != null) return false;
+        if (maxDef.max != null) return val >= maxDef.max;
+        if (maxDef.min != null) return val <= maxDef.min;
+        return false;
+      },
+
+      getUpgradeCount(upgradeId) {
+        const history = this.getTargetUpgrades();
+        return history.filter(u => (u.upgradeId || u.id) === upgradeId).length;
+      },
+
       resolveUpgradeId(query) {
         if (typeof query !== "string") return "damage";
         const q = query.toLowerCase().trim();
@@ -21675,28 +22411,48 @@ osc.stop(now + 0.05);
           boots: "move-speed", movespeed: "move-speed", "move-speed": "move-speed", "лёгкие ботинки": "move-speed",
           armor: "armor", "усиленная броня": "armor", "броня": "armor",
           repair: "repair", heal: "repair", "ремонтный комплект": "repair", "ремонт": "repair",
-          pickup: "pickup", magnet: "pickup", "magnetic-field": "pickup", "магнитное поле": "pickup", "магнит": "pickup",
-          "magnet-range": "magnet-range", "радиус магнита": "magnet-range", "радиус": "magnet-range",
           crit: "critical", critical: "critical", "критический механизм": "critical", "крит": "critical",
           caliber: "caliber", "крупный калибр": "caliber", "калибр": "caliber",
           "second-bullet": "second-bullet", second: "second-bullet", "запасной патрон": "second-bullet", "патрон": "second-bullet",
-          "catch-blast": "catch-blast", blast: "catch-blast", "импульсный захват": "catch-blast", "взрыв": "catch-blast",
+          "catch-blast": "catch-blast", blast: "catch-blast", "импульсный захват": "catch-blast",
+          "catch-blast-damage": "catch-blast-damage", "сила импульса": "catch-blast-damage",
+          "catch-blast-radius": "catch-blast-radius", "радиус импульса": "catch-blast-radius",
           "emergency-repair": "emergency-repair", emergency: "emergency-repair", "аварийный ремонт": "emergency-repair",
           explosive: "explosive", explosion: "explosive", "разрывной сердечник": "explosive",
+          "explosion-damage": "explosion-damage", "ударная волна": "explosion-damage",
+          "explosion-radius": "explosion-radius", "радиус детонации": "explosion-radius",
           chain: "chain-lightning", "chain-lightning": "chain-lightning", lightning: "chain-lightning", "цепной конденсатор": "chain-lightning", "молния": "chain-lightning",
+          "lightning-damage": "lightning-damage", "мощность разряда": "lightning-damage",
+          "lightning-targets": "lightning-targets", "проводники цепи": "lightning-targets",
+          "lightning-range": "lightning-range", "радиус дуги": "lightning-range",
           homing: "homing", "умная пуля": "homing", "самонаведение": "homing",
           boomerang: "boomerang", "эффект бумеранга": "boomerang", "бумеранг": "boomerang",
+          "boomerang-damage": "boomerang-damage", "тяжёлый бумеранг": "boomerang-damage",
+          "boomerang-speed": "boomerang-speed", "турбо-магнит": "boomerang-speed",
+          "boomerang-range": "boomerang-range", "дальний захват": "boomerang-range",
           splinter: "splinter", "осколочный рикошет": "splinter", "осколки": "splinter",
+          "splinter-count": "splinter-count", "количество осколков": "splinter-count",
+          "splinter-damage": "splinter-damage", "урон осколков": "splinter-damage",
           stun: "stun", "кинетический удар": "stun", "стан": "stun", "оглушение": "stun",
+          "stun-chance": "stun-chance", "частота оглушения": "stun-chance",
+          "stun-duration": "stun-duration", "глубокий шок": "stun-duration",
           reactive: "reactive-armor", "reactive-armor": "reactive-armor", "реактивная броня": "reactive-armor",
+          "reactive-armor-radius": "reactive-armor-radius", "область отражения": "reactive-armor-radius",
+          "reactive-armor-cooldown": "reactive-armor-cooldown", "быстрая перезарядка": "reactive-armor-cooldown",
           mark: "target-mark", target: "target-mark", "target-mark": "target-mark", "метка цели": "target-mark", "метка": "target-mark",
+          "mark-amplification": "mark-amplification", "уязвимость": "mark-amplification",
+          "mark-duration": "mark-duration", "глубокая метка": "mark-duration",
           poison: "poison", "ядовитая пуля": "poison", "яд": "poison",
           "poison-damage": "poison-damage", "урон яда": "poison-damage",
           "poison-duration": "poison-duration", "длительность яда": "poison-duration", "время яда": "poison-duration",
           parasite: "parasite", "пуля с паразитом": "parasite", "паразит": "parasite",
           "parasite-chance": "parasite-chance", "шанс паразита": "parasite-chance",
           "parasite-count": "parasite-count", "количество паразитов": "parasite-count", "число паразитов": "parasite-count",
-          "parasite-damage": "parasite-damage", "урон паразита": "parasite-damage"
+          "parasite-damage": "parasite-damage", "урон паразита": "parasite-damage",
+          dash: "dash", "рывок": "dash",
+          "dash-distance": "dash-distance", "дальность рывка": "dash-distance",
+          "dash-cooldown": "dash-cooldown", "перезарядка рывка": "dash-cooldown",
+          "dash-damage": "dash-damage", "разящий рывок": "dash-damage"
         };
         const clean = q.replace(/[^a-zа-я0-9]/gi, "");
         if (map[clean]) return map[clean];
@@ -21725,7 +22481,17 @@ osc.stop(now + 0.05);
 
         if (!window._soloUpgradeHistory) window._soloUpgradeHistory = [];
         for (let i = 0; i < cnt; i++) {
+          const entry = {
+            title: targetUp.title,
+            description: targetUp.description || "",
+            bonusText: typeof targetUp.bonus === "function" ? targetUp.bonus(player, p) : "",
+            icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(targetUp.title) : "◆",
+            rarityKey: targetUp.fixedRarity || (p >= 3 ? "legendary" : p >= 2 ? "rare" : "common"),
+            rarityLabel: targetUp.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : targetUp.fixedRarity === "rare" ? "РЕДКОЕ" : (p >= 3 ? "ЛЕГЕНДАРНОЕ" : p >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
+            power: p
+          };
           window._soloUpgradeHistory.push({ upgrade: targetUp, power: p });
+          selectedUpgradeHistory.push(entry);
           applyUpgradeByRarity(targetUp, p);
         }
         updateHud();
@@ -21748,21 +22514,44 @@ osc.stop(now + 0.05);
           return false;
         }
 
-        const idx = window._soloUpgradeHistory.findIndex(item => this.resolveUpgradeId(item.upgrade.title) === uId);
-        if (idx !== -1) {
-          const removed = window._soloUpgradeHistory.splice(idx, 1)[0];
+        let found = false;
+        window._soloUpgradeHistory = window._soloUpgradeHistory.filter(item => {
+          if (this.resolveUpgradeId(item.upgrade.title) === uId) {
+            found = true;
+            return false;
+          }
+          return true;
+        });
+        selectedUpgradeHistory = selectedUpgradeHistory.filter(item => {
+          return this.resolveUpgradeId(item.title) !== uId;
+        });
+
+        if (found) {
           // Rebuild solo stats
           const currentHp = player ? player.hp : 10;
+          const savedX = player ? player.x : 0;
+          const savedY = player ? player.y : 0;
           resetEntities();
+          if (player) { player.x = savedX; player.y = savedY; }
           const history = [...window._soloUpgradeHistory];
           window._soloUpgradeHistory = [];
+          selectedUpgradeHistory.length = 0;
           for (const item of history) {
             applyUpgradeByRarity(item.upgrade, item.power);
             window._soloUpgradeHistory.push(item);
+            selectedUpgradeHistory.push({
+              title: item.upgrade.title,
+              description: item.upgrade.description || "",
+              bonusText: typeof item.upgrade.bonus === "function" ? item.upgrade.bonus(player, item.power) : "",
+              icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(item.upgrade.title) : "◆",
+              rarityKey: item.upgrade.fixedRarity || (item.power >= 3 ? "legendary" : item.power >= 2 ? "rare" : "common"),
+              rarityLabel: item.upgrade.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : item.upgrade.fixedRarity === "rare" ? "РЕДКОЕ" : (item.power >= 3 ? "ЛЕГЕНДАРНОЕ" : item.power >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
+              power: item.power
+            });
           }
           if (player) player.hp = Math.min(currentHp, player.maxHp);
           updateHud();
-          console.log(`%c[DEBUG] ➖ Удалено улучшение: «${removed.upgrade.title}»`, "color: #f43f5e; font-weight: bold;");
+          console.log(`%c[DEBUG] ➖ Удалены все уровни улучшения: «${uId}»`, "color: #f43f5e; font-weight: bold;");
           this.refreshUi();
           return true;
         }
@@ -21778,9 +22567,12 @@ osc.stop(now + 0.05);
         }
 
         window._soloUpgradeHistory = [];
+        selectedUpgradeHistory.length = 0;
         const currentHp = player ? player.hp : 10;
+        const savedX = player ? player.x : 0;
+        const savedY = player ? player.y : 0;
         resetEntities();
-        if (player) player.hp = Math.min(currentHp, player.maxHp);
+        if (player) { player.x = savedX; player.y = savedY; player.hp = Math.min(currentHp, player.maxHp); }
         updateHud();
         console.log("%c[DEBUG] 🔄 Все улучшения игрока сброшены к базовым!", "color: #eab308; font-weight: bold;");
         this.refreshUi();
@@ -22015,191 +22807,105 @@ osc.stop(now + 0.05);
         const el = document.createElement("div");
         el.id = "debugToolbar";
         el.style.cssText = `
-          position: fixed;
-          top: 48px;
-          right: 18px;
-          z-index: 99999;
-          background: rgba(8, 16, 30, 0.95);
+          position: fixed; top: 48px; right: 18px; z-index: 99999;
+          background: rgba(8, 16, 30, 0.96);
           border: 1px solid rgba(0, 229, 255, 0.5);
-          box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 229, 255, 0.25);
-          border-radius: 12px;
-          padding: 12px 14px;
-          width: 330px;
-          max-height: 88vh;
-          overflow-y: auto;
-          color: #f1f5f9;
+          box-shadow: 0 10px 32px rgba(0,0,0,0.75), 0 0 20px rgba(0,229,255,0.25);
+          border-radius: 12px; padding: 12px 14px; width: 400px; height: 70vh;
+          resize: both; overflow-y: auto; overflow-x: hidden; color: #f1f5f9;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          font-size: 13px;
-          backdrop-filter: blur(14px);
-          user-select: none;
-          display: block;
+          font-size: 12px; backdrop-filter: blur(14px); user-select: none; display: block;
         `;
 
+        const scrollbarStyle = document.createElement("style");
+        scrollbarStyle.id = "debugScrollbarStyle";
+        scrollbarStyle.textContent = `
+          #debugToolbar { scrollbar-width: thin; scrollbar-color: #1e293b #0c1220; }
+          #debugToolbar::-webkit-scrollbar { width: 6px; height: 6px; }
+          #debugToolbar::-webkit-scrollbar-track { background: #0c1220; border-radius: 3px; }
+          #debugToolbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; border: 1px solid #334155; }
+          #debugToolbar::-webkit-scrollbar-thumb:hover { background: #334155; border-color: #00e5ff; }
+          #debugToolbar::-webkit-scrollbar-corner { background: #0c1220; }
+          #debugToolbar * { scrollbar-width: thin; scrollbar-color: #1e293b #0c1220; }
+          #debugToolbar *::-webkit-scrollbar { width: 6px; height: 6px; }
+          #debugToolbar *::-webkit-scrollbar-track { background: #0c1220; border-radius: 3px; }
+          #debugToolbar *::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; border: 1px solid #334155; }
+          #debugToolbar *::-webkit-scrollbar-thumb:hover { background: #334155; border-color: #00e5ff; }
+          #debugToolbar *::-webkit-scrollbar-corner { background: #0c1220; }
+        `;
+        if (!document.getElementById("debugScrollbarStyle")) {
+          document.head.appendChild(scrollbarStyle);
+        }
+
         el.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid rgba(0,229,255,0.25); padding-bottom: 6px;">
-            <div style="font-weight: bold; color: #00e5ff; display: flex; align-items: center; gap: 6px;">
+          <div id="dbgDragHandle" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid rgba(0,229,255,0.25);padding-bottom:6px;cursor:grab;">
+            <div style="font-weight:bold;color:#00e5ff;display:flex;align-items:center;gap:6px;">
               <span>🛠️</span> DEBUG ADMIN
             </div>
-            <div style="display: flex; gap: 6px;">
-              <button id="dbgMinimizeBtn" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 0 4px;">—</button>
-              <button id="dbgCloseBtn" style="background: transparent; border: none; color: #ff5577; cursor: pointer; font-size: 14px; padding: 0 4px;">✕</button>
+            <div style="display:flex;gap:6px;">
+              <button id="dbgMinimizeBtn" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0 4px;">—</button>
+              <button id="dbgCloseBtn" style="background:transparent;border:none;color:#ff5577;cursor:pointer;font-size:14px;padding:0 4px;">✕</button>
             </div>
           </div>
-
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; background: rgba(0,229,255,0.08); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(0,229,255,0.2);">
-            <span style="font-size: 11px; color: #94a3b8;">РЕЖИМ:</span>
-            <strong id="dbgModeBadge" style="font-size: 11px; color: #38bdf8;">СОЛО</strong>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;background:rgba(0,229,255,0.08);padding:4px 8px;border-radius:6px;border:1px solid rgba(0,229,255,0.2);">
+            <strong id="dbgModeBadge" style="font-size:11px;color:#38bdf8;">СОЛО</strong>
+            <select id="dbgTargetSelect" style="background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:11px;">
+              <option value="self">👤 Я</option>
+              <option value="teammate">💙 Напарник</option>
+              <option value="all">👥 Все</option>
+            </select>
           </div>
 
           <div id="dbgBody">
-            <!-- Селектор цели команд -->
-            <div style="margin-bottom: 10px; background: rgba(2,132,199,0.12); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(2,132,199,0.3);">
-              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">
-                <span>🎯 Цель команд (кому применять):</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">
+              <button id="dbgGodMode" style="background:#1e293b;color:#f97316;border:1px solid #ea580c;border-radius:6px;padding:5px;cursor:pointer;font-size:10px;font-weight:bold;">🛡️ God</button>
+              <button id="dbgFullHp" style="background:#1e293b;color:#38bdf8;border:1px solid #334155;border-radius:6px;padding:5px;cursor:pointer;font-size:10px;">❤️ 100%</button>
+              <button id="dbgReviveBtn" style="background:#1e293b;color:#475569;border:1px solid #334155;border-radius:6px;padding:5px;cursor:pointer;font-size:10px;font-weight:bold;opacity:0.4;pointer-events:none;">💖 Воскресить</button>
+            </div>
+
+            <div id="dbgStatsPanel" style="margin-bottom:10px;background:rgba(255,255,255,0.04);padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);"></div>
+            <div id="dbgUpgradeTree" style="margin-bottom:10px;background:rgba(99,102,241,0.06);padding:8px;border-radius:6px;border:1px solid rgba(99,102,241,0.15);max-height:280px;overflow-y:auto;"></div>
+
+            <div style="margin-bottom:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px;color:#94a3b8;text-transform:uppercase;">
+                <span>Волна</span>
+                <span id="dbgWaveDisplay" style="color:#38bdf8;font-weight:bold;">Волна: 1</span>
               </div>
-              <select id="dbgTargetSelect" style="width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; border-radius: 6px; padding: 4px 6px; font-size: 12px; font-weight: bold; cursor: pointer;">
-                <option value="self">👤 Себе (Локальный игрок)</option>
-                <option value="teammate">👥 Напарнику (Игрок 2)</option>
-                <option value="all">⭐ Всем игрокам (Обоим)</option>
-              </select>
-              <div id="dbgPlayersSummary" style="margin-top: 4px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between;">
-                <span id="dbgSelfSummary">Вы: ❤️ --</span>
-                <span id="dbgTeammateSummary">Напарник: 💙 --</span>
+              <div style="display:grid;grid-template-columns:36px 1fr 36px;gap:4px;margin-bottom:4px;">
+                <button id="dbgWaveDec" style="background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:6px;padding:4px;cursor:pointer;font-weight:bold;">-1</button>
+                <button id="dbgWaveSet" style="background:#0f172a;color:#38bdf8;border:1px solid #0284c7;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;">Установить волну...</button>
+                <button id="dbgWaveInc" style="background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:6px;padding:4px;cursor:pointer;font-weight:bold;">+1</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                <button id="dbgSkipWave" style="background:#14532d;color:#86efac;border:1px solid #22c55e;border-radius:6px;padding:5px;cursor:pointer;font-weight:500;font-size:11px;">⏭️ Пропустить</button>
+                <button id="dbgRestartWave" style="background:#713f12;color:#fde047;border:1px solid #eab308;border-radius:6px;padding:5px;cursor:pointer;font-weight:500;font-size:11px;">🔄 Рестарт</button>
               </div>
             </div>
 
-            <!-- Волна -->
-            <div style="margin-bottom: 10px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
-                <span>Управление волной</span>
-                <span id="dbgWaveDisplay" style="color: #00e5ff; font-weight: bold;">Волна: 1</span>
-              </div>
-              <div style="display: grid; grid-template-columns: 36px 1fr 36px; gap: 4px; margin-bottom: 4px;">
-                <button id="dbgWaveDec" style="background: #1e293b; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">-1</button>
-                <button id="dbgWaveSet" style="background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 12px;">Установить волну...</button>
-                <button id="dbgWaveInc" style="background: #1e293b; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">+1</button>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                <button id="dbgSkipWave" style="background: #14532d; color: #86efac; border: 1px solid #22c55e; border-radius: 6px; padding: 5px; cursor: pointer; font-weight: 500; font-size: 12px;">⏭️ Пропустить</button>
-                <button id="dbgRestartWave" style="background: #713f12; color: #fde047; border: 1px solid #eab308; border-radius: 6px; padding: 5px; cursor: pointer; font-weight: 500; font-size: 12px;">🔄 Рестарт</button>
-              </div>
-            </div>
-
-            <!-- Уровень и опыт -->
-            <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
+            <div style="margin-bottom:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px;color:#94a3b8;text-transform:uppercase;">
                 <span>Уровень и опыт</span>
-                <span id="dbgLevelDisplay" style="color: #fbbf24; font-weight: bold;">Ур. 1</span>
+                <span id="dbgLevelDisplay" style="color:#fbbf24;font-weight:bold;">Ур. 1</span>
               </div>
-              <div style="display: grid; grid-template-columns: 36px 1fr 36px; gap: 4px; margin-bottom: 4px;">
-                <button id="dbgLvlDec" style="background: #1e293b; color: #fbbf24; border: 1px solid #78350f; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">-1</button>
-                <button id="dbgLvlSet" style="background: #0f172a; color: #fbbf24; border: 1px solid #b45309; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 12px;">Установить ур...</button>
-                <button id="dbgLvlInc" style="background: #1e293b; color: #fbbf24; border: 1px solid #78350f; border-radius: 6px; padding: 4px; cursor: pointer; font-weight: bold;">+1</button>
+              <div style="display:grid;grid-template-columns:36px 1fr 36px;gap:4px;margin-bottom:4px;">
+                <button id="dbgLvlDec" style="background:#1e293b;color:#fbbf24;border:1px solid #78350f;border-radius:6px;padding:4px;cursor:pointer;font-weight:bold;">-1</button>
+                <button id="dbgLvlSet" style="background:#0f172a;color:#fbbf24;border:1px solid #b45309;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;">Установить ур...</button>
+                <button id="dbgLvlInc" style="background:#1e293b;color:#fbbf24;border:1px solid #78350f;border-radius:6px;padding:4px;cursor:pointer;font-weight:bold;">+1</button>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                <button id="dbgAddExp100" style="background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px;">+100 Опыта</button>
-                <button id="dbgAddExp1000" style="background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px;">+1000 Опыта</button>
-              </div>
-            </div>
-
-            <!-- Здоровье -->
-            <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
-                <span>Здоровье цели</span>
-                <span id="dbgHpDisplay" style="color: #ff7992; font-weight: bold;">HP: --</span>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
-                <button id="dbgFullHp" style="background: #1e293b; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 12px;">❤️ 100% HP</button>
-                <button id="dbgPlusHp" style="background: #1e293b; color: #f43f5e; border: 1px solid #334155; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 12px;">+10 HP</button>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                <button id="dbgGodMode" style="background: #1e293b; color: #f97316; border: 1px solid #ea580c; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">🛡️ Бессмертие: ВЫКЛ</button>
-                <button id="dbgReviveBtn" style="background: #831843; color: #fbcfe8; border: 1px solid #db2777; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">💖 Воскресить всех</button>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                <button id="dbgAddExp100" style="background:#1e3a8a;color:#93c5fd;border:1px solid #2563eb;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;">+100 Опыта</button>
+                <button id="dbgAddExp1000" style="background:#1e3a8a;color:#93c5fd;border:1px solid #2563eb;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;">+1000 Опыта</button>
               </div>
             </div>
 
-            <!-- Улучшения (Выбор, Выдача, Удаление, Сброс) -->
-            <div style="margin-bottom: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">
-                <span>Улучшения цели</span>
-                <span id="dbgUpCountBadge" style="color: #a5b4fc; font-weight: bold;">[x1 ур.]</span>
-              </div>
-              <div style="margin-bottom: 4px;">
-                <select id="dbgUpgradeSelect" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid #6366f1; border-radius: 6px; padding: 5px 6px; font-size: 11px;">
-                  <optgroup label="─── ОСНОВНЫЕ УЛУЧШЕНИЯ ───">
-                    <option value="damage">💥 Тяжёлая пуля (+1 урон)</option>
-                    <option value="bounce">🔁 Доп. рикошет (+1 отскок)</option>
-                    <option value="pierce">🏹 Пробитие (+1 цель насквозь)</option>
-                    <option value="bullet-speed">🚀 Разогнанный ствол (+25% скор.)</option>
-                    <option value="move-speed">👟 Лёгкие ботинки (+12% скор.)</option>
-                    <option value="armor">🛡️ Усиленная броня (+2 макс. HP)</option>
-                    <option value="repair">🩹 Ремонтный комплект (хил 1/15с)</option>
-                    <option value="critical">🎯 Крит. механизм (+10% шанс, x2.0)</option>
-                    <option value="caliber">💣 Крупный калибр (+20% размер)</option>
-                    <option value="second-bullet">🔫 Запасной патрон (+1 пуля)</option>
-                  </optgroup>
-                  <optgroup label="─── МАГНИТ И ЗАЩИТА ───">
-                    <option value="pickup">🧲 Магнитное поле (притяжение)</option>
-                    <option value="magnet-range">🧲 Радиус магнита (+5 кл., до +20)</option>
-                    <option value="catch-blast">💥 Импульсный захват (волна)</option>
-                    <option value="emergency-repair">❤️ Аварийный ремонт (щит от смерти)</option>
-                    <option value="reactive-armor">🛡️ Реактивная броня (взрыв при ударе)</option>
-                  </optgroup>
-                  <optgroup label="─── БОЕВЫЕ МОДИФИКАТОРЫ ───">
-                    <option value="explosive">🧨 Разрывной сердечник (взрыв)</option>
-                    <option value="chain-lightning">⚡ Цепной конденсатор (молния)</option>
-                    <option value="homing">🧠 Умная пуля (самонаведение)</option>
-                    <option value="boomerang">🪃 Бумеранг (+50% урон на возврате)</option>
-                    <option value="splinter">✨ Осколочный рикошет (2 осколка)</option>
-                    <option value="stun">❄️ Кинетический удар (+5% шанс стана)</option>
-                    <option value="target-mark">🎯 Метка цели (+40% урон по метке)</option>
-                  </optgroup>
-                  <optgroup label="─── ВЕТКА ЯДА ───">
-                    <option value="poison">🧪 Ядовитая пуля (открытие: 0.5/с, 2с)</option>
-                    <option value="poison-damage">🧪 Урон яда (+0.5/с, макс 5.0)</option>
-                    <option value="poison-duration">🧪 Длительность яда (+1.0с, макс 5.0с)</option>
-                  </optgroup>
-                  <optgroup label="─── ВЕТКА ПАРАЗИТА ───">
-                    <option value="parasite">🪱 Пуля с паразитом (открытие: 25% шанс)</option>
-                    <option value="parasite-chance">🪱 Шанс паразита (+5%, макс 50%)</option>
-                    <option value="parasite-count">🪱 Количество паразитов (+1, макс 5)</option>
-                    <option value="parasite-damage">🪱 Урон паразита (+0.5, макс 4.0)</option>
-                  </optgroup>
-                </select>
-              </div>
-
-              <!-- Селектор количества уровней -->
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; background: rgba(99,102,241,0.1); padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(99,102,241,0.25);">
-                <span style="font-size: 10.5px; color: #cbd5e1; font-weight: 500;">Уровней:</span>
-                <input id="dbgUpgradeCount" type="number" min="1" max="100" value="1" style="width: 52px; background: #0f172a; color: #a5b4fc; border: 1px solid #6366f1; border-radius: 4px; padding: 2px 4px; font-size: 11px; font-weight: bold; text-align: center;">
-                <div style="display: flex; gap: 2px;">
-                  <button type="button" class="dbg-cnt-btn" data-cnt="1" style="background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+1</button>
-                  <button type="button" class="dbg-cnt-btn" data-cnt="5" style="background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+5</button>
-                  <button type="button" class="dbg-cnt-btn" data-cnt="10" style="background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+10</button>
-                  <button type="button" class="dbg-cnt-btn" data-cnt="20" style="background: #31104b; color: #f5d0fe; border: 1px solid #a855f7; border-radius: 4px; padding: 2px 5px; font-size: 10px; cursor: pointer; font-weight: bold;">+20</button>
-                </div>
-              </div>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
-                <button id="dbgGiveSelectedUp" style="background: #4338ca; color: #e0e7ff; border: 1px solid #6366f1; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➕ Выдать</button>
-                <button id="dbgRemoveSelectedUp" style="background: #881337; color: #fecdd3; border: 1px solid #f43f5e; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 11px; font-weight: bold;">➖ Убрать</button>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px;">
-                <button id="dbgOpenUpgrades" style="background: #581c87; color: #e9d5ff; border: 1px solid #a855f7; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">🎁 Выбрать</button>
-                <button id="dbgAllUpgrades" style="background: #701a75; color: #f5d0fe; border: 1px solid #d946ef; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">⚡ Все +1</button>
-              </div>
-              <button id="dbgResetAllUpgrades" style="width: 100%; background: #451a03; color: #fed7aa; border: 1px solid #f97316; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">🔄 Сбросить ВСЕ улучшения цели</button>
-            </div>
-
-            <!-- Враги и бой -->
-            <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-              <div style="margin-bottom: 4px; font-size: 11px; color: #94a3b8; text-transform: uppercase;">Враги и бой</div>
-              <button id="dbgKillAll" style="width: 100%; background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; border-radius: 6px; padding: 5px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 6px;">💀 Убить всех врагов</button>
-              <div style="display: grid; grid-template-columns: 1fr 80px; gap: 4px;">
-                <select id="dbgEnemySelect" style="background: #0f172a; color: #f1f5f9; border: 1px solid #334155; border-radius: 6px; padding: 4px; font-size: 11px;">
+            <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
+              <div style="margin-bottom:4px;font-size:10px;color:#94a3b8;text-transform:uppercase;">Враги</div>
+              <button id="dbgKillAll" style="width:100%;background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;border-radius:6px;padding:5px;cursor:pointer;font-size:11px;font-weight:bold;margin-bottom:6px;">💀 Убить всех врагов</button>
+              <div style="display:grid;grid-template-columns:1fr 80px;gap:4px;">
+                <select id="dbgEnemySelect" style="background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:6px;padding:4px;font-size:11px;">
                   <option value="boss">👑 Босс</option>
                   <option value="incubator">🥚 Инкубатор</option>
-                  <option value="minion">🐛 Личинка-миньон</option>
+                  <option value="minion">🐛 Личинка</option>
                   <option value="phantom">👻 Фантом</option>
                   <option value="twin">🔗 Близнецы</option>
                   <option value="magnetizer">🧲 Магнетизатор</option>
@@ -22207,15 +22913,16 @@ osc.stop(now + 0.05);
                   <option value="tank">🛡️ Танк</option>
                   <option value="charger">⚡ Чарджер</option>
                   <option value="splitter">💥 Сплиттер</option>
+                  <option value="shard">🔹 Осколок</option>
                   <option value="runner">🏃 Бегун</option>
                   <option value="normal">👾 Обычный</option>
                 </select>
-                <button id="dbgSpawnEnemyBtn" style="background: #1e293b; color: #c084fc; border: 1px solid #a855f7; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">+ Спавн</button>
+                <button id="dbgSpawnEnemyBtn" style="background:#1e293b;color:#c084fc;border:1px solid #a855f7;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;font-weight:bold;">+ Спавн</button>
               </div>
             </div>
 
-            <div style="margin-top: 8px; font-size: 10px; color: #64748b; text-align: center;">
-              Горячая клавиша: <strong style="color: #94a3b8;">F2</strong> или <strong style="color: #94a3b8;">~ (тильда)</strong>
+            <div style="margin-top:8px;font-size:10px;color:#64748b;text-align:center;">
+              Горячая клавиша: <strong style="color:#94a3b8;">F2</strong> или <strong style="color:#94a3b8;">~ (тильда)</strong>
             </div>
           </div>
         `;
@@ -22223,7 +22930,35 @@ osc.stop(now + 0.05);
         document.body.appendChild(el);
         this._uiElement = el;
 
-        // Target dropdown listener
+        const dragHandle = el.querySelector("#dbgDragHandle");
+        if (dragHandle) {
+          let isDragging = false;
+          let startX, startY, origLeft, origTop;
+          dragHandle.addEventListener("mousedown", (e) => {
+            if (e.target.closest("button")) return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = el.getBoundingClientRect();
+            origLeft = rect.left;
+            origTop = rect.top;
+            dragHandle.style.cursor = "grabbing";
+            e.preventDefault();
+          });
+          document.addEventListener("mousemove", (e) => {
+            if (!isDragging) return;
+            el.style.left = (origLeft + e.clientX - startX) + "px";
+            el.style.top = (origTop + e.clientY - startY) + "px";
+            el.style.right = "auto";
+          });
+          document.addEventListener("mouseup", () => {
+            if (isDragging) {
+              isDragging = false;
+              dragHandle.style.cursor = "grab";
+            }
+          });
+        }
+
         const targetSel = el.querySelector("#dbgTargetSelect");
         if (targetSel) {
           targetSel.onchange = (e) => {
@@ -22232,7 +22967,6 @@ osc.stop(now + 0.05);
           };
         }
 
-        // Button actions
         el.querySelector("#dbgCloseBtn").onclick = () => this.hideUi();
         el.querySelector("#dbgMinimizeBtn").onclick = () => {
           const body = el.querySelector("#dbgBody");
@@ -22241,7 +22975,6 @@ osc.stop(now + 0.05);
           el.querySelector("#dbgMinimizeBtn").textContent = isMin ? "—" : "□";
         };
 
-        // Wave
         el.querySelector("#dbgWaveDec").onclick = () => this.prevWave();
         el.querySelector("#dbgWaveInc").onclick = () => this.nextWave();
         el.querySelector("#dbgWaveSet").onclick = () => {
@@ -22251,7 +22984,6 @@ osc.stop(now + 0.05);
         el.querySelector("#dbgSkipWave").onclick = () => this.skipWave();
         el.querySelector("#dbgRestartWave").onclick = () => this.restartWave();
 
-        // Level & Exp
         el.querySelector("#dbgLvlDec").onclick = () => this.removeLevel(1);
         el.querySelector("#dbgLvlInc").onclick = () => this.addLevel(1);
         el.querySelector("#dbgLvlSet").onclick = () => {
@@ -22261,54 +22993,10 @@ osc.stop(now + 0.05);
         el.querySelector("#dbgAddExp100").onclick = () => this.addExp(100);
         el.querySelector("#dbgAddExp1000").onclick = () => this.addExp(1000);
 
-        // HP
         el.querySelector("#dbgFullHp").onclick = () => this.fullHp(this._target);
-        el.querySelector("#dbgPlusHp").onclick = () => this.setHp(this.hp + 10, this._target);
         el.querySelector("#dbgGodMode").onclick = () => this.godMode(undefined, this._target);
         el.querySelector("#dbgReviveBtn").onclick = () => this.reviveAll();
 
-        // Upgrades
-        const upCountInput = el.querySelector("#dbgUpgradeCount");
-        const upCountBadge = el.querySelector("#dbgUpCountBadge");
-        const giveUpBtn = el.querySelector("#dbgGiveSelectedUp");
-
-        const updateCountDisplay = () => {
-          const c = Math.max(1, parseInt(upCountInput.value, 10) || 1);
-          upCountInput.value = c;
-          if (upCountBadge) upCountBadge.textContent = `[x${c} ур.]`;
-          if (giveUpBtn) giveUpBtn.textContent = `➕ Выдать (+${c})`;
-        };
-
-        if (upCountInput) {
-          upCountInput.oninput = updateCountDisplay;
-        }
-
-        el.querySelectorAll(".dbg-cnt-btn").forEach(btn => {
-          btn.onclick = () => {
-            const cnt = Number(btn.dataset.cnt) || 1;
-            if (upCountInput) {
-              upCountInput.value = cnt;
-              updateCountDisplay();
-            }
-          };
-        });
-
-        updateCountDisplay();
-
-        el.querySelector("#dbgGiveSelectedUp").onclick = () => {
-          const uId = el.querySelector("#dbgUpgradeSelect").value;
-          const count = Math.max(1, parseInt(upCountInput?.value, 10) || 1);
-          this.giveUpgrade(uId, 1, this._target, count);
-        };
-        el.querySelector("#dbgRemoveSelectedUp").onclick = () => {
-          const uId = el.querySelector("#dbgUpgradeSelect").value;
-          this.removeUpgrade(uId, this._target);
-        };
-        el.querySelector("#dbgOpenUpgrades").onclick = () => this.showUpgrades();
-        el.querySelector("#dbgAllUpgrades").onclick = () => this.giveAllUpgrades(1, this._target);
-        el.querySelector("#dbgResetAllUpgrades").onclick = () => this.resetUpgrades(this._target);
-
-        // Combat
         el.querySelector("#dbgKillAll").onclick = () => this.killAll();
         el.querySelector("#dbgSpawnEnemyBtn").onclick = () => {
           const type = el.querySelector("#dbgEnemySelect").value;
@@ -22318,8 +23006,219 @@ osc.stop(now + 0.05);
         this.refreshUi();
       },
 
+      _renderStatsPanel() {
+        const panel = this._uiElement?.querySelector("#dbgStatsPanel");
+        if (!panel) return;
+
+        const targetStats = this.getTargetStats();
+        const hpInfo = this.getTargetHp();
+        const lvl = this.isOnline ? coopSession.level : playerLevel;
+        const pct = hpInfo.maxHp > 0 ? Math.round((hpInfo.hp / hpInfo.maxHp) * 100) : 0;
+        const barColor = pct > 60 ? "#22c55e" : pct > 30 ? "#eab308" : "#ef4444";
+
+        const s = targetStats || {};
+        const flags = [
+          { label: "🪃", on: s.boomerang },
+          { label: "✨", on: s.splinter },
+          { label: "❄️", on: Boolean(s.stun) },
+          { label: "💨", on: s.dash },
+          { label: "🧪", on: s.poison },
+          { label: "🪱", on: s.parasite },
+          { label: "🛡️", on: s.reactiveArmor },
+          { label: "🎯", on: s.targetMark },
+          { label: "🧨", on: (s.explosionRadius || 0) > 0 },
+          { label: "⚡", on: (s.chainCount || 0) > 0 },
+          { label: "💥", on: (s.catchBlast || 0) > 0 }
+        ];
+
+        panel.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:bold;">❤️ ${hpInfo.hp}/${hpInfo.maxHp}</span>
+            <span style="font-size:11px;color:#fbbf24;">Ур. ${lvl}</span>
+          </div>
+          <div style="height:6px;background:#1e293b;border-radius:3px;margin-bottom:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.2s;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:6px;font-size:10px;text-align:center;">
+            <div style="background:rgba(255,255,255,0.05);padding:3px;border-radius:4px;">
+              <div style="color:#94a3b8;">💥</div><div style="font-weight:bold;">${s.damage || 100}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);padding:3px;border-radius:4px;">
+              <div style="color:#94a3b8;">🎯</div><div style="font-weight:bold;">${Math.round((s.critChance || 0) * 100)}%</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);padding:3px;border-radius:4px;">
+              <div style="color:#94a3b8;">🏃</div><div style="font-weight:bold;">${Math.round(s.playerSpeed || 300)}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);padding:3px;border-radius:4px;">
+              <div style="color:#94a3b8;">🚀</div><div style="font-weight:bold;">${Math.round(s.bulletSpeed || 650)}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;">
+            ${flags.map(f => `<span style="display:inline-block;padding:2px 5px;border-radius:4px;font-size:11px;background:${f.on ? "rgba(56,189,248,0.2)" : "rgba(255,255,255,0.03)"};color:${f.on ? "#38bdf8" : "#334155"};border:1px solid ${f.on ? "rgba(56,189,248,0.3)" : "rgba(255,255,255,0.05)"};">${f.label}</span>`).join("")}
+          </div>
+        `;
+      },
+
+      _renderUpgradeTree() {
+        const tree = this._uiElement?.querySelector("#dbgUpgradeTree");
+        if (!tree) return;
+
+        const targetStats = this.getTargetStats();
+        const history = this.getTargetUpgrades();
+
+        const countMap = {};
+        for (const u of history) {
+          const id = u.upgradeId || u.id || "unknown";
+          countMap[id] = (countMap[id] || 0) + 1;
+        }
+
+        const totalUpgrades = history.length;
+        let html = `<div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Улучшения</span>
+          <span style="font-size:10px;color:#a5b4fc;font-weight:bold;">${totalUpgrades}</span>
+        </div>`;
+
+        const btnStyle = "border-radius:3px;padding:1px 5px;font-size:9px;cursor:pointer;border:1px solid ";
+        const renderRow = (id, indent) => {
+          const count = countMap[id] || 0;
+          const title = UPGRADE_TITLES[id] || id;
+          const isMaxed = this.isUpgradeMaxed(id, targetStats);
+          const maxDef = UPGRADE_MAX[id];
+          let valueStr = "";
+          if (maxDef && targetStats) {
+            const val = targetStats[maxDef.stat];
+            if (val != null) {
+              if (maxDef.max != null) valueStr = ` ${typeof val === "number" && val % 1 !== 0 ? val.toFixed(1) : val}/${maxDef.max}`;
+              else if (maxDef.min != null) valueStr = ` ${typeof val === "number" && val % 1 !== 0 ? val.toFixed(1) : val}/${maxDef.min}`;
+            }
+          }
+
+          const pad = indent ? "padding-left:16px;" : "";
+          const prefix = indent ? "└ " : "";
+          const maxBadge = isMaxed ? `<span style="background:#78350f;color:#fde047;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px;">MAX</span>` : "";
+          const countBadge = count > 0 ? `<span style="background:#4338ca;color:#e0e7ff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px;">×${count}</span>` : "";
+          const opacity = count > 0 ? "1" : "0.5";
+
+          const giveBtn = `<button data-give="${id}" style="background:#4338ca;color:#e0e7ff;${btnStyle}#6366f1;${isMaxed ? "opacity:0.3;pointer-events:none;" : ""}">+</button>`;
+          const removeBtn = `<button data-remove="${id}" style="background:#881337;color:#fecdd3;${btnStyle}#f43f5e;${count === 0 ? "opacity:0.3;pointer-events:none;" : ""}">−</button>`;
+          const maxBtn = `<button data-max="${id}" style="background:#78350f;color:#fde047;${btnStyle}#b45309;${isMaxed ? "opacity:0.3;pointer-events:none;" : ""}">MAX</button>`;
+
+          return `<div style="${pad}display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:11px;opacity:${opacity};">
+            <span>${prefix}${title}${countBadge}${maxBadge}<span style="color:#64748b;font-size:9px;margin-left:3px;">${valueStr}</span></span>
+            <div style="display:flex;gap:2px;">${giveBtn}${removeBtn}${maxBtn}</div>
+          </div>`;
+        };
+
+        for (const family of UPGRADE_FAMILIES) {
+          html += `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.06);">`;
+          if (family.base) {
+            html += renderRow(family.base, false);
+            const baseTaken = (countMap[family.base] || 0) > 0;
+            if (baseTaken) {
+              for (const subId of family.members) {
+                html += renderRow(subId, true);
+              }
+            }
+          } else {
+            for (const id of family.members) {
+              html += renderRow(id, false);
+            }
+          }
+          html += `</div>`;
+        }
+
+        tree.innerHTML = html;
+
+        tree.querySelectorAll("[data-give]").forEach(btn => {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.give;
+            const ts = this.getTargetStats();
+            if (this.isUpgradeMaxed(id, ts)) return;
+            this.giveUpgrade(id, 1, this._target, 1);
+            setTimeout(() => this.refreshUi(), 100);
+          };
+        });
+
+        tree.querySelectorAll("[data-remove]").forEach(btn => {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.remove;
+            this._removeUpgradeCascade(id);
+            setTimeout(() => this.refreshUi(), 100);
+          };
+        });
+
+        tree.querySelectorAll("[data-max]").forEach(btn => {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.max;
+            this._giveMaxUpgrade(id);
+            setTimeout(() => this.refreshUi(), 100);
+          };
+        });
+      },
+
+      _removeUpgradeCascade(upgradeId) {
+        const family = UPGRADE_FAMILIES.find(f => f.base === upgradeId);
+        this.removeUpgrade(upgradeId, this._target);
+        if (family) {
+          for (const subId of family.members) {
+            this.removeUpgrade(subId, this._target);
+          }
+        }
+      },
+
+      _giveMaxUpgrade(upgradeId) {
+        const family = UPGRADE_FAMILIES.find(f => f.base === upgradeId);
+        const ts = this.getTargetStats();
+
+        if (family) {
+          if (!this.isUpgradeMaxed(upgradeId, ts)) {
+            this.giveUpgrade(upgradeId, 1, this._target, 1);
+          }
+          for (const subId of family.members) {
+            let safety = 0;
+            while (!this.isUpgradeMaxed(subId, this.getTargetStats()) && safety < 50) {
+              this.giveUpgrade(subId, 1, this._target, 1);
+              safety++;
+            }
+          }
+        } else {
+          let safety = 0;
+          while (!this.isUpgradeMaxed(upgradeId, this.getTargetStats()) && safety < 50) {
+            this.giveUpgrade(upgradeId, 1, this._target, 1);
+            safety++;
+          }
+        }
+      },
+
       refreshUi() {
         if (!this._uiElement) return;
+
+        const body = this._uiElement.querySelector("#dbgBody");
+        let overlay = this._uiElement.querySelector("#dbgMenuOverlay");
+        const inMenu = typeof isMenuState === "function" && isMenuState();
+
+        if (inMenu) {
+          if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "dbgMenuOverlay";
+            overlay.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(8,16,30,0.85);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;border-radius:12px;z-index:10;";
+            overlay.innerHTML = `<div style="text-align:center;color:#94a3b8;font-size:13px;padding:20px;">
+              <div style="font-size:28px;margin-bottom:8px;">🎮</div>
+              <div style="font-weight:bold;color:#f1f5f9;margin-bottom:4px;">Запустите забег</div>
+              <div style="font-size:11px;">Админ-панель доступна во время игры</div>
+            </div>`;
+            this._uiElement.style.position = "fixed";
+            this._uiElement.appendChild(overlay);
+          }
+          overlay.style.display = "flex";
+          if (body) body.style.pointerEvents = "none";
+        } else {
+          if (overlay) overlay.style.display = "none";
+          if (body) body.style.pointerEvents = "auto";
+        }
 
         const badge = this._uiElement.querySelector("#dbgModeBadge");
         if (badge) {
@@ -22328,22 +23227,28 @@ osc.stop(now + 0.05);
         }
 
         const targetSel = this._uiElement.querySelector("#dbgTargetSelect");
-        if (targetSel && targetSel.value !== this._target) {
-          targetSel.value = this._target;
-        }
-
-        const selfSum = this._uiElement.querySelector("#dbgSelfSummary");
-        if (selfSum) {
-          selfSum.textContent = `Вы: ❤️ ${this.hp}/${this.maxHp} (Ур.${this.level})`;
-        }
-
-        const tmSum = this._uiElement.querySelector("#dbgTeammateSummary");
-        if (tmSum) {
+        if (targetSel) {
+          if (targetSel.value !== this._target) {
+            targetSel.value = this._target;
+          }
+          const tmOpt = targetSel.querySelector('option[value="teammate"]');
+          const allOpt = targetSel.querySelector('option[value="all"]');
           if (this.isOnline) {
             const tm = [...coopSession.players.values()].find(p => p.id !== window.net?.playerId);
-            tmSum.textContent = tm ? `Напарник: 💙 ${tm.hp}/${tm.maxHp}` : "Напарник: (нет)";
+            const tmName = tm?.name || "Напарник";
+            if (tmOpt) { tmOpt.disabled = false; tmOpt.textContent = `💙 ${tmName}`; }
+            if (allOpt) allOpt.disabled = false;
+            if (this._target === "teammate" && !tm && targetSel.value === "teammate") {
+              this._target = "self";
+              targetSel.value = "self";
+            }
           } else {
-            tmSum.textContent = "";
+            if (tmOpt) { tmOpt.disabled = true; tmOpt.textContent = "💙 Напарник (нет)"; }
+            if (allOpt) allOpt.disabled = true;
+            if (this._target !== "self") {
+              this._target = "self";
+              targetSel.value = "self";
+            }
           }
         }
 
@@ -22353,23 +23258,35 @@ osc.stop(now + 0.05);
         const lvlDisp = this._uiElement.querySelector("#dbgLevelDisplay");
         if (lvlDisp) lvlDisp.textContent = `Ур. ${this.level}`;
 
-        const hpDisp = this._uiElement.querySelector("#dbgHpDisplay");
-        if (hpDisp) {
-          if (this._target === "teammate") {
-            const tm = this.isOnline ? [...coopSession.players.values()].find(p => p.id !== window.net?.playerId) : null;
-            hpDisp.textContent = tm ? `HP: ${tm.hp}/${tm.maxHp}` : "HP: --";
-          } else {
-            hpDisp.textContent = `HP: ${this.hp}/${this.maxHp}`;
-          }
-        }
-
         const godBtn = this._uiElement.querySelector("#dbgGodMode");
         if (godBtn) {
-          godBtn.textContent = this._godMode ? "🛡️ God: ВКЛ ⚡" : "🛡️ God: ВЫКЛ";
+          godBtn.textContent = this._godMode ? "🛡️ ВКЛ ⚡" : "🛡️ God";
           godBtn.style.background = this._godMode ? "#15803d" : "#1e293b";
           godBtn.style.color = this._godMode ? "#bbf7d0" : "#f97316";
           godBtn.style.borderColor = this._godMode ? "#22c55e" : "#ea580c";
         }
+
+        const reviveBtn = this._uiElement.querySelector("#dbgReviveBtn");
+        if (reviveBtn) {
+          const hpInfo = this.getTargetHp();
+          const isDead = !hpInfo.alive || hpInfo.hp <= 0;
+          if (isDead) {
+            reviveBtn.style.background = "#831843";
+            reviveBtn.style.color = "#fbcfe8";
+            reviveBtn.style.borderColor = "#db2777";
+            reviveBtn.style.opacity = "1";
+            reviveBtn.style.pointerEvents = "auto";
+          } else {
+            reviveBtn.style.background = "#1e293b";
+            reviveBtn.style.color = "#475569";
+            reviveBtn.style.borderColor = "#334155";
+            reviveBtn.style.opacity = "0.4";
+            reviveBtn.style.pointerEvents = "none";
+          }
+        }
+
+        this._renderStatsPanel();
+        this._renderUpgradeTree();
       }
     };
 

@@ -29,7 +29,7 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     const { world } = createTestWorld(ctx);
 
     function oracleBaseHp(tier) {
-      return (48 + tier * 20 + tier * tier * 8) * 100;
+      return 4800 + tier * 2000 + tier * tier * 800;
     }
 
     function oracleCoopHp(baseHp) {
@@ -132,10 +132,10 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
       return Math.round((48 + bossTier * 20 + bossTier * bossTier * 8) * 55);
     }
 
-    // Server base HP formula uses * 100 (then multiplied by 1.1 for coop)
+    // Server base HP formula (baked constants, no ×100 multiplier)
     function serverBaseHp(wave) {
       const bossTier = Math.max(1, Math.floor(wave / 5));
-      return (48 + bossTier * 20 + bossTier * bossTier * 8) * 100;
+      return 4800 + bossTier * 2000 + bossTier * bossTier * 800;
     }
 
     const { world } = createTestWorld(ctx);

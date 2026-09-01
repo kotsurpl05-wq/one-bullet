@@ -933,9 +933,6 @@ function updateServerBullet(
    */
   if (bullet.state === "ground") {
     if (owner.alive && (owner.stats?.groundPullSpeed || 0) > 0) {
-      const prevGX = bullet.x;
-      const prevGY = bullet.y;
-
       const distToOwner = distance(bullet.x, bullet.y, owner.x, owner.y);
       const magnetCells = Math.min(40, 20 + (owner.stats?.magnetRangeBonusCells || 0));
       const MAGNET_MAX_DIST = magnetCells * 48; // базово 20 клеток (960px), до 40 клеток (1920px)
@@ -968,10 +965,9 @@ function updateServerBullet(
 
       /*
        * Эффект Бумеранга: возвращающаяся пуля
-       * наносит +50% урона и получает +1 пробитие.
-       * Проверяем swept-коллизию от старой позиции до владельца
-       * (полный путь возврата), чтобы даже при малом dt
-       * пуля поражала врагов на траектории.
+       * наносит урон врагам, находящимся рядом с ней.
+       * Проверяем точку — текущую позицию пули,
+       * как и в соло-режиме.
        */
       if (owner.stats?.boomerang && (owner.stats?.boomerangPercent || 0) > 0) {
         for (const enemy of world.enemies.values()) {
@@ -980,13 +976,12 @@ function updateServerBullet(
           if (bullet.hitEnemies.has(enemy.id)) continue;
 
           const hitDist = bullet.r + enemy.r;
-          const segDist = distToSegment(
+          const eDist = distance(
             enemy.x, enemy.y,
-            prevGX, prevGY,
-            owner.x, owner.y
+            bullet.x, bullet.y
           );
 
-          if (segDist <= hitDist) {
+          if (eDist <= hitDist) {
             bullet.hitEnemies.add(enemy.id);
             const boomerangDmg = Math.max(1, Math.floor(
               (owner.stats?.damage || 100) * (owner.stats.boomerangPercent || 0.25)
@@ -1777,6 +1772,7 @@ function updateServerCoopWorld(
     }
 
     updateServerCoopPlayer(
+      world,
       coopPlayer,
       dt,
       currentTime
@@ -1845,76 +1841,76 @@ function createServerEnemy(
 
   let radius = 14;
   let speed = 59 + level * 2.5;
-  let baseHp = (1 + Math.floor(level / 5)) * 100;
+  let baseHp = 100 + Math.floor(level / 5) * 100;
   let color = "#ff5577";
 
   if (type === "runner") {
     radius = 10;
     speed = 105 + level * 3;
-    baseHp = (1 + Math.floor(level / 7)) * 100;
+    baseHp = 100 + Math.floor(level / 7) * 100;
     color = "#ffca55";
   }
 
   if (type === "tank") {
     radius = 21;
     speed = 39 + level * 1.5;
-    baseHp = (3 + Math.floor(level / 3)) * 100;
+    baseHp = 300 + Math.floor(level / 3) * 100;
     color = "#b56dff";
   }
 
   if (type === "charger") {
     radius = 13;
     speed = 63 + level * 2;
-    baseHp = (2 + Math.floor(level / 6)) * 100;
+    baseHp = 200 + Math.floor(level / 6) * 100;
     color = "#ff814a";
   }
 
   if (type === "splitter") {
     radius = 18;
     speed = 50 + level * 1.7;
-    baseHp = (2 + Math.floor(level / 4)) * 100;
+    baseHp = 200 + Math.floor(level / 4) * 100;
     color = "#46b8ff";
   }
 
   if (type === "shard") {
     radius = 8;
     speed = 125 + level * 2.5;
-    baseHp = (1 + Math.floor(level / 9)) * 100;
+    baseHp = 100 + Math.floor(level / 9) * 100;
     color = "#79d7ff";
   }
 
   if (type === "shooter") {
     radius = 14;
     speed = 48 + level * 1.3;
-    baseHp = (2 + Math.floor(level / 6)) * 100;
+    baseHp = 200 + Math.floor(level / 6) * 100;
     color = "#50d890";
   }
 
   if (type === "phantom") {
     radius = 12;
     speed = 75 + world.wave * 2;
-    baseHp = (1 + Math.floor(world.wave / 8)) * 100;
+    baseHp = 100 + Math.floor(world.wave / 8) * 100;
     color = "#88eedd";
   }
 
   if (type === "magnetizer") {
     radius = 16;
     speed = 40 + world.wave * 1.2;
-    baseHp = (5 + Math.floor(world.wave / 3)) * 100;
+    baseHp = 500 + Math.floor(world.wave / 3) * 100;
     color = "#c084fc";
   }
 
   if (type === "twin") {
     radius = 10;
     speed = 90 + world.wave * 2;
-    baseHp = (2 + Math.floor(world.wave / 5)) * 100;
+    baseHp = 200 + Math.floor(world.wave / 5) * 100;
     color = "#ff6b9d";
   }
 
   if (type === "incubator") {
     radius = 22;
     speed = 32 + level * 1.0;
-    baseHp = (6 + Math.floor(world.wave / 2)) * 100;
+    baseHp = 600 + Math.floor(world.wave / 2) * 100;
     color = "#059669";
   }
 
@@ -1949,9 +1945,9 @@ function createServerEnemy(
       progressionTier * 2.2 * 1.3;
 
     baseHp =
-      (48 +
-      bossTier * 20 +
-      bossTier * bossTier * 8) * 100;
+      4800 +
+      bossTier * 2000 +
+      bossTier * bossTier * 800;
 
     color = "#ff3f8f";
   }
@@ -2309,7 +2305,12 @@ function createServerPlayerStats() {
     parasite: false,
     parasiteChance: 0.25,
     parasiteCount: 1,
-    parasiteDamage: 75
+    parasiteDamage: 75,
+
+    dash: false,
+    dashDistance: 0,
+    dashCooldownBase: 0,
+    dashDamage: false
   };
 }
 
@@ -2940,6 +2941,60 @@ const SERVER_UPGRADES = [
       const current = player.stats?.markDuration || 4.0;
       const result = Number(Math.min(10.0, current + 2.0 * power).toFixed(1));
       return `+${Number((result - current).toFixed(1))}с к длительности метки (итог: ${result}с)`;
+    }
+  },
+
+  {
+    id: "dash",
+    title: "Рывок",
+    description: "Мгновенный рывок с неуязвимостью (120px, 10с перезарядка).",
+    fixedRarity: "rare",
+    available(player) {
+      return !player.stats?.dash;
+    },
+    bonus() {
+      return `Рывок: 120px, кд 10с, неуязвимость`;
+    }
+  },
+
+  {
+    id: "dash-distance",
+    title: "Дальность рывка",
+    description: "Увеличивает дистанцию рывка на +50px (макс. 320px).",
+    available(player) {
+      return Boolean(player.stats?.dash) && (player.stats?.dashDistance || 120) < 320;
+    },
+    bonus(player, power) {
+      const current = player.stats?.dashDistance || 120;
+      const result = Math.min(320, current + 50 * power);
+      return `+${result - current}px к дистанции рывка (итог: ${result}px)`;
+    }
+  },
+
+  {
+    id: "dash-cooldown",
+    title: "Перезарядка рывка",
+    description: "Уменьшает перезарядку рывка на -1.5с (мин. 2.0с).",
+    available(player) {
+      return Boolean(player.stats?.dash) && (player.stats?.dashCooldownBase || 10.0) > 2.0;
+    },
+    bonus(player, power) {
+      const current = player.stats?.dashCooldownBase || 10.0;
+      const result = Number(Math.max(2.0, current - 1.5 * power).toFixed(1));
+      return `-${Number((current - result).toFixed(1))}с перезарядки (итог: ${result}с)`;
+    }
+  },
+
+  {
+    id: "dash-damage",
+    title: "Разящий рывок",
+    description: "Рывок наносит 100% урона всем врагам на пути.",
+    fixedRarity: "legendary",
+    available(player) {
+      return Boolean(player.stats?.dash) && !player.stats?.dashDamage;
+    },
+    bonus(player) {
+      return `Урон ${player.stats?.damage || 100} по врагам на пути рывка`;
     }
   }
 ];
@@ -4505,6 +4560,7 @@ function updateServerEnemies(
 }
 
 function updateServerCoopPlayer(
+  world,
   coopPlayer,
   dt,
   currentTime
@@ -4524,8 +4580,9 @@ function updateServerCoopPlayer(
   }
 
   coopPlayer.dashCooldown = Math.max(0, (coopPlayer.dashCooldown || 0) - dt);
+  coopPlayer.dashTimer = Math.max(0, (coopPlayer.dashTimer || 0) - dt);
 
-  if (input.dash && (coopPlayer.dashCooldown || 0) <= 0) {
+  if (input.dash && coopPlayer.stats?.dash && (coopPlayer.dashCooldown || 0) <= 0) {
     let ddx = 0;
     let ddy = 0;
     if (input.up) ddy -= 1;
@@ -4541,16 +4598,18 @@ function updateServerCoopPlayer(
       ddx = Math.cos(angle);
       ddy = Math.sin(angle);
     }
-    coopPlayer.dashCooldown = 8.0;
+    const dashSpeed = (coopPlayer.stats?.dashDistance || 120) / 0.18;
+    coopPlayer.dashCooldown = coopPlayer.stats?.dashCooldownBase || 10.0;
     coopPlayer.dashTimer = 0.18;
-    coopPlayer.dashVx = ddx * 850;
-    coopPlayer.dashVy = ddy * 850;
-    coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.25);
+    coopPlayer.dashVx = ddx * dashSpeed;
+    coopPlayer.dashVy = ddy * dashSpeed;
+    coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.18);
+    coopPlayer.dashHitEnemies = new Set();
     input.dash = false;
   }
 
   if (Number.isFinite(input.x) && Number.isFinite(input.y)) {
-    const drift = Math.hypot(input.x - coopPlayer.x, input.y - coopPlayer.y);
+    const drift = Math.hypot(input.x - coopPlayer.x, coopPlayer.y - input.y);
     if (drift < 300) {
       coopPlayer.x = input.x;
       coopPlayer.y = input.y;
@@ -4561,7 +4620,6 @@ function updateServerCoopPlayer(
     }
   } else {
     if (coopPlayer.dashTimer > 0) {
-      coopPlayer.dashTimer -= dt;
       coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
       coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
     }
@@ -4613,6 +4671,39 @@ function updateServerCoopPlayer(
     COOP_WORLD_HEIGHT -
       coopPlayer.r
   );
+
+  /*
+   * Разящий рывок: урон 100% от damage всем
+   * врагам на траектории рывка.
+   * Проверка выполняется независимо от типа ввода,
+   * так как в коопе клиент всегда шлёт координаты.
+   */
+  if (coopPlayer.dashTimer > 0 && coopPlayer.stats?.dashDamage) {
+    const prevDashX = coopPlayer.x - (coopPlayer.dashVx || 0) * dt;
+    const prevDashY = coopPlayer.y - (coopPlayer.dashVy || 0) * dt;
+    if (!coopPlayer.dashHitEnemies) coopPlayer.dashHitEnemies = new Set();
+    for (const enemy of world.enemies.values()) {
+      if (!enemy.hasEnteredArena) continue;
+      if (enemy.type === "phantom" && enemy.isPhased) continue;
+      if (coopPlayer.dashHitEnemies.has(enemy.id)) continue;
+
+      const segDist = distToSegment(
+        enemy.x, enemy.y,
+        prevDashX, prevDashY,
+        coopPlayer.x, coopPlayer.y
+      );
+
+      if (segDist <= coopPlayer.r + enemy.r) {
+        coopPlayer.dashHitEnemies.add(enemy.id);
+        damageServerEnemy(
+          world,
+          enemy.id,
+          coopPlayer.stats?.damage || 100,
+          coopPlayer
+        );
+      }
+    }
+  }
 
   coopPlayer.aimX = clamp(
     Number(input.aimX) ||
@@ -4798,7 +4889,6 @@ function applyServerUpgrade(
       player.stats.chainRange = Math.min(260, (player.stats.chainRange || 140) + 30 * power);
       break;
 
-    case "pickup":
     case "recall-magnet":
       // Legacy: kept for backward compatibility with old saves
       player.stats.boomerang = true;
@@ -4917,6 +5007,24 @@ function applyServerUpgrade(
       player.stats.markDuration = Number(Math.min(10.0, (player.stats.markDuration || 4.0) + 2.0 * power).toFixed(1));
       break;
 
+    case "dash":
+      player.stats.dash = true;
+      player.stats.dashDistance = Math.max(120, player.stats.dashDistance || 120);
+      player.stats.dashCooldownBase = Math.max(2.0, player.stats.dashCooldownBase || 10.0);
+      break;
+
+    case "dash-distance":
+      player.stats.dashDistance = Math.min(320, (player.stats.dashDistance || 120) + 50 * power);
+      break;
+
+    case "dash-cooldown":
+      player.stats.dashCooldownBase = Number(Math.max(2.0, (player.stats.dashCooldownBase || 10.0) - 1.5 * power).toFixed(1));
+      break;
+
+    case "dash-damage":
+      player.stats.dashDamage = true;
+      break;
+
     default:
       return false;
   }
@@ -4972,13 +5080,16 @@ function recalculateServerPlayerStats(world, player) {
 
 function removeServerUpgrade(world, player, upgradeId) {
   if (!player || !player.selectedUpgrades || player.selectedUpgrades.length === 0) return false;
-  const index = player.selectedUpgrades.findIndex(u => (u.upgradeId === upgradeId || u.id === upgradeId));
-  if (index !== -1) {
-    player.selectedUpgrades.splice(index, 1);
+  let removed = false;
+  player.selectedUpgrades = player.selectedUpgrades.filter(u => {
+    const match = (u.upgradeId === upgradeId || u.id === upgradeId);
+    if (match) removed = true;
+    return !match;
+  });
+  if (removed) {
     recalculateServerPlayerStats(world, player);
-    return true;
   }
-  return false;
+  return removed;
 }
 
 function resetServerPlayerUpgrades(world, player) {

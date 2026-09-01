@@ -352,12 +352,18 @@ class OneBulletNetwork extends EventTarget {
     if (!this.isMultiplayer || this.socket?.connected === false) {
       return;
     }
-  
+
     try {
-      this.socket.volatile.emit(
-        "net:input",
-        input
-      );
+      /*
+       * Dash — критическое одноразовое действие. Отправляем
+       * его через надёжный канал, чтобы потеря пакета не
+       * уничтожила рывок, уже проигранный клиентом.
+       */
+      if (input.dash) {
+        this.socket.emit("net:input", input);
+      } else {
+        this.socket.volatile.emit("net:input", input);
+      }
     } catch {}
   }
 
@@ -407,23 +413,6 @@ class OneBulletNetwork extends EventTarget {
         vx,
         vy
       });
-    } catch {}
-  }
-
-  sendCatchBullet(bulletId, x, y) {
-    if (!this.isMultiplayer || this.socket?.connected === false) {
-      return;
-    }
-
-    try {
-      this.socket.emit(
-        "net:catch-bullet",
-        {
-          bulletId,
-          x,
-          y
-        }
-      );
     } catch {}
   }
 
