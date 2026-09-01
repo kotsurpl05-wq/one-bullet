@@ -5,3 +5,5 @@ yarn-error.log*
 .DS_Store
 *.log
 .agents/
+public/shared-bundle.js
+public/shared-bundle.js.map

@@ -2960,6 +2960,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/network.js"></script>
+  <script src="/shared-bundle.js"></script>
 
   <script>
     "use strict";
@@ -3584,7 +3585,7 @@
         critChance: 0,
         explosionRadius: 0,
         chainCount: 0,
-        chainRange: 175,
+        chainRange: 140,
         homing: 0,
 
         boomerang: false,
@@ -3718,293 +3719,65 @@
     }
 
     function createEnemy(type, x, y) {
-      const level = wave - 1;
-    
-      if (type === "runner") {
-        const hp = 100 + Math.floor(level / 7) * 100;
-      
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 10,
-          speed: 105 + level * 3,
-          hp,
-          maxHp: hp,
-          color: "#ffca55"
-        };
-      }
-    
-      if (type === "tank") {
-        const hp = 300 + Math.floor(level / 3) * 100;
-      
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 21,
-          speed: 39 + level * 1.5,
-          hp,
-          maxHp: hp,
-          color: "#b56dff"
-        };
-      }
-    
-      if (type === "shooter") {
-        const hp = 200 + Math.floor(level / 6) * 100;
-      
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 14,
-          speed: 48 + level * 1.3,
-          hp,
-          maxHp: hp,
-          color: "#50d890",
-          shootCooldown: random(0.5, 1.4),
-          preferredDistance: 270
-        };
-      }
-    
-      if (type === "splitter") {
-        const hp = 200 + Math.floor(level / 4) * 100;
-      
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 18,
-          speed: 50 + level * 1.7,
-          hp,
-          maxHp: hp,
-          color: "#46b8ff"
-        };
-      }
-    
-      if (type === "charger") {
-        const hp = 200 + Math.floor(level / 6) * 100;
-      
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 13,
-          speed: 63 + level * 2,
-          hp,
-          maxHp: hp,
-          color: "#ff814a"
-        };
-      }
-    
-      if (type === "boss") {
-        const bossTier = Math.max(
-          1,
-          Math.floor(wave / 5)
-        );
-      
-        /*
-         * Первый босс не получает усиления прогрессии.
-         * Рост каждого последующего босса усилен на 30%.
-         */
-        const progressionTier =
-          bossTier - 1;
-      
-        const progressionMultiplier = 1.3;
-      
-        const hp =
-          4800 +
-          bossTier * 2000 +
-          bossTier * bossTier * 800;
-
-        const speed =
-          38 +
-          progressionTier *
-            2.2 *
-            progressionMultiplier;
-
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 46,
-          speed,
-          hp,
-          maxHp: hp,
-          color: "#ff3f8f",
-
-          bossTier,
-          progressionMultiplier,
-
-          shootCooldown: 1.4,
-          radialCooldown: 3.6,
-        
-          preferredDistance: 270,
-        
-          strafeDirection:
-            Math.random() < 0.5
-              ? -1
-              : 1,
-
-          dashState: "none",
-          dashCooldown: 3.5,
-          dashTimer: 0,
-          dashDx: 0,
-          dashDy: 0,
-
-          sniperState: "none",
-          sniperCooldown: 4.5,
-          sniperTimer: 0,
-          sniperTargetX: 0,
-          sniperTargetY: 0,
-
-          spiralActive: false,
-          spiralCooldown: 6.0,
-          spiralTimer: 0,
-          spiralTicks: 0,
-          spiralBaseAngle: 0,
-
-          shieldActive: false,
-          shieldTriggered: false,
-          stunTimer: 0
-        };
-      }
-
-
-      if (type === "shard") {
-        const hp = 100 + Math.floor(level / 9) * 100;
-      
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 8,
-          speed: 125 + level * 2.5,
-          hp,
-          maxHp: hp,
-          color: "#79d7ff"
-        };
-      }
-
-      if (type === "phantom") {
-        const hp = 100 + Math.floor(wave / 8) * 100;
-
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 12,
-          speed: 75 + wave * 2,
-          hp,
-          maxHp: hp,
-          color: "#88eedd",
-          phaseTimer: 0,
-          isPhased: true
-        };
-      }
-
-      if (type === "magnetizer") {
-        const hp = 500 + Math.floor(wave / 3) * 100;
-
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 16,
-          speed: 40 + wave * 1.2,
-          hp,
-          maxHp: hp,
-          color: "#c084fc"
-        };
-      }
-
-      if (type === "twin") {
-        const hp = 200 + Math.floor(wave / 5) * 100;
-
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 10,
-          speed: 90 + wave * 2,
-          hp,
-          maxHp: hp,
-          color: "#ff6b9d",
-          twinPartnerId: null,
-          isEnraged: false
-        };
-      }
-
-      if (type === "incubator") {
-        const hp = 600 + Math.floor(wave / 2) * 100;
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 22,
-          speed: 32 + level * 1.0,
-          hp,
-          maxHp: hp,
-          color: "#059669",
-          spawnTimer: 4.5,
-          sporesCount: 5
-        };
-      }
-
-      if (type === "minion") {
-        return {
-          id: ++enemyId,
-          type,
-          x,
-          y,
-          r: 7,
-          speed: 135 + level * 3.0,
-          hp: 100,
-          maxHp: 100,
-          color: "#34d399"
-        };
-      }
-
-      if (type === "boss_drone" || type === "boss_pylon") {
-        return {
-          id: ++enemyId,
-          type: "boss_drone",
-          x,
-          y,
-          r: 22,
-          speed: 0,
-          hp: 2500,
-          maxHp: 2500,
-          color: "#00f2fe",
-          immobile: true,
-          shootCooldown: 2.5
-        };
-      }
-
-      const hp = 100 + Math.floor(level / 5) * 100;
-    
-      return {
+      const base = GameShared.createEnemyBase(type, wave);
+      const result = {
         id: ++enemyId,
-        type: "normal",
-        x,
-        y,
-        r: 14,
-        speed: 59 + level * 2.5,
-        hp,
-        maxHp: hp,
-        color: "#ff5577"
+        x, y,
+        type: base.type,
+        r: base.r,
+        speed: base.speed,
+        hp: base.hp,
+        maxHp: base.hp,
+        color: base.color
       };
+
+      if (type === "shooter") {
+        // Client-only: shooter has fixed preferredDistance and different cooldown range
+        result.shootCooldown = random(0.5, 1.4);
+        result.preferredDistance = 270;
+      }
+
+      if (base.bossTier !== undefined) {
+        // Boss AI from shared:
+        Object.assign(result, {
+          bossTier: base.bossTier,
+          progressionMultiplier: 1.3,
+          shootCooldown: base.shootCooldown,
+          radialCooldown: base.radialCooldown,
+          dashState: base.dashState, dashCooldown: base.dashCooldown, dashTimer: base.dashTimer,
+          dashDx: base.dashDx, dashDy: base.dashDy,
+          sniperState: base.sniperState, sniperCooldown: base.sniperCooldown, sniperTimer: base.sniperTimer,
+          sniperTargetX: base.sniperTargetX, sniperTargetY: base.sniperTargetY,
+          spiralActive: base.spiralActive, spiralCooldown: base.spiralCooldown, spiralTimer: base.spiralTimer,
+          spiralTicks: base.spiralTicks, spiralBaseAngle: base.spiralBaseAngle,
+          shieldActive: base.shieldActive, shieldTriggered: base.shieldTriggered, stunTimer: base.stunTimer,
+          // Boss client-only:
+          preferredDistance: 270,
+          strafeDirection: Math.random() < 0.5 ? -1 : 1
+        });
+      }
+
+      // Type-specific client fields:
+      if (type === "phantom") {
+        result.phaseTimer = 0;
+        result.isPhased = true;
+      }
+      if (type === "twin") {
+        result.twinPartnerId = null;
+        result.isEnraged = false;
+      }
+      if (type === "incubator") {
+        result.spawnTimer = 4.5;
+        result.sporesCount = 5;
+      }
+      if (type === "boss_drone" || type === "boss_pylon") {
+        // Client boss_drone: smaller radius, extra fields
+        result.r = 22;
+        result.immobile = true;
+        result.shootCooldown = 2.5;
+      }
+
+      return result;
     }
 
     function renderLivePlayerStats() {
@@ -8570,6 +8343,7 @@
 
     const upgrades = [
       {
+        id: "damage",
         title: "Тяжёлая пуля",
         description: "Увеличивает урон ваших патронов на +100 за уровень.",
         applyWithPower(power) {
@@ -8577,6 +8351,7 @@
         }
       },
       {
+        id: "bounce",
         title: "Дополнительный рикошет",
         description: "Ваши патроны могут дополнительно отскакивать от стен.",
         applyWithPower(power) {
@@ -8584,6 +8359,7 @@
         }
       },
       {
+        id: "pierce",
         title: "Пробитие",
         description: "Ваши патроны пробивают дополнительные цели.",
         available() {
@@ -8594,6 +8370,7 @@
         }
       },
       {
+        id: "bullet-speed",
         title: "Разогнанный ствол",
         description: "Увеличивает скорость полёта пули на +25% за уровень (макс. 250%).",
         available() {
@@ -8608,6 +8385,7 @@
         }
       },
       {
+        id: "move-speed",
         title: "Лёгкие ботинки",
         description: "Увеличивает скорость передвижения.",
         applyWithPower(power) {
@@ -8616,6 +8394,7 @@
         }
       },
       {
+        id: "armor",
         title: "Усиленная броня",
         description: "Повышает максимальное и текущее здоровье на +100 за уровень.",
         applyWithPower(power) {
@@ -8624,6 +8403,7 @@
         }
       },
       {
+        id: "repair",
         title: "Ремонтный комплект",
         description: "Полностью восстанавливает текущее здоровье.",
         fixedRarity: "common",
@@ -8635,6 +8415,7 @@
         }
       },
       {
+        id: "catch-blast",
         title: "Импульсный захват",
         description: "Пойманная пуля создает импульсную волну, наносящую урон ближайшим врагам.",
         fixedRarity: "rare",
@@ -8647,6 +8428,7 @@
         }
       },
       {
+        id: "catch-blast-damage",
         title: "Сила импульса",
         description: "Увеличивает урон импульсной волны при ловле пули на +35% (макс. 250% урона пули).",
         available() {
@@ -8657,6 +8439,7 @@
         }
       },
       {
+        id: "catch-blast-radius",
         title: "Радиус импульса",
         description: "Увеличивает радиус поражения импульсной волны на +30px (макс. 220px).",
         available() {
@@ -8667,6 +8450,7 @@
         }
       },
       {
+        id: "emergency-repair",
         title: "Аварийный ремонт",
         description:
           "Убийства периодически восстанавливают +100 здоровья (макс. каждые 8 убийств).",
@@ -8694,6 +8478,7 @@
         }
       },
       {
+        id: "critical",
         title: "Критический механизм",
         description: "Повышает шанс нанести критический урон x2.0 (макс. 60%).",
         available() {
@@ -8707,6 +8492,7 @@
         }
       },
       {
+        id: "explosive",
         title: "Разрывной сердечник",
         description: "Попадание создаёт взрыв, наносящий урон соседним врагам.",
         fixedRarity: "rare",
@@ -8719,6 +8505,7 @@
         }
       },
       {
+        id: "explosion-damage",
         title: "Ударная волна",
         description: "Увеличивает урон взрыва пули на +25% (макс. 160% урона пули).",
         available() {
@@ -8729,6 +8516,7 @@
         }
       },
       {
+        id: "explosion-radius",
         title: "Радиус детонации",
         description: "Увеличивает радиус взрыва пули на +30px (макс. 180px).",
         available() {
@@ -8739,6 +8527,7 @@
         }
       },
       {
+        id: "chain-lightning",
         title: "Цепной конденсатор",
         description: "Попадание выпускает цепной разряд в ближайших врагов.",
         fixedRarity: "rare",
@@ -8752,6 +8541,7 @@
         }
       },
       {
+        id: "lightning-damage",
         title: "Мощность разряда",
         description: "Увеличивает урон цепной молнии на +25% (макс. 200% урона пули).",
         available() {
@@ -8762,6 +8552,7 @@
         }
       },
       {
+        id: "lightning-targets",
         title: "Проводники цепи",
         description: "Увеличивает количество поражаемых цепной молнией врагов на +2 (макс. 9).",
         available() {
@@ -8772,6 +8563,7 @@
         }
       },
       {
+        id: "lightning-range",
         title: "Радиус дуги",
         description: "Увеличивает максимальную дистанцию перескока цепной молнии на +30px (макс. 260px).",
         available() {
@@ -8782,6 +8574,7 @@
         }
       },
       {
+        id: "homing",
         title: "Умная пуля",
         description: "Пуля корректирует траекторию в сторону ближайшей цели.",
         applyWithPower(power) {
@@ -8789,6 +8582,7 @@
         }
       },
       {
+        id: "caliber",
         title: "Крупный калибр",
         description: "Увеличивает размер ваших патронов, облегчая попадание.",
         available() {
@@ -8806,6 +8600,7 @@
         }
       },
       {
+        id: "boomerang",
         title: "Эффект Бумеранга",
         description: "Пуля автоматически притягивается к владельцу (100 px/с, радиус 20 кл).",
         fixedRarity: "rare",
@@ -8819,6 +8614,7 @@
         }
       },
       {
+        id: "boomerang-damage",
         title: "Тяжёлый бумеранг",
         description: "Возвращающаяся пуля наносит урон врагам на пути (+25% за уровень, макс. 150%).",
         available() {
@@ -8829,6 +8625,7 @@
         }
       },
       {
+        id: "boomerang-speed",
         title: "Турбо-магнит",
         description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
         available() {
@@ -8839,6 +8636,7 @@
         }
       },
       {
+        id: "boomerang-range",
         title: "Дальний захват",
         description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 50 кл).",
         available() {
@@ -8849,6 +8647,7 @@
         }
       },
       {
+        id: "splinter",
         title: "Осколочный Рикошет",
         description: "При рикошете от стены выпускает самонаводящийся осколок (25% урона пули, 1.5с).",
         fixedRarity: "rare",
@@ -8862,6 +8661,7 @@
         }
       },
       {
+        id: "splinter-count",
         title: "Количество осколков",
         description: "Увеличивает количество осколков при каждом рикошете (макс. 5).",
         available() {
@@ -8872,6 +8672,7 @@
         }
       },
       {
+        id: "splinter-damage",
         title: "Урон осколков",
         description: "Увеличивает урон самонаводящихся осколков на +15% (макс. 100% урона пули).",
         available() {
@@ -8882,6 +8683,7 @@
         }
       },
       {
+        id: "stun",
         title: "Кинетический Удар",
         description: "Попадание с шансом 10% оглушает врага на 0.4с.",
         fixedRarity: "rare",
@@ -8895,6 +8697,7 @@
         }
       },
       {
+        id: "stun-chance",
         title: "Частота оглушения",
         description: "Увеличивает шанс оглушения врагов на +8% (макс. 45%).",
         available() {
@@ -8905,6 +8708,7 @@
         }
       },
       {
+        id: "stun-duration",
         title: "Глубокий шок",
         description: "Увеличивает длительность оглушения на +0.3с (макс. 1.5с).",
         available() {
@@ -8915,6 +8719,7 @@
         }
       },
       {
+        id: "reactive-armor",
         title: "Реактивная Броня",
         description: "При получении урона — импульсный взрыв 120px, отбрасывающий врагов (перезарядка 3с).",
         fixedRarity: "rare",
@@ -8928,6 +8733,7 @@
         }
       },
       {
+        id: "reactive-armor-radius",
         title: "Область отражения",
         description: "Увеличивает радиус защитного импульса брони на +30px (макс. 210px).",
         available() {
@@ -8938,6 +8744,7 @@
         }
       },
       {
+        id: "reactive-armor-cooldown",
         title: "Быстрая перезарядка",
         description: "Уменьшает время перезарядки реактивной брони на -0.5с (мин. 1.5с).",
         available() {
@@ -8948,6 +8755,7 @@
         }
       },
       {
+        id: "target-mark",
         title: "Метка Цели",
         description: "Первое попадание помечает врага на 4с (+40% входящего урона).",
         fixedRarity: "rare",
@@ -8961,6 +8769,7 @@
         }
       },
       {
+        id: "mark-amplification",
         title: "Уязвимость",
         description: "Увеличивает бонус урона по помеченной цели на +15% (макс. +80%).",
         available() {
@@ -8971,6 +8780,7 @@
         }
       },
       {
+        id: "mark-duration",
         title: "Глубокая метка",
         description: "Увеличивает длительность метки цели на +2.0с (макс. 10.0с).",
         available() {
@@ -8981,6 +8791,7 @@
         }
       },
       {
+        id: "poison",
         title: "Ядовитая пуля",
         description: "Пуля отравляет врагов (50 урона/с в течение 2.0с).",
         fixedRarity: "rare",
@@ -8994,6 +8805,7 @@
         }
       },
       {
+        id: "poison-damage",
         title: "Урон яда",
         description: "Увеличивает периодический урон яда на +50/с (макс. 500/с).",
         available() {
@@ -9004,6 +8816,7 @@
         }
       },
       {
+        id: "poison-duration",
         title: "Длительность яда",
         description: "Увеличивает длительность действия яда на +1.0с (макс. 5.0с).",
         available() {
@@ -9014,6 +8827,7 @@
         }
       },
       {
+        id: "parasite",
         title: "Пуля с паразитом",
         description: "Выстрел с шансом 25% заражает врага. При гибели вылетает спора (75 урона).",
         fixedRarity: "rare",
@@ -9028,6 +8842,7 @@
         }
       },
       {
+        id: "parasite-chance",
         title: "Шанс паразита",
         description: "Увеличивает шанс заражения паразитом на +5% (макс. 50%).",
         available() {
@@ -9038,6 +8853,7 @@
         }
       },
       {
+        id: "parasite-count",
         title: "Количество паразитов",
         description: "Увеличивает количество вылетающих спор паразита при смерти врага на +1 (макс. 5).",
         available() {
@@ -9048,6 +8864,7 @@
         }
       },
       {
+        id: "parasite-damage",
         title: "Урон паразита",
         description: "Увеличивает урон каждой споры паразита на +50 (макс. 400).",
         available() {
@@ -9058,6 +8875,7 @@
         }
       },
       {
+        id: "second-bullet",
         title: "Запасной патрон",
         description: "Добавляет второй независимый патрон в магазин.",
         fixedRarity: "rare",
@@ -9070,6 +8888,7 @@
         }
       },
       {
+        id: "dash",
         title: "Рывок",
         description: "Мгновенный рывок с неуязвимостью (120px, 10с перезарядка).",
         fixedRarity: "rare",
@@ -9083,6 +8902,7 @@
         }
       },
       {
+        id: "dash-distance",
         title: "Дальность рывка",
         description: "Увеличивает дистанцию рывка на +50px (макс. 320px).",
         available() {
@@ -9093,6 +8913,7 @@
         }
       },
       {
+        id: "dash-cooldown",
         title: "Перезарядка рывка",
         description: "Уменьшает перезарядку рывка на -1.5с (мин. 2.0с).",
         available() {
@@ -9103,6 +8924,7 @@
         }
       },
       {
+        id: "dash-damage",
         title: "Разящий рывок",
         description: "Рывок наносит 100% урона всем врагам на пути.",
         fixedRarity: "legendary",
@@ -9180,20 +9002,20 @@
     }
 
     function getUpgradeBonusText(upgrade, power) {
-      switch (upgrade.title) {
-        case "Тяжёлая пуля": {
+      switch (upgrade.id) {
+        case "damage": {
           return `+${100 * power} к урону`;
         }
       
-        case "Дополнительный рикошет": {
+        case "bounce": {
           return `+${power} к количеству рикошетов`;
         }
       
-        case "Пробитие": {
+        case "pierce": {
           return `+${power} к количеству пробиваемых целей`;
         }
       
-        case "Разогнанный ствол": {
+        case "bullet-speed": {
           const percentBonus = 25 * power;
 
           const speedBonus =
@@ -9207,7 +9029,7 @@
           );
         }
       
-        case "Лёгкие ботинки": {
+        case "move-speed": {
           const percentBonus = 12 * power;
         
           const speedBonus =
@@ -9221,14 +9043,14 @@
           );
         }
       
-        case "Усиленная броня": {
+        case "armor": {
           return (
             `+${100 * power} к максимальному здоровью ` +
             `и +${100 * power} к текущему здоровью`
           );
         }
       
-        case "Ремонтный комплект": {
+        case "repair": {
           const restoredHealth = Math.max(
             0,
             player.maxHp - player.hp
@@ -9257,7 +9079,7 @@
           return `+${result - current} кл. к радиусу притягивания (итог: ${20 + result} кл.)`;
         }
       
-        case "Импульсный захват": {
+        case "catch-blast": {
           const radiusBonus = 65 * power;
         
           return (
@@ -9266,7 +9088,7 @@
           );
         }
       
-        case "Аварийный ремонт": {
+        case "emergency-repair": {
           const resultingInterval =
             getEmergencyRepairResult(
               stats.healEvery,
@@ -9287,7 +9109,7 @@
           );
         }
       
-        case "Критический механизм": {
+        case "critical": {
           const maximumCritChance = 0.6;
           const requestedBonus = 0.10 * power;
         
@@ -9322,7 +9144,7 @@
           );
         }
       
-        case "Разрывной сердечник": {
+        case "explosive": {
           const resultingRadius = 40 * power;
 
           const radiusBonus =
@@ -9336,7 +9158,7 @@
           );
         }
       
-        case "Цепной конденсатор": {
+        case "chain-lightning": {
           const rangeBonus = 12 * power;
         
           return (
@@ -9346,7 +9168,7 @@
           );
         }
 
-        case "Умная пуля": {
+        case "homing": {
           const homingBonus = power;
 
           return (
@@ -9359,7 +9181,7 @@
           );
         }
       
-        case "Крупный калибр": {
+        case "caliber": {
           const resultingRadius = Math.min(
             15,
             stats.bulletRadius + 1.5 * power
@@ -9397,99 +9219,99 @@
           );
         }
       
-        case "Эффект Бумеранга": {
+        case "boomerang": {
           return `Магнитный возврат: 100 px/с, радиус 20 клеток`;
         }
 
-        case "Осколочный Рикошет": {
+        case "splinter": {
           const dmg = Math.round((stats.damage || 100) * 0.25);
           return `1 осколок по ${dmg} урона (25%) при рикошете`;
         }
 
-        case "Количество осколков": {
+        case "splinter-count": {
           const current = stats.splinterCount || 1;
           const result = Math.min(5, current + 1 * power);
           return `+${result - current} осколка при рикошете (итог: ${result})`;
         }
 
-        case "Урон осколков": {
+        case "splinter-damage": {
           const current = stats.splinterDamagePercent || 0.25;
           const result = Math.min(1.0, current + 0.15 * power);
           return `+${Math.round((result - current) * 100)}% к урону осколков (итог: ${Math.round(result * 100)}%)`;
         }
 
-        case "Кинетический Удар": {
+        case "stun": {
           const chance = power >= 2 ? 0.15 : 0.10;
           return `${Math.round(chance * 100)}% шанс оглушения на 0.4с (прерывает атаки)`;
         }
 
-        case "Реактивная Броня": {
+        case "reactive-armor": {
           return `Взрыв 120px при уроне, кулдаун 3с`;
         }
 
-        case "Метка Цели": {
+        case "target-mark": {
           return `+40% урона по помеченному врагу на 4с`;
         }
 
-        case "Ядовитая пуля": {
+        case "poison": {
           return "Отравление: 50 урона/с на 2.0с";
         }
 
-        case "Урон яда": {
+        case "poison-damage": {
           const current = stats.poisonDamage || 50;
           const result = Number(Math.min(500, current + 50 * power).toFixed(0));
           return `+${Number((result - current).toFixed(0))} к урону яда (итог: ${result}/с)`;
         }
 
-        case "Длительность яда": {
+        case "poison-duration": {
           const current = stats.poisonDuration || 2.0;
           const result = Number(Math.min(5.0, current + 1.0 * power).toFixed(1));
           return `+${Number((result - current).toFixed(1))}с к длительности яда (итог: ${result}с)`;
         }
 
-        case "Пуля с паразитом": {
+        case "parasite": {
           return "25% шанс паразита, 1 спора на 75 урона";
         }
 
-        case "Шанс паразита": {
+        case "parasite-chance": {
           const current = stats.parasiteChance || 0.25;
           const result = Math.min(0.50, current + 0.05 * power);
           return `+${Math.round((result - current) * 100)}% к шансу паразита (итог: ${Math.round(result * 100)}%)`;
         }
 
-        case "Количество паразитов": {
+        case "parasite-count": {
           const current = stats.parasiteCount || 1;
           const result = Math.min(5, current + 1 * power);
           return `+${result - current} паразита при гибели (итог: ${result})`;
         }
 
-        case "Урон паразита": {
+        case "parasite-damage": {
           const current = stats.parasiteDamage || 75;
           const result = Number(Math.min(400, current + 50 * power).toFixed(0));
           return `+${Number((result - current).toFixed(0))} к урону паразита (итог: ${result})`;
         }
 
-        case "Запасной патрон": {
+        case "second-bullet": {
           return "+1 независимый патрон (всего 2)";
         }
 
-        case "Рывок": {
+        case "dash": {
           return `Рывок: 120px, кд 10с, неуязвимость`;
         }
 
-        case "Дальность рывка": {
+        case "dash-distance": {
           const current = stats.dashDistance || 120;
           const result = Math.min(320, current + 50 * power);
           return `+${result - current}px к дистанции рывка (итог: ${result}px)`;
         }
 
-        case "Перезарядка рывка": {
+        case "dash-cooldown": {
           const current = stats.dashCooldownBase || 10.0;
           const result = Number(Math.max(2.0, current - 1.5 * power).toFixed(1));
           return `-${Number((current - result).toFixed(1))}с перезарядки (итог: ${result}с)`;
         }
 
-        case "Разящий рывок": {
+        case "dash-damage": {
           return `Урон ${stats.damage} по врагам на пути рывка`;
         }
       }
@@ -9507,41 +9329,41 @@
       const hasAoe = (stats.explosionRadius || 0) > 0 || (stats.chainCount || 0) > 0 || (stats.catchBlast || 0) > 0;
       const hasPierce = (stats.pierce || 0) > 0;
 
-      if (upgrade.title === "Пробитие" && hasAoe) {
+      if (upgrade.id === "pierce" && hasAoe) {
         return false;
       }
       if (
-        (upgrade.title === "Разрывной сердечник" ||
-         upgrade.title === "Цепной конденсатор" ||
-         upgrade.title === "Импульсный захват") &&
+        (upgrade.id === "explosive" ||
+         upgrade.id === "chain-lightning" ||
+         upgrade.id === "catch-blast") &&
         hasPierce
       ) {
         return false;
       }
     
       if (
-        upgrade.title === "Критический механизм" &&
+        upgrade.id === "critical" &&
         stats.critChance >= 0.6
       ) {
         return false;
       }
     
       if (
-        upgrade.title === "Крупный калибр" &&
+        upgrade.id === "caliber" &&
         stats.bulletRadius >= 15
       ) {
         return false;
       }
     
       if (
-        upgrade.title === "Аварийный ремонт" &&
+        upgrade.id === "emergency-repair" &&
         stats.healEvery === 5
       ) {
         return false;
       }
     
       if (
-        upgrade.title === "Ремонтный комплект" &&
+        upgrade.id === "repair" &&
         player.hp >= player.maxHp
       ) {
         return false;
@@ -9654,7 +9476,7 @@
                   <span class="upgrade-number">0${index + 1}</span>
                   <span class="rarity-label">${offer.rarity.label}</span>
                 </div>
-                <div class="upgrade-icon">${getUpgradeIcon(offer.upgrade.title)}</div>
+                <div class="upgrade-icon">${getUpgradeIcon(offer.upgrade.id)}</div>
                 <h2>${escapeHtml(offer.upgrade.title)}</h2>
                 <p>${escapeHtml(offer.upgrade.description)}</p>
                 <div class="upgrade-bonus">(${escapeHtml(offer.bonusText)})</div>
@@ -9754,62 +9576,62 @@
     }
 
     const upgradeIcons = {
-      "Тяжёлая пуля": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M6.92 5L5 6.92l4.88 4.88-1.42 1.42L3.58 8.34 2.16 9.76l4.88 4.88-3.04 3.06 1.42 1.42 3.06-3.04 4.88 4.88 1.42-1.42-4.88-4.88 1.42-1.42 4.88 4.88L19 17.08 6.92 5zM17.08 5L19 6.92l-4.88 4.88 1.42 1.42 4.88-4.88 1.42 1.42-4.88 4.88 3.04 3.06-1.42 1.42-3.06-3.04-4.88 4.88-1.42-1.42 4.88-4.88-1.42-1.42-4.88 4.88L5 17.08 17.08 5z"/></svg>`,
-      "Дополнительный рикошет": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4v16"/><path d="M4 8h10a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4H4"/><polyline points="8 12 4 16 8 20"/></svg>`,
-      "Пробитие": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="21" stroke-dasharray="2 3"/><line x1="2" y1="12" x2="22" y2="12"/><polyline points="15 6 22 12 15 18"/></svg>`,
-      "Разогнанный ствол": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 5 12 12 4 19"/><polyline points="12 5 20 12 12 19"/></svg>`,
-      "Лёгкие ботинки": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l3-10 6 2-2 7 8 2v3H4v-4z"/><path d="M10 8l7-4M13 12l6-3" stroke-width="1.6"/></svg>`,
-      "Усиленная броня": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" fill-opacity="0.22"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 6v12M7 10h10"/></svg>`,
-      "Ремонтный комплект": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M19 10.5h-5.5V5a1.5 1.5 0 0 0-3 0v5.5H5a1.5 1.5 0 0 0 0 3h5.5V19a1.5 1.5 0 0 0 3 0v-5.5H19a1.5 1.5 0 0 0 0-3z"/></svg>`,
-      "Магнитное поле": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
-      "Радиус магнита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
-      "Магнитный захват": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>`,
-      "Импульсный захват": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
-      "Аварийный ремонт": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="M12 7v6M9 10h6" stroke="#060c16" stroke-width="2.2" stroke-linecap="round"/></svg>`,
-      "Критический механизм": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="12,2 14.8,9.2 22,12 14.8,14.8 12,22 9.2,14.8 2,12 9.2,9.2"/><circle cx="12" cy="12" r="2.2" fill="#060c16"/></svg>`,
-      "Разрывной сердечник": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>`,
-      "Цепной конденсатор": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-      "Умная пуля": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>`,
-      "Эффект Бумеранга": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c0-5 4-9 9-9 2 0 3.5.5 5 1.5L14 7s-1-.5-2-.5c-3.3 0-6 2.7-6 6"/><path d="M21 12c0 5-4 9-9 9-2 0-3.5-.5-5-1.5L10 17s1 .5 2 .5c3.3 0 6-2.7 6-6"/><polyline points="3 7 3 12 8 12"/></svg>`,
-      "Осколочный Рикошет": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4l7 7"/><path d="M11 11l5-2"/><path d="M11 11l2 5"/><circle cx="18" cy="8" r="2" fill="currentColor"/><circle cx="14" cy="18" r="2" fill="currentColor"/><circle cx="4" cy="4" r="1.5" fill="currentColor"/></svg>`,
-      "Количество осколков": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3" fill="currentColor"/><circle cx="17" cy="7" r="3" fill="currentColor"/><circle cx="17" cy="17" r="3" fill="currentColor"/></svg>`,
-      "Урон осколков": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/></svg>`,
-      "Кинетический Удар": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M8 2l1 3M16 2l-1 3"/></svg>`,
-      "Реактивная Броня": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/><path d="M4 10l-2-1M20 10l2-1M12 2V0"/></svg>`,
-      "Метка Цели": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>`,
-      "Крупный калибр": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/><circle cx="12" cy="12" r="3"/></svg>`,
-      "Возвратный магнит": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
-      "Ядовитая пуля": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v6M8 8h8l2 12H6L8 8z" fill="#39ff14" fill-opacity="0.25"/><circle cx="12" cy="14" r="2" fill="#39ff14"/></svg>`,
-      "Урон яда": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M8 17h8" stroke="#39ff14"/></svg>`,
-      "Длительность яда": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke="#39ff14"/><path d="M12 7v5l3 3" stroke="#39ff14"/></svg>`,
-      "Пуля с паразитом": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3c-4 0-7 3-7 7 0 5 7 11 7 11s7-6 7-11c0-4-3-7-7-7z" fill="#bd00ff" fill-opacity="0.3"/><circle cx="12" cy="10" r="2.5" fill="#bd00ff"/></svg>`,
-      "Шанс паразита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8" stroke="#bd00ff"/><path d="M9 12l2 2 4-4" stroke="#bd00ff"/></svg>`,
-      "Количество паразитов": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3" fill="#bd00ff"/><circle cx="17" cy="8" r="2.5" fill="#bd00ff"/><circle cx="16" cy="17" r="2.5" fill="#bd00ff"/></svg>`,
-      "Урон паразита": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#bd00ff"/></svg>`,
-      "Запасной патрон": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><rect x="13.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><line x1="4.5" y1="12.5" x2="10.5" y2="12.5"/><line x1="13.5" y1="12.5" x2="19.5" y2="12.5"/></svg>`,
-      "Мощность разряда": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#ffca28" fill-opacity="0.3"/></svg>`,
-      "Проводники цепи": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="12" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="16"/></svg>`,
-      "Радиус дуги": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5" stroke-dasharray="2 2"/></svg>`,
-      "Ударная волна": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff5722" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="#ff5722"/></svg>`,
-      "Радиус детонации": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff5722" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
-      "Сила импульса": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7" fill="#00f2fe" fill-opacity="0.3"/><polygon points="12 2 15 8 21 9 17 14 18 20 12 17 6 20 7 14 3 9 9 8 12 2"/></svg>`,
-      "Радиус импульса": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"/></svg>`,
-      "Тяжёлый бумеранг": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"><path d="M12 2a10 10 0 0 0-7 17l5-5a3 3 0 0 1 2-2z" fill="#38bdf8" fill-opacity="0.3"/></svg>`,
-      "Турбо-магнит": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><polyline points="13 14 16 11 13 8"/></svg>`,
-      "Частота оглушения": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
-      "Глубокий шок": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9 12h6M12 9v6"/></svg>`,
-      "Область отражения": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="4"/></svg>`,
-      "Быстрая перезарядка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
-      "Уязвимость": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>`,
-      "Глубокая метка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#ff1f4b"/></svg>`,
-      "Рывок": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><path d="M3 8l3 4-3 4" opacity="0.5"/></svg>`,
-      "Дальность рывка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h18"/><polyline points="15 6 21 12 15 18"/><line x1="7" y1="8" x2="7" y2="16" stroke-dasharray="2 2"/></svg>`,
-      "Перезарядка рывка": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
-      "Разящий рывок": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff3f8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><line x1="10" y1="8" x2="14" y2="16" stroke="#ffd36b" stroke-width="1.8"/><line x1="14" y1="8" x2="10" y2="16" stroke="#ffd36b" stroke-width="1.8"/></svg>`
+      "damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M6.92 5L5 6.92l4.88 4.88-1.42 1.42L3.58 8.34 2.16 9.76l4.88 4.88-3.04 3.06 1.42 1.42 3.06-3.04 4.88 4.88 1.42-1.42-4.88-4.88 1.42-1.42 4.88 4.88L19 17.08 6.92 5zM17.08 5L19 6.92l-4.88 4.88 1.42 1.42 4.88-4.88 1.42 1.42-4.88 4.88 3.04 3.06-1.42 1.42-3.06-3.04-4.88 4.88-1.42-1.42 4.88-4.88-1.42-1.42-4.88 4.88L5 17.08 17.08 5z"/></svg>`,
+      "bounce": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4v16"/><path d="M4 8h10a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4H4"/><polyline points="8 12 4 16 8 20"/></svg>`,
+      "pierce": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="21" stroke-dasharray="2 3"/><line x1="2" y1="12" x2="22" y2="12"/><polyline points="15 6 22 12 15 18"/></svg>`,
+      "bullet-speed": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 5 12 12 4 19"/><polyline points="12 5 20 12 12 19"/></svg>`,
+      "move-speed": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l3-10 6 2-2 7 8 2v3H4v-4z"/><path d="M10 8l7-4M13 12l6-3" stroke-width="1.6"/></svg>`,
+      "armor": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" fill-opacity="0.22"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 6v12M7 10h10"/></svg>`,
+      "repair": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M19 10.5h-5.5V5a1.5 1.5 0 0 0-3 0v5.5H5a1.5 1.5 0 0 0 0 3h5.5V19a1.5 1.5 0 0 0 3 0v-5.5H19a1.5 1.5 0 0 0 0-3z"/></svg>`,
+      "magnet": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
+      "magnet-radius": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
+      "magnet-catch": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="16" y1="7" x2="20" y2="7"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>`,
+      "catch-blast": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
+      "emergency-repair": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="M12 7v6M9 10h6" stroke="#060c16" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+      "critical": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="12,2 14.8,9.2 22,12 14.8,14.8 12,22 9.2,14.8 2,12 9.2,9.2"/><circle cx="12" cy="12" r="2.2" fill="#060c16"/></svg>`,
+      "explosive": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>`,
+      "chain-lightning": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+      "homing": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>`,
+      "boomerang": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c0-5 4-9 9-9 2 0 3.5.5 5 1.5L14 7s-1-.5-2-.5c-3.3 0-6 2.7-6 6"/><path d="M21 12c0 5-4 9-9 9-2 0-3.5-.5-5-1.5L10 17s1 .5 2 .5c3.3 0 6-2.7 6-6"/><polyline points="3 7 3 12 8 12"/></svg>`,
+      "splinter": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4l7 7"/><path d="M11 11l5-2"/><path d="M11 11l2 5"/><circle cx="18" cy="8" r="2" fill="currentColor"/><circle cx="14" cy="18" r="2" fill="currentColor"/><circle cx="4" cy="4" r="1.5" fill="currentColor"/></svg>`,
+      "splinter-count": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3" fill="currentColor"/><circle cx="17" cy="7" r="3" fill="currentColor"/><circle cx="17" cy="17" r="3" fill="currentColor"/></svg>`,
+      "splinter-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/></svg>`,
+      "stun": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M8 2l1 3M16 2l-1 3"/></svg>`,
+      "reactive-armor": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/><path d="M4 10l-2-1M20 10l2-1M12 2V0"/></svg>`,
+      "target-mark": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>`,
+      "caliber": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      "return-magnet": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-4"/></svg>`,
+      "poison": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v6M8 8h8l2 12H6L8 8z" fill="#39ff14" fill-opacity="0.25"/><circle cx="12" cy="14" r="2" fill="#39ff14"/></svg>`,
+      "poison-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M7 8l5-5 5 5M8 17h8" stroke="#39ff14"/></svg>`,
+      "poison-duration": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke="#39ff14"/><path d="M12 7v5l3 3" stroke="#39ff14"/></svg>`,
+      "parasite": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3c-4 0-7 3-7 7 0 5 7 11 7 11s7-6 7-11c0-4-3-7-7-7z" fill="#bd00ff" fill-opacity="0.3"/><circle cx="12" cy="10" r="2.5" fill="#bd00ff"/></svg>`,
+      "parasite-chance": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8" stroke="#bd00ff"/><path d="M9 12l2 2 4-4" stroke="#bd00ff"/></svg>`,
+      "parasite-count": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3" fill="#bd00ff"/><circle cx="17" cy="8" r="2.5" fill="#bd00ff"/><circle cx="16" cy="17" r="2.5" fill="#bd00ff"/></svg>`,
+      "parasite-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#bd00ff"/></svg>`,
+      "second-bullet": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><rect x="13.5" y="6" width="6" height="13" rx="3" fill="currentColor" fill-opacity="0.25"/><line x1="4.5" y1="12.5" x2="10.5" y2="12.5"/><line x1="13.5" y1="12.5" x2="19.5" y2="12.5"/></svg>`,
+      "lightning-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#ffca28" fill-opacity="0.3"/></svg>`,
+      "lightning-targets": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="12" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="16"/></svg>`,
+      "lightning-range": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ffca28" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5" stroke-dasharray="2 2"/></svg>`,
+      "explosion-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff5722" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="#ff5722"/></svg>`,
+      "explosion-radius": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff5722" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+      "catch-blast-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7" fill="#00f2fe" fill-opacity="0.3"/><polygon points="12 2 15 8 21 9 17 14 18 20 12 17 6 20 7 14 3 9 9 8 12 2"/></svg>`,
+      "catch-blast-radius": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"/></svg>`,
+      "boomerang-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"><path d="M12 2a10 10 0 0 0-7 17l5-5a3 3 0 0 1 2-2z" fill="#38bdf8" fill-opacity="0.3"/></svg>`,
+      "boomerang-speed": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><polyline points="13 14 16 11 13 8"/></svg>`,
+      "stun-chance": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
+      "stun-duration": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9 12h6M12 9v6"/></svg>`,
+      "reactive-armor-radius": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="4"/></svg>`,
+      "reactive-armor-cooldown": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
+      "mark-amplification": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>`,
+      "mark-duration": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff1f4b" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#ff1f4b"/></svg>`,
+      "dash": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><path d="M3 8l3 4-3 4" opacity="0.5"/></svg>`,
+      "dash-distance": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h18"/><polyline points="15 6 21 12 15 18"/><line x1="7" y1="8" x2="7" y2="16" stroke-dasharray="2 2"/></svg>`,
+      "dash-cooldown": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
+      "dash-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff3f8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><line x1="10" y1="8" x2="14" y2="16" stroke="#ffd36b" stroke-width="1.8"/><line x1="14" y1="8" x2="10" y2="16" stroke="#ffd36b" stroke-width="1.8"/></svg>`
     };
 
-    function getUpgradeIcon(title) {
-      return upgradeIcons[title] || "◆";
+    function getUpgradeIcon(idOrTitle) {
+      return upgradeIcons[idOrTitle] || "◆";
     }
 
     function selectUpgrade(index) {
@@ -14132,7 +13954,7 @@ osc.stop(now + 0.05);
                   <span class="upgrade-number">0${index + 1}</span>
                   <span class="rarity-label">${escapeHtml(offer.rarityLabel || "ОБЫЧНОЕ")}</span>
                 </div>
-                <div class="upgrade-icon">${getUpgradeIcon(offer.title)}</div>
+                <div class="upgrade-icon">${getUpgradeIcon(offer.upgradeId || offer.title)}</div>
                 <h2>${escapeHtml(offer.title)}</h2>
                 <p>${escapeHtml(offer.description)}</p>
                 <div class="upgrade-bonus">(${escapeHtml(offer.bonusText)})</div>

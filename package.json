@@ -5,14 +5,21 @@
   "description": "Кооперативная версия игры Один патрон",
   "main": "server.js",
   "scripts": {
+    "build": "esbuild shared/index.js --bundle --outfile=public/shared-bundle.js --format=iife --global-name=GameShared --sourcemap",
+    "prestart": "npm run build",
     "start": "node server.js",
-    "dev": "node --watch server.js",
+    "dev:server": "node --watch server.js",
+    "dev:client": "esbuild shared/index.js --bundle --outfile=public/shared-bundle.js --format=iife --global-name=GameShared --sourcemap --watch",
     "test": "node --test test/*.test.js",
+    "test:full": "npm run build && npm test",
     "test:empirical": "node test/empirical_stress_runner.js",
     "test:live": "node test/live_coop_smoke.js"
   },
   "dependencies": {
     "express": "^4.21.2",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
   }
 }

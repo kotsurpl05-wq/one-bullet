@@ -59,10 +59,12 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     const indexHtmlPath = path.resolve(process.cwd(), "public/index.html");
     const html = fs.readFileSync(indexHtmlPath, "utf8");
 
-    // Verify polynomial formula exists in public/index.html
+    // Verify polynomial formula exists in shared/enemy-factory.js (moved from inline HTML)
+    const factoryPath = path.resolve(process.cwd(), "shared/enemy-factory.js");
+    const factoryCode = fs.readFileSync(factoryPath, "utf8");
     assert.ok(
-      html.includes("48 +") && html.includes("bossTier * 20") && html.includes("bossTier * bossTier * 8"),
-      "public/index.html must use the polynomial boss HP formula: 48 + bossTier * 20 + bossTier * bossTier * 8"
+      factoryCode.includes("4800") && factoryCode.includes("bossTier * 2000") && factoryCode.includes("bossTier * bossTier * 800"),
+      "shared/enemy-factory.js must use the polynomial boss HP formula: 4800 + bossTier * 2000 + bossTier * bossTier * 800"
     );
 
     const { world } = createTestWorld(ctx);
@@ -207,8 +209,8 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
       "Mutual exclusivity check for magnets must be removed from public/index.html"
     );
     assert.ok(
-      html.includes('"Эффект Бумеранга": `<svg'),
-      "upgradeIcons in public/index.html must include 'Эффект Бумеранга'"
+      html.includes('"boomerang": `<svg'),
+      "upgradeIcons in public/index.html must include 'boomerang' (migrated from Russian title to id)"
     );
   });
 

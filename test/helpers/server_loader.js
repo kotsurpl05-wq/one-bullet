@@ -118,6 +118,8 @@ function loadServerInstance() {
 
   const realHttp = require("http");
 
+  const projectRoot = path.resolve(__dirname, "../..");
+
   const context = {
     require: (mod) => {
       if (mod === "http") {
@@ -133,6 +135,9 @@ function loadServerInstance() {
             return s;
           }
         };
+      }
+      if (mod.startsWith("./") || mod.startsWith("../")) {
+        return require(path.resolve(projectRoot, mod));
       }
       return require(mod);
     },
@@ -177,6 +182,21 @@ function loadServerInstance() {
 
   vm.createContext(context);
   vm.runInContext(code, context);
+
+  // Auto-expose shared modules on context (with guard — don't overwrite server-defined names)
+  const sharedModules = [
+    require("../../shared/math"),
+    require("../../shared/constants"),
+    require("../../shared/xp"),
+    require("../../shared/enemy-xp"),
+    require("../../shared/player-stats"),
+    require("../../shared/enemy-factory")
+  ];
+  for (const mod of sharedModules) {
+    for (const [key, value] of Object.entries(mod)) {
+      if (!(key in context)) { context[key] = value; }
+    }
+  }
 
   function cleanup() {
     for (const id of intervals) clearInterval(id);

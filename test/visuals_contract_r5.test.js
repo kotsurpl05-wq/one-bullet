@@ -328,7 +328,9 @@ function createClientVisualSandbox() {
       sendUpgradeChoice: noop,
       setDifficulty: noop
     },
-    __draws: draws
+    __draws: draws,
+    // Shared game module (loaded via <script src="/shared-bundle.js"> in real client)
+    GameShared: require("../shared/index")
   };
 
   sandbox.window = sandbox;

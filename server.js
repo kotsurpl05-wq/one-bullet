@@ -6,6 +6,14 @@ const http = require("http");
 const express = require("express");
 const { Server } = require("socket.io");
 
+// Shared game modules
+const { clamp, random, distance, distToSegmentSquared, distToSegment } = require("./shared/math");
+const { PLAYER_SPEED, BULLET_SPEED, BULLET_RADIUS, BULLET_BOUNCES, WORLD_WIDTH, WORLD_HEIGHT, CRYSTAL_RADIUS } = require("./shared/constants");
+const { getExperienceRequirement } = require("./shared/xp");
+const { getEnemyExperience, getContactDamage } = require("./shared/enemy-xp");
+const { createPlayerStats } = require("./shared/player-stats");
+const { createEnemyBase } = require("./shared/enemy-factory");
+
 const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
@@ -294,10 +302,10 @@ function sanitizeInput(input) {
   };
 }
 
-const COOP_WORLD_WIDTH = 2560;
-const COOP_WORLD_HEIGHT = 1374;
+const COOP_WORLD_WIDTH = WORLD_WIDTH;
+const COOP_WORLD_HEIGHT = WORLD_HEIGHT;
 
-const COOP_PLAYER_SPEED = 300;
+const COOP_PLAYER_SPEED = PLAYER_SPEED;
 const COOP_SIMULATION_RATE = 60;
 const COOP_SNAPSHOT_RATE = 20;
 
@@ -308,9 +316,9 @@ const COOP_REPAIR_HEAL_COOLDOWN = 1.75;
 const ROOM_INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
 const ROOM_CLEANUP_INTERVAL_MS = 60 * 1000;
 
-const COOP_BULLET_SPEED = 650;
-const COOP_BULLET_RADIUS = 7;
-const COOP_BULLET_BOUNCES = 1;
+const COOP_BULLET_SPEED = BULLET_SPEED;
+const COOP_BULLET_RADIUS = BULLET_RADIUS;
+const COOP_BULLET_BOUNCES = BULLET_BOUNCES;
 const COOP_BULLET_MAX_AGE = 6;
 const COOP_BULLET_CATCH_DELAY = 0.24;
 
@@ -325,7 +333,7 @@ const COOP_ENEMY_CONTACT_COOLDOWN = 0.85;
 
 const COOP_EXPERIENCE_MULTIPLIER = 1.7;
 
-const COOP_CRYSTAL_RADIUS = 5;
+const COOP_CRYSTAL_RADIUS = CRYSTAL_RADIUS;
 const COOP_CRYSTAL_ATTRACTION_RADIUS = 180;
 const COOP_CRYSTAL_ATTRACTION_SPEED = 430;
 const COOP_CRYSTAL_CLEAR_SPEED = 900;
@@ -354,14 +362,7 @@ const COOP_DIFFICULTY = {
 
 
 function getServerExperienceRequirement(level) {
-  const progression = Math.max(
-    0,
-    level - 1
-  );
-
-  return 775 +
-    progression * 335 +
-    Math.floor(progression / 5) * 410;
+  return getExperienceRequirement(level);
 }
 
 
@@ -384,31 +385,7 @@ function getServerExperienceRequirement(level) {
 //}
 
 
-function clamp(value, min, max) {
-  return Math.max(
-    min,
-    Math.min(max, value)
-  );
-}
-
-function random(min, max) {
-  return (
-    min +
-    Math.random() * (max - min)
-  );
-}
-
-function distance(
-  ax,
-  ay,
-  bx,
-  by
-) {
-  return Math.hypot(
-    ax - bx,
-    ay - by
-  );
-}
+// clamp, random, distance — imported from shared/math.js
 
 
 function getServerAimDirection(player) {
@@ -741,23 +718,7 @@ function shootServerBullet(
   return true;
 }
 
-function distToSegmentSquared(px, py, x1, y1, x2, y2) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const l2 = dx * dx + dy * dy;
-  if (l2 === 0) return (px - x1) * (px - x1) + (py - y1) * (py - y1);
-  let t = ((px - x1) * dx + (py - y1) * dy) / l2;
-  t = Math.max(0, Math.min(1, t));
-  const projX = x1 + t * dx;
-  const projY = y1 + t * dy;
-  const ex = px - projX;
-  const ey = py - projY;
-  return ex * ex + ey * ey;
-}
-
-function distToSegment(px, py, x1, y1, x2, y2) {
-  return Math.sqrt(distToSegmentSquared(px, py, x1, y1, x2, y2));
-}
+// distToSegmentSquared, distToSegment — imported from shared/math.js
 
 function refreshServerBulletContacts(
   world,
@@ -1837,120 +1798,7 @@ function createServerEnemy(
   y,
   spawnedInside = false
 ) {
-  const level = world.wave - 1;
-
-  let radius = 14;
-  let speed = 59 + level * 2.5;
-  let baseHp = 100 + Math.floor(level / 5) * 100;
-  let color = "#ff5577";
-
-  if (type === "runner") {
-    radius = 10;
-    speed = 105 + level * 3;
-    baseHp = 100 + Math.floor(level / 7) * 100;
-    color = "#ffca55";
-  }
-
-  if (type === "tank") {
-    radius = 21;
-    speed = 39 + level * 1.5;
-    baseHp = 300 + Math.floor(level / 3) * 100;
-    color = "#b56dff";
-  }
-
-  if (type === "charger") {
-    radius = 13;
-    speed = 63 + level * 2;
-    baseHp = 200 + Math.floor(level / 6) * 100;
-    color = "#ff814a";
-  }
-
-  if (type === "splitter") {
-    radius = 18;
-    speed = 50 + level * 1.7;
-    baseHp = 200 + Math.floor(level / 4) * 100;
-    color = "#46b8ff";
-  }
-
-  if (type === "shard") {
-    radius = 8;
-    speed = 125 + level * 2.5;
-    baseHp = 100 + Math.floor(level / 9) * 100;
-    color = "#79d7ff";
-  }
-
-  if (type === "shooter") {
-    radius = 14;
-    speed = 48 + level * 1.3;
-    baseHp = 200 + Math.floor(level / 6) * 100;
-    color = "#50d890";
-  }
-
-  if (type === "phantom") {
-    radius = 12;
-    speed = 75 + world.wave * 2;
-    baseHp = 100 + Math.floor(world.wave / 8) * 100;
-    color = "#88eedd";
-  }
-
-  if (type === "magnetizer") {
-    radius = 16;
-    speed = 40 + world.wave * 1.2;
-    baseHp = 500 + Math.floor(world.wave / 3) * 100;
-    color = "#c084fc";
-  }
-
-  if (type === "twin") {
-    radius = 10;
-    speed = 90 + world.wave * 2;
-    baseHp = 200 + Math.floor(world.wave / 5) * 100;
-    color = "#ff6b9d";
-  }
-
-  if (type === "incubator") {
-    radius = 22;
-    speed = 32 + level * 1.0;
-    baseHp = 600 + Math.floor(world.wave / 2) * 100;
-    color = "#059669";
-  }
-
-  if (type === "minion") {
-    radius = 7;
-    speed = 135 + level * 3.0;
-    baseHp = 100;
-    color = "#34d399";
-  }
-
-  if (type === "boss_drone" || type === "boss_pylon") {
-    radius = 24;
-    speed = 0;
-    baseHp = 2500;
-    color = "#00f2fe";
-  }
-
-  let bossTier = undefined;
-  if (type === "boss") {
-    bossTier = Math.max(
-      1,
-      Math.floor(world.wave / 5)
-    );
-
-    const progressionTier =
-      bossTier - 1;
-
-    radius = 46;
-
-    speed =
-      38 +
-      progressionTier * 2.2 * 1.3;
-
-    baseHp =
-      4800 +
-      bossTier * 2000 +
-      bossTier * bossTier * 800;
-
-    color = "#ff3f8f";
-  }
+  const base = createEnemyBase(type, world.wave);
 
   const hpMultiplier =
     type === "boss"
@@ -1959,35 +1807,30 @@ function createServerEnemy(
 
   const hp = Math.max(
     1,
-    Math.round(baseHp * hpMultiplier)
+    Math.round(base.hp * hpMultiplier)
   );
 
-  let shootCooldown = 0;
-  let radialCooldown = 0;
+  // Server-only: shooter gets random preferred distance and cooldown
+  let shootCooldown = base.shootCooldown || 0;
+  let radialCooldown = base.radialCooldown || 0;
   let preferredDistance = 0;
   let strafeDirection = Math.random() < 0.5 ? -1 : 1;
 
-  if (type === "boss") {
-    shootCooldown = 1.4;
-    radialCooldown = 3.6;
-  } else if (type === "shooter") {
+  if (type === "shooter") {
     preferredDistance = random(260, 360);
     shootCooldown = random(0.8, 1.8);
   }
 
-  return {
+  const enemy = {
     id: world.nextEnemyId++,
-    type,
-
-    x,
-    y,
-
-    r: radius,
-    speed,
+    type: base.type,
+    x, y,
+    r: base.r,
+    speed: base.speed,
     hp,
     maxHp: hp,
-    color,
-    bossTier: type === "boss" ? bossTier : undefined,
+    color: base.color,
+    bossTier: base.bossTier,
 
     spawnEdge: null,
     spawnWarningX: x,
@@ -2008,28 +1851,30 @@ function createServerEnemy(
     strafeDirection,
     phase: 0,
 
-    dashState: "none",
-    dashCooldown: 3.5,
-    dashTimer: 0,
-    dashDx: 0,
-    dashDy: 0,
+    // Boss AI fields from shared (or defaults for non-boss):
+    dashState: base.dashState || "none",
+    dashCooldown: base.dashCooldown || 3.5,
+    dashTimer: base.dashTimer || 0,
+    dashDx: base.dashDx || 0,
+    dashDy: base.dashDy || 0,
 
-    sniperState: "none",
-    sniperCooldown: 4.5,
-    sniperTimer: 0,
-    sniperTargetX: 0,
-    sniperTargetY: 0,
+    sniperState: base.sniperState || "none",
+    sniperCooldown: base.sniperCooldown || 4.5,
+    sniperTimer: base.sniperTimer || 0,
+    sniperTargetX: base.sniperTargetX || 0,
+    sniperTargetY: base.sniperTargetY || 0,
 
-    spiralActive: false,
-    spiralCooldown: 6.0,
-    spiralTimer: 0,
-    spiralTicks: 0,
-    spiralBaseAngle: 0,
+    spiralActive: base.spiralActive || false,
+    spiralCooldown: base.spiralCooldown || 6.0,
+    spiralTimer: base.spiralTimer || 0,
+    spiralTicks: base.spiralTicks || 0,
+    spiralBaseAngle: base.spiralBaseAngle || 0,
 
-    shieldActive: false,
-    shieldTriggered: false,
-    stunTimer: 0,
+    shieldActive: base.shieldActive || false,
+    shieldTriggered: base.shieldTriggered || false,
+    stunTimer: base.stunTimer || 0,
 
+    // Type-specific fields:
     phaseTimer: type === "phantom" ? 0 : undefined,
     isPhased: type === "phantom" ? true : undefined,
     twinPartnerId: type === "twin" ? null : undefined,
@@ -2039,6 +1884,8 @@ function createServerEnemy(
     spawnTimer: type === "incubator" ? 4.5 : undefined,
     sporesCount: type === "incubator" ? 5 : undefined
   };
+
+  return enemy;
 }
 
 function randomServerSpawnPoint() {
@@ -2282,35 +2129,16 @@ function spawnServerWave(world) {
 
 function createServerPlayerStats() {
   return {
-    playerSpeed: COOP_PLAYER_SPEED,
-
-    bulletSpeed: COOP_BULLET_SPEED,
-    bulletRadius: COOP_BULLET_RADIUS,
-
-    damage: 100,
-    critChance: 0,
-
-    maxBounces: COOP_BULLET_BOUNCES,
-    pierce: 0,
-
-    groundPullSpeed: 0,
+    ...createPlayerStats(),
+    // server-specific fields:
     magnetRangeBonusCells: 0,
-    pickupRadius: 0,
-    magazineSize: 1,
-
     poison: false,
     poisonDamage: 50,
     poisonDuration: 2.0,
-
     parasite: false,
     parasiteChance: 0.25,
     parasiteCount: 1,
-    parasiteDamage: 75,
-
-    dash: false,
-    dashDistance: 0,
-    dashCooldownBase: 0,
-    dashDamage: false
+    parasiteDamage: 75
   };
 }
 
@@ -3389,48 +3217,11 @@ function getServerContactDamage(
   world,
   enemy
 ) {
-  if (enemy.type === "tank") {
-    return 200;
-  }
-
-  if (
-    enemy.type === "charger" &&
-    enemy.isCharging
-  ) {
-    return 200;
-  }
-
-  if (enemy.type === "boss") {
-    return world.wave >= 15
-      ? 200
-      : 100;
-  }
-
-  return 100;
+  return getContactDamage(world.wave, enemy);
 }
 
 function getServerEnemyExperience(enemy) {
-  if (enemy.type === "boss") {
-    const bossTier = Math.max(
-      1,
-      enemy.bossTier || 1
-    );
-
-    return 1050 + bossTier * 275;
-  }
-
-  switch (enemy.type) {
-    case "tank":       return 275;
-    case "charger":    return 240;
-    case "splitter":   return 310;
-    case "shooter":    return 255;
-    case "incubator":  return 475;
-    case "phantom":    return 185;
-    case "magnetizer": return 195;
-    case "twin":       return 165;
-    case "runner":     return 115;
-    default:           return 125;
-  }
+  return getEnemyExperience(enemy);
 }
 
 function createServerExperienceCrystal(
