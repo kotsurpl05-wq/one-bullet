@@ -39,7 +39,7 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
       assert.ok(indexHtml.includes(`skin === "${skin}"`) || skin === "neon", `drawBulletWithSkin must handle skin === "${skin}"`);
     }
 
-    assert.ok(indexHtml.includes("BULLET_SKIN_CATALOG.map"), "Settings modal must map over BULLET_SKIN_CATALOG");
+    assert.ok(indexHtml.includes("catalog.map(s =>"), "Armory modal must map over the active skin catalog (bullet or player)");
   });
 
   await t.test("3. Server preserves custom bullet skins on player and bullet entities", () => {

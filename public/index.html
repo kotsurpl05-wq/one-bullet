@@ -2814,7 +2814,18 @@
     </div>
   </div>
   
-  <div id="netStats" class="hidden" style="position: fixed; top: 10px; left: 10px; z-index: 9000; background: rgba(8,12,22,0.78); border: 1px solid rgba(120,200,255,0.25); border-radius: 8px; padding: 7px 11px; font-family: monospace; font-size: 11px; line-height: 1.55; color: #9fd8ff; pointer-events: none; white-space: pre;"></div>
+  <div id="netStats" class="hidden" style="position: fixed; top: 10px; left: 10px; z-index: 9000; background: rgba(8,12,22,0.78); border: 1px solid rgba(120,200,255,0.25); border-radius: 8px; padding: 7px 11px; font-family: monospace; font-size: 11px; line-height: 1.55; color: #9fd8ff; pointer-events: auto; white-space: pre; cursor: move; user-select: none;"></div>
+
+  <div id="coopReviveOverlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9500; display: flex; align-items: center; justify-content: center; pointer-events: none; background: rgba(4, 4, 10, 0.55);">
+    <div style="pointer-events: none; text-align: center; padding: 28px 46px; border-radius: 16px; background: rgba(10, 4, 14, 0.9); border: 2px solid rgba(255, 63, 143, 0.75); box-shadow: 0 0 40px rgba(255, 63, 143, 0.45);">
+      <div style="font-size: 26px; font-weight: 900; color: #ff9b45; text-shadow: 0 0 16px rgba(255,63,143,0.8); letter-spacing: 1px;">ХОТИТЕ ВСТАТЬ?</div>
+      <div style="margin-top: 10px; font-size: 15px; color: #ffe4ee;">Жмите <strong style="color:#ffffff;">ПРОБЕЛ</strong> — нужно <span id="coopRevivePresses">0 / 5</span> раз</div>
+      <div style="margin-top: 16px; width: 320px; height: 14px; background: rgba(255,255,255,0.08); border-radius: 7px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
+        <div id="coopReviveTimerFill" style="height: 100%; width: 100%; background: linear-gradient(90deg, #ff3f8f, #ff9b45); transition: width 0.1s linear;"></div>
+      </div>
+      <div style="margin-top: 8px; font-size: 13px; color: #ffb9cf; font-family: monospace;" id="coopReviveTimer">5.0 с</div>
+    </div>
+  </div>
 
   <div id="hud" class="hidden">
     <div class="hud-row">
@@ -3066,6 +3077,37 @@
     let coopGameOverUiActive = false;
 
     let playerName = "Игрок";
+    let networkRoomListInterval = null;
+
+    function stopNetworkRoomListPolling() {
+      if (networkRoomListInterval) {
+        clearInterval(networkRoomListInterval);
+        networkRoomListInterval = null;
+      }
+    }
+
+    async function refreshNetworkRoomList() {
+      const container = document.getElementById("networkRoomListContainer");
+      if (!container) return;
+      if (!window.net?.connected) {
+        container.innerHTML = `<div style="font-size: 12px; color: #64748b; text-align: center; padding: 10px;">Нет соединения с сервером</div>`;
+        return;
+      }
+      const list = await window.net.listRooms();
+      // Пока ждали ответ, пользователь мог уйти с этого экрана — не рендерим в никуда.
+      if (!document.getElementById("networkRoomListContainer")) return;
+      if (!list.length) {
+        container.innerHTML = `<div style="font-size: 12px; color: #64748b; text-align: center; padding: 10px;">Открытых лобби пока нет</div>`;
+        return;
+      }
+      container.innerHTML = list.map(r => `
+        <button type="button" class="secondary-button network-room-list-item" data-room-code="${escapeHtml(r.code)}" style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin: 0; padding: 10px 14px; text-align: left;">
+          <span style="font-weight: 800; color: #00f2fe; letter-spacing: 2px;">${escapeHtml(r.code)}</span>
+          <span style="font-size: 11.5px; color: #cbd5e1;">👤 ${escapeHtml(r.hostName)}</span>
+          <span style="font-size: 11px; color: #94a3b8;">${r.playerCount}/2</span>
+        </button>
+      `).join("");
+    }
 
     try {
       playerName =
@@ -3274,6 +3316,254 @@
       }
     ];
 
+    /* Оружейная // Скины персонажа */
+    const PLAYER_SKIN_CATALOG = [
+      { id: "cyan", name: "Кибер-Страж", desc: "Классический Неон", icon: "🛡️", tagColor: "#55d8ff", body: "#55d8ff", light: "#c8f7ff", glow: "rgba(85, 216, 255, 0.18)" },
+      { id: "crimson", name: "Багровый Мститель", desc: "Алый Штурмовик", icon: "⚔️", tagColor: "#ff3b5c", body: "#ff3b5c", light: "#ffd1d9", glow: "rgba(255, 59, 92, 0.2)" },
+      { id: "amber", name: "Янтарный Страж", desc: "Тёплый Сигнал", icon: "🔶", tagColor: "#ff9b45", body: "#ff9b45", light: "#fff0c8", glow: "rgba(255, 155, 69, 0.18)" },
+      { id: "emerald", name: "Изумрудный Страж", desc: "Тактический Стелс", icon: "🟢", tagColor: "#10b981", body: "#10b981", light: "#baf7d8", glow: "rgba(16, 185, 129, 0.2)" },
+      { id: "violet", name: "Пурпурный Чародей", desc: "Арканная Аура", icon: "🔮", tagColor: "#a855f7", body: "#a855f7", light: "#e9d5ff", glow: "rgba(168, 85, 247, 0.2)" },
+      { id: "gold", name: "Золотой Чемпион", desc: "Элитная Броня", icon: "🏆", tagColor: "#fbbf24", body: "#fbbf24", light: "#fff3c4", glow: "rgba(251, 191, 36, 0.22)" },
+      { id: "ice", name: "Ледяной Страж", desc: "Морозный Барьер", icon: "❄️", tagColor: "#38bdf8", body: "#38bdf8", light: "#e0f7ff", glow: "rgba(56, 189, 248, 0.22)" },
+      { id: "toxic", name: "Кислотный Разведчик", desc: "Био-Опасность", icon: "☣️", tagColor: "#a3e635", body: "#a3e635", light: "#ecfccb", glow: "rgba(163, 230, 53, 0.22)" },
+      { id: "inferno", name: "Пламенный Страж", desc: "Огненная Броня", icon: "🔥", tagColor: "#f97316", body: "#f97316", light: "#ffd8b0", glow: "rgba(249, 115, 22, 0.22)" },
+      { id: "obsidian", name: "Теневой Агент", desc: "Стелс-Протокол", icon: "🌑", tagColor: "#a78bfa", body: "#475569", light: "#cbd5e1", glow: "rgba(124, 58, 237, 0.28)" },
+      { id: "holy", name: "Священный Паладин", desc: "Благословенный Свет", icon: "🕊️", tagColor: "#facc15", body: "#fef9c3", light: "#ffffff", glow: "rgba(250, 204, 21, 0.28)" }
+    ];
+
+    function getPlayerSkinColors(skinId) {
+      return PLAYER_SKIN_CATALOG.find(s => s.id === skinId) || PLAYER_SKIN_CATALOG[0];
+    }
+
+    /*
+     * Отрисовывает тело бойца с уникальным узором брони для каждого скина
+     * (не просто заливка цветом) — паттерн вырезается по кругу радиуса r
+     * в локальных координатах (0,0), т.е. вызывается после ctx.translate(x, y).
+     */
+    function drawPlayerSkinBody(ctx, skinId, r, overrideColor) {
+      const skin = getPlayerSkinColors(skinId);
+      const t = performance.now();
+      const bodyColor = overrideColor || skin.body;
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      const baseGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      baseGrad.addColorStop(0, "#ffffff");
+      baseGrad.addColorStop(0.45, skin.light || "#ffffff");
+      baseGrad.addColorStop(1, bodyColor);
+      ctx.fillStyle = baseGrad;
+      ctx.shadowColor = bodyColor;
+      ctx.shadowBlur = 17;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      if (overrideColor) {
+        // Damage flash: skip pattern overlay, keep solid red silhouette readable
+        return;
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.clip();
+
+      switch (skin.id) {
+        case "cyan": {
+          // Кибер-Страж: технологичные швы брони (крестовина + шестигранник в центре)
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+          ctx.lineWidth = 1.2;
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(a) * r * 1.3, Math.sin(a) * r * 1.3);
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          for (let k = 0; k < 6; k++) {
+            const a = (k / 6) * Math.PI * 2 + t * 0.0007;
+            const px = Math.cos(a) * r * 0.5;
+            const py = Math.sin(a) * r * 0.5;
+            if (k === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.stroke();
+          break;
+        }
+
+        case "crimson": {
+          // Багровый Мститель: диагональные боевые полосы
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+          ctx.lineWidth = r * 0.22;
+          for (let i = -1; i <= 1; i++) {
+            ctx.beginPath();
+            ctx.moveTo(-r * 1.4, i * r * 0.7 - r * 0.7);
+            ctx.lineTo(r * 1.4, i * r * 0.7 + r * 0.7);
+            ctx.stroke();
+          }
+          break;
+        }
+
+        case "amber": {
+          // Янтарный Страж: слоистая сегментная броня (дуги)
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+          ctx.lineWidth = 1.4;
+          for (let i = 0; i < 3; i++) {
+            const rr = r * (0.4 + i * 0.28);
+            ctx.beginPath();
+            ctx.arc(0, r * 0.15, rr, Math.PI * 0.15, Math.PI * 0.85);
+            ctx.stroke();
+          }
+          break;
+        }
+
+        case "emerald": {
+          // Изумрудный Страж: чешуйчатый камуфляж
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+          ctx.lineWidth = 1;
+          for (let row = -1; row <= 1; row++) {
+            for (let col = -1; col <= 1; col++) {
+              const cx = col * r * 0.62;
+              const cy = row * r * 0.62 + (col % 2 === 0 ? 0 : r * 0.3);
+              ctx.beginPath();
+              ctx.arc(cx, cy, r * 0.32, Math.PI, 0);
+              ctx.stroke();
+            }
+          }
+          break;
+        }
+
+        case "violet": {
+          // Пурпурный Чародей: вращающиеся рунные метки по краю
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+          ctx.lineWidth = 1.3;
+          const spin = t * 0.0012;
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2 + spin;
+            const px = Math.cos(a) * r * 0.72;
+            const py = Math.sin(a) * r * 0.72;
+            ctx.beginPath();
+            ctx.moveTo(px - Math.cos(a) * r * 0.15, py - Math.sin(a) * r * 0.15);
+            ctx.lineTo(px + Math.cos(a) * r * 0.15, py + Math.sin(a) * r * 0.15);
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        }
+
+        case "gold": {
+          // Золотой Чемпион: гранёные фасеты + блик
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(a) * r * 1.2, Math.sin(a) * r * 1.2);
+            ctx.stroke();
+          }
+          const sparkA = (t * 0.0015) % (Math.PI * 2);
+          ctx.beginPath();
+          ctx.arc(Math.cos(sparkA) * r * 0.5, Math.sin(sparkA) * r * 0.5, r * 0.14, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          ctx.fill();
+          break;
+        }
+
+        case "ice": {
+          // Ледяной Страж: трещины мороза от центра
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.lineWidth = 1.1;
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2;
+            const midA = a + 0.28;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+            ctx.lineTo(Math.cos(midA) * r * 1.15, Math.sin(midA) * r * 1.15);
+            ctx.stroke();
+          }
+          break;
+        }
+
+        case "toxic": {
+          // Кислотный Разведчик: капли и пузыри яда
+          ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + Math.sin(t * 0.002 + i) * 0.3;
+            const dist = r * 0.55;
+            ctx.beginPath();
+            ctx.arc(Math.cos(a) * dist, Math.sin(a) * dist, r * 0.16 + Math.sin(t * 0.003 + i) * r * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+
+        case "inferno": {
+          // Пламенный Страж: языки пламени по краю
+          ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2;
+            const flicker = 1 + Math.sin(t * 0.01 + i * 2) * 0.35;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3);
+            ctx.lineTo(Math.cos(a - 0.15) * r * 0.7, Math.sin(a - 0.15) * r * 0.7);
+            ctx.lineTo(Math.cos(a) * r * 1.15 * flicker, Math.sin(a) * r * 1.15 * flicker);
+            ctx.lineTo(Math.cos(a + 0.15) * r * 0.7, Math.sin(a + 0.15) * r * 0.7);
+            ctx.closePath();
+            ctx.fill();
+          }
+          break;
+        }
+
+        case "obsidian": {
+          // Теневой Агент: светящиеся фиолетовые трещины на тёмной броне
+          ctx.strokeStyle = "rgba(196, 181, 253, 0.85)";
+          ctx.lineWidth = 1.2;
+          ctx.shadowColor = "#7c3aed";
+          ctx.shadowBlur = 6;
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + 0.4;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * r * 0.15, Math.sin(a) * r * 0.15);
+            ctx.lineTo(Math.cos(a + 0.3) * r * 0.6, Math.sin(a + 0.3) * r * 0.6);
+            ctx.lineTo(Math.cos(a) * r * 1.1, Math.sin(a) * r * 1.1);
+            ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+          break;
+        }
+
+        case "holy": {
+          // Священный Паладин: лучи света и ореол
+          ctx.strokeStyle = "rgba(250, 204, 21, 0.6)";
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3);
+            ctx.lineTo(Math.cos(a) * r * 1.1, Math.sin(a) * r * 1.1);
+            ctx.stroke();
+          }
+          ctx.strokeStyle = "rgba(250, 204, 21, 0.85)";
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        }
+
+        default:
+          break;
+      }
+
+      ctx.restore();
+    }
+
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
     }
@@ -3398,6 +3688,8 @@
     const WORLD_CELL_SIZE = 48;
     const BASE_PLAYER_SPEED = 300;
     const BASE_BULLET_SPEED = 650;
+    const MIRAGE_CYCLE = 7.0;
+    const MIRAGE_HIDDEN = 6.0;
     const PLAYER_HIT_INVULNERABILITY = 0.22;
     const ENEMY_CONTACT_COOLDOWN = 0.85;
     const REPAIR_HEAL_COOLDOWN = 1.75;
@@ -3422,7 +3714,13 @@
       { id: "glitch", name: "Кибер-Глитч", desc: "Матричный Код", icon: "👾", tagColor: "#22c55e", baseColor: "rgba(16,185,129,0.08)" },
       { id: "prism", name: "Призма", desc: "Радужный Спектр", icon: "💎", tagColor: "#ec4899", baseColor: "rgba(244,63,94,0.08)" },
       { id: "holy", name: "Серафим", desc: "Священный Свет", icon: "🕊️", tagColor: "#fef08a", baseColor: "rgba(253,224,71,0.08)" },
-      { id: "ruby", name: "Рубин", desc: "Кровавый Кристалл", icon: "🩸", tagColor: "#ef4444", baseColor: "rgba(220,38,38,0.08)" }
+      { id: "ruby", name: "Рубин", desc: "Кровавый Кристалл", icon: "🩸", tagColor: "#ef4444", baseColor: "rgba(220,38,38,0.08)" },
+      { id: "frost", name: "Ледяной Шип", desc: "Кристальный Мороз", icon: "❄️", tagColor: "#7dd3fc", baseColor: "rgba(125,211,252,0.08)" },
+      { id: "shadow", name: "Теневой Клинок", desc: "Тёмная Материя", icon: "🌑", tagColor: "#a78bfa", baseColor: "rgba(124,58,237,0.08)" },
+      { id: "gold", name: "Мидас", desc: "Золотой Слиток", icon: "🏆", tagColor: "#fbbf24", baseColor: "rgba(251,191,36,0.08)" },
+      { id: "circuit", name: "Кибер-Схема", desc: "Цифровой Поток", icon: "🖥️", tagColor: "#22d3ee", baseColor: "rgba(34,211,238,0.08)" },
+      { id: "storm", name: "Грозовой Фронт", desc: "Электро-Буря", icon: "🌩️", tagColor: "#60a5fa", baseColor: "rgba(96,165,250,0.08)" },
+      { id: "candy", name: "Леденец", desc: "Сладкий Вихрь", icon: "🍬", tagColor: "#f472b6", baseColor: "rgba(244,114,182,0.08)" }
     ];
 
     function getSkinTrailColor(skin, fallbackColor = "#7ee7ff") {
@@ -3441,6 +3739,12 @@
         }
         case "holy": return "#fffbeb";
         case "ruby": return "#ef4444";
+        case "frost": return "#7dd3fc";
+        case "shadow": return "#a78bfa";
+        case "gold": return "#fbbf24";
+        case "circuit": return "#22d3ee";
+        case "storm": return (Math.random() < 0.5 ? "#dbeafe" : "#60a5fa");
+        case "candy": return (Math.random() < 0.5 ? "#f472b6" : "#f9a8d4");
         case "neon":
         default:
           return fallbackColor || "#7ee7ff";
@@ -3459,7 +3763,13 @@
       glitch:  { primary: "#00ff66", secondary: "#ff0055", glow: "#22d3ee" },
       prism:   { primary: null, secondary: null, glow: null },
       holy:    { primary: "#facc15", secondary: "#ffffff", glow: "#fde047" },
-      ruby:    { primary: "#dc2626", secondary: "#f87171", glow: "#ef4444" }
+      ruby:    { primary: "#dc2626", secondary: "#f87171", glow: "#ef4444" },
+      frost:   { primary: "#bae6fd", secondary: "#7dd3fc", glow: "#38bdf8" },
+      shadow:  { primary: "#a78bfa", secondary: "#312e81", glow: "#7c3aed" },
+      gold:    { primary: "#fde68a", secondary: "#fbbf24", glow: "#f59e0b" },
+      circuit: { primary: "#67e8f9", secondary: "#22d3ee", glow: "#06b6d4" },
+      storm:   { primary: "#dbeafe", secondary: "#60a5fa", glow: "#3b82f6" },
+      candy:   { primary: "#fbcfe8", secondary: "#f472b6", glow: "#ec4899" }
     };
 
     function getSkinFX(skin) {
@@ -3611,6 +3921,7 @@
         maxHp: startingHp,
         invulnerability: 0
       };
+      player.stats = stats;
 
       pointer.x =
         player.x + 100;
@@ -3770,6 +4081,13 @@
         result.spawnTimer = 4.5;
         result.sporesCount = 5;
       }
+      if (type === "mirage") {
+        result.spawnTime = performance.now() / 1000;
+      }
+      if (base.turnRate) {
+        result.turnRate = base.turnRate;
+        result.facingAngle = base.facingAngle || 0;
+      }
       if (type === "boss_drone" || type === "boss_pylon") {
         // Client boss_drone: smaller radius, extra fields
         result.r = 22;
@@ -3811,6 +4129,9 @@
       const number = value =>
         Number(value) || 0;
 
+      const exactVal = (pct, raw) =>
+        gameSettings.showExactValues ? `${pct} (${raw})` : pct;
+
       const rows = [
         ["Урон", number(currentStats.damage)],
         ["Скорость", Math.round(number(currentStats.playerSpeed))],
@@ -3820,7 +4141,10 @@
         ["Пробитие", number(currentStats.pierce)],
         [
           "Критический шанс",
-          `${Math.round(number(currentStats.critChance) * 100)}%`
+          exactVal(
+            `${Math.round(number(currentStats.critChance) * 100)}%`,
+            `${number(currentStats.critChance).toFixed(2)}`
+          )
         ],
         [
           "Калибр",
@@ -3870,9 +4194,9 @@
       killsValue.textContent = coopSession.kills;
       scoreValue.textContent = coopSession.score;
       levelValue.textContent = coopSession.level;
-      experienceValue.textContent =
-        `${coopSession.experience} / ` +
-        `${coopSession.experienceToNext}`;
+      experienceValue.textContent = gameSettings.showExactValues
+        ? `${coopSession.experience} / ${coopSession.experienceToNext} (${Math.round(experienceRatio * 100)}%)`
+        : `${coopSession.experience} / ${coopSession.experienceToNext}`;
 
       const experienceRatio =
         coopSession.experienceToNext > 0
@@ -3896,7 +4220,10 @@
       const isAlive = localPlayer ? (localPlayer.alive !== false && hp > 0) : hp > 0;
 
       if (isAlive) {
-        healthValue.textContent = `❤️ ${hp} / ${maxHp}`;
+        const hpPct = Math.round(clamp(hp / maxHp, 0, 1) * 100);
+        healthValue.textContent = gameSettings.showExactValues
+          ? `❤️ ${hp} / ${maxHp} (${hpPct}%)`
+          : `❤️ ${hp} / ${maxHp}`;
         healthValue.style.color = hp <= 200 ? "#ff7992" : "#7ee7ff";
         healthFill.style.width = `${clamp(hp / maxHp, 0, 1) * 100}%`;
       } else {
@@ -4027,6 +4354,55 @@
       }
 
       renderLivePlayerStats();
+    }
+
+    /*
+     * Промпт воскрешения (легендарный бонус): показывает
+     * QTE — 5 нажатий ПРОБЕЛА за 5 секунд, иначе смерть окончательна.
+     */
+    function updateReviveOverlay() {
+      const overlayEl = document.getElementById("coopReviveOverlay");
+      if (!overlayEl) return;
+
+      const localPlayerId = window.net?.playerId;
+      const localPlayer = localPlayerId
+        ? coopSession.players.get(localPlayerId)
+        : null;
+
+      const prompt = localPlayer?.revivePrompt;
+
+      if (!prompt?.active) {
+        if (!overlayEl.classList.contains("hidden")) {
+          overlayEl.classList.add("hidden");
+        }
+        return;
+      }
+
+      overlayEl.classList.remove("hidden");
+
+      const timer = Number.isFinite(localPlayer.revivePromptTimer)
+        ? localPlayer.revivePromptTimer
+        : prompt.timer;
+
+      const presses = prompt.presses || 0;
+      const required = prompt.required || 5;
+
+      const timerEl = overlayEl.querySelector("#coopReviveTimer");
+      const timerFillEl = overlayEl.querySelector("#coopReviveTimerFill");
+      const pressesEl = overlayEl.querySelector("#coopRevivePresses");
+
+      if (timerEl) {
+        timerEl.textContent = `${Math.max(0, timer).toFixed(1)} с`;
+      }
+
+      if (timerFillEl) {
+        const ratio = clamp(timer / 5.0, 0, 1);
+        timerFillEl.style.width = `${ratio * 100}%`;
+      }
+
+      if (pressesEl) {
+        pressesEl.textContent = `${presses} / ${required}`;
+      }
     }
 
     function randomSpawnPoint() {
@@ -4207,10 +4583,20 @@
           ) {
             type = "magnetizer";
           } else if (
+            wave >= 9 &&
+            roll < 0.18
+          ) {
+            type = "sentinel";
+          } else if (
             wave >= 6 &&
             roll < 0.20
           ) {
             type = "incubator";
+          } else if (
+            wave >= 7 &&
+            roll < 0.24
+          ) {
+            type = "mirage";
           } else if (
             wave >= 7 &&
             roll < 0.28
@@ -4369,7 +4755,7 @@
       );
 
       if (stats.catchBlast > 0) {
-        const blastDmg = Math.max(75, Math.floor((stats.damage || 100) * (stats.catchBlastDamageRatio || 0.8)));
+        const blastDmg = Math.max(1, Math.floor((stats.damage || 100) * (stats.catchBlastDamageRatio || 0.8)));
         for (let i = enemies.length - 1; i >= 0; i--) {
           const enemy = enemies[i];
         
@@ -4502,7 +4888,7 @@
       );
     }
 
-    function damageEnemy(indexOrEnemy, damage, critical = false) {
+    function damageEnemy(indexOrEnemy, damage, critical = false, hitAngle) {
       let enemy = null;
       let index = -1;
       if (typeof indexOrEnemy === "number") {
@@ -4536,6 +4922,21 @@
         damage = Math.max(1, Math.floor(damage * 0.2));
         createParticles(enemy.x, enemy.y, "#00f2fe", 8, 140);
         createRing(enemy.x, enemy.y, 50, "#00f2fe");
+      }
+
+      /*
+       * Часовой: щит спереди блокирует 80% урона (сектор ~130°),
+       * с боков и со спины урон проходит полностью.
+       */
+      if (enemy.type === "sentinel" && hitAngle !== undefined) {
+        const FRONT_ARC_HALF = Math.PI / 2.77;
+        const diff = Math.atan2(
+          Math.sin(hitAngle - (enemy.facingAngle || 0)),
+          Math.cos(hitAngle - (enemy.facingAngle || 0))
+        );
+        if (Math.abs(diff) <= FRONT_ARC_HALF) {
+          damage = damage * 0.2;
+        }
       }
 
       /*
@@ -4660,7 +5061,7 @@
       dropExperienceCrystals(enemy);
       if (enemy.parasiteInfested) {
         const pCount = enemy.parasiteCount || stats.parasiteCount || 1;
-        const pDamage = enemy.parasiteDamage || stats.parasiteDamage || 75;
+        const pDamage = enemy.parasiteDamage || ((stats.damage || 100) * (stats.parasiteDamageRatio || 0.75));
         for (let pi = 0; pi < pCount; pi++) {
           const angle = Math.random() * Math.PI * 2;
           const sporeSpeed = 320;
@@ -4806,7 +5207,7 @@
     
       const actualDamage = Math.max(
         0,
-        Number(amount) || 0
+        (Number(amount) || 0) * (1 - (stats.damageResistance || 0))
       );
     
       if (actualDamage <= 0) {
@@ -5409,7 +5810,7 @@
               player.x, player.y
             );
 
-            if (segDist <= player.r + enemy.r) {
+            if (segDist <= (player.r + enemy.r) * 1.03) {
               player.dashHitEnemies.add(enemy.id);
               damageEnemy(enemy, stats.damage);
             }
@@ -5655,9 +6056,9 @@
       }
     }
 
-    function applyBulletHit(index) {
+    function applyBulletHit(index, bulletX, bulletY) {
       const enemy = enemies[index];
-    
+
       if (!enemy) {
         return;
       }
@@ -5695,10 +6096,15 @@
 
       const wasMarked = Boolean(enemy.targetMarked);
 
+      const hitAngle =
+        bulletX !== undefined
+          ? Math.atan2(bulletY - enemy.y, bulletX - enemy.x)
+          : undefined;
+
       /*
        * Наносим урон (увеличенный только если метка уже была на враге до удара).
        */
-      damageEnemy(enemy, damage, critical);
+      damageEnemy(enemy, damage, critical, hitAngle);
 
       /*
        * Метка Цели: попадание помечает врага на 4с (+5% за уровень, до +40%).
@@ -5722,7 +6128,7 @@
       if (stats.poison && enemy.hp > 0 && enemy.hasEnteredArena !== false) {
         enemy.poisonTimer = Math.max(enemy.poisonTimer || 0, stats.poisonDuration || 2.0);
         enemy.poisonTickTimer = 1.0;
-        enemy.poisonDamage = stats.poisonDamage || 0.5;
+        enemy.poisonDamage = (stats.damage || 100) * (stats.poisonDamageRatio || 0.5);
       }
 
       /*
@@ -5738,7 +6144,7 @@
         if (Math.random() <= pChance) {
           enemy.parasiteInfested = true;
           enemy.parasiteCount = stats.parasiteCount || 1;
-          enemy.parasiteDamage = stats.parasiteDamage || 1.0;
+          enemy.parasiteDamage = (stats.damage || 100) * (stats.parasiteDamageRatio || 0.75);
         }
       }
 
@@ -5870,6 +6276,11 @@
         if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) continue;
         if (bullet.hitEnemies && bullet.hitEnemies.has(enemy.id)) continue;
         if (enemy.hasEnteredArena === false) continue;
+        if (enemy.type === "mirage") {
+          // В соло-режиме нет серверного enemy.mirageVisible — считаем фазу цикла напрямую.
+          const mirageCyclePos = ((performance.now() / 1000) - (enemy.spawnTime || 0)) % MIRAGE_CYCLE;
+          if (mirageCyclePos < MIRAGE_HIDDEN) continue;
+        }
 
         const dx = enemy.x - bullet.x;
         const dy = enemy.y - bullet.y;
@@ -6152,8 +6563,8 @@
           bullet.hitCooldowns.set(hitEnemyId, 0.35);
           bullet.hitsLeft -= 1;
         
-          applyBulletHit(currentIndex);
-        
+          applyBulletHit(currentIndex, bullet.x, bullet.y);
+
           screenShake = Math.max(
             screenShake,
             7
@@ -7168,6 +7579,38 @@
         ctx.shadowBlur = 10;
         ctx.fill();
         ctx.shadowBlur = 0;
+      } else if (type === "sentinel") {
+        const facing = opts.facingAngle || 0;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#7c2d12";
+        ctx.fill();
+
+        /*
+         * Направленный щит: 130-градусная дуга спереди,
+         * повёрнутая к facingAngle. Визуально показывает
+         * игроку сектор, откуда урон снижается на 80%.
+         */
+        ctx.save();
+        ctx.rotate(facing);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.15, -Math.PI / 2.77, Math.PI / 2.77);
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
+        ctx.fillStyle = "#fde68a";
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
       } else if (type === "minion") {
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
@@ -7407,23 +7850,8 @@
       if (!enemy) {
         return 100;
       }
-    
-      if (enemy.type === "tank") {
-        return 200;
-      }
-    
-      if (
-        enemy.type === "charger" &&
-        enemy.isCharging
-      ) {
-        return 200;
-      }
-    
-      if (enemy.type === "boss") {
-        return wave >= 15 ? 200 : 100;
-      }
-    
-      return 100;
+
+      return GameShared.getContactDamage(wave, enemy);
     }
 
     function isEnemyFullyInsideArena(enemy) {
@@ -7541,7 +7969,7 @@
           enemy.poisonTickTimer = (enemy.poisonTickTimer || 1.0) - dt;
           if (enemy.poisonTickTimer <= 0) {
             enemy.poisonTickTimer = 1.0;
-            damageEnemy(enemy, enemy.poisonDamage || 0.5);
+            damageEnemy(enemy, enemy.poisonDamage || ((stats.damage || 100) * (stats.poisonDamageRatio || 0.5)));
             createParticles(enemy.x, enemy.y, "#39ff14", 4, 90);
             if (!enemies[i] || enemies[i] !== enemy || enemy.hp <= 0) {
               continue;
@@ -7603,7 +8031,25 @@
 
         dx /= length;
         dy /= length;
-      
+
+        if (enemy.turnRate) {
+          const desiredAngle = Math.atan2(dy, dx);
+          const currentFacing = enemy.facingAngle || 0;
+          const angleDiff = Math.atan2(
+            Math.sin(desiredAngle - currentFacing),
+            Math.cos(desiredAngle - currentFacing)
+          );
+          const maxStep = enemy.turnRate * dt;
+          enemy.facingAngle =
+            currentFacing +
+            clamp(angleDiff, -maxStep, maxStep);
+        }
+
+        if (enemy.type === "mirage") {
+          const cyclePos = ((performance.now() / 1000) - (enemy.spawnTime || 0)) % MIRAGE_CYCLE;
+          enemy.mirageVisible = cyclePos >= MIRAGE_HIDDEN;
+        }
+
         if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
           const boss = enemies.find(e => e.id === enemy.bossId && e.hp > 0);
           if (boss) {
@@ -8268,24 +8714,6 @@
       return commonValue;
     }
     
-    function getEmergencyRepairResult(
-      currentInterval,
-      power
-    ) {
-      if (currentInterval === 0) {
-        if (power >= 3) return 12;
-        if (power >= 2) return 14;
-        return 16;
-      }
-
-      const reduction = power >= 3 ? 4 : power >= 2 ? 3 : 2;
-
-      return Math.max(
-        8,
-        currentInterval - reduction
-      );
-    }
-    
     function getExplosionRadiusResult(
       currentRadius,
       power
@@ -8309,29 +8737,6 @@
       return currentRadius + radiusBonus;
     }
     
-    function getGroundPullResult(
-      currentSpeed,
-      power
-    ) {
-      if (currentSpeed === 0) {
-        return getRarityTierValue(
-          power,
-          180,
-          240,
-          300
-        );
-      }
-    
-      const speedBonus = getRarityTierValue(
-        power,
-        80,
-        130,
-        180
-      );
-    
-      return currentSpeed + speedBonus;
-    }
-    
     function getHomingBonus(power) {
       return getRarityTierValue(
         power,
@@ -8347,7 +8752,7 @@
         title: "Тяжёлая пуля",
         description: "Увеличивает урон ваших патронов на +100 за уровень.",
         applyWithPower(power) {
-          stats.damage += 100 * power;
+          GameShared.applyUpgrade(player, "damage", power);
         }
       },
       {
@@ -8355,7 +8760,7 @@
         title: "Дополнительный рикошет",
         description: "Ваши патроны могут дополнительно отскакивать от стен.",
         applyWithPower(power) {
-          stats.maxBounces += power;
+          GameShared.applyUpgrade(player, "bounce", power);
         }
       },
       {
@@ -8363,10 +8768,10 @@
         title: "Пробитие",
         description: "Ваши патроны пробивают дополнительные цели.",
         available() {
-          return !((stats.explosionRadius || 0) > 0 || (stats.chainCount || 0) > 0 || (stats.catchBlast || 0) > 0);
+          return GameShared.isUpgradeAvailable(player, "pierce");
         },
         applyWithPower(power) {
-          stats.pierce += power;
+          GameShared.applyUpgrade(player, "pierce", power);
         }
       },
       {
@@ -8374,14 +8779,10 @@
         title: "Разогнанный ствол",
         description: "Увеличивает скорость полёта пули на +25% за уровень (макс. 250%).",
         available() {
-          return (stats.bulletSpeed || BASE_BULLET_SPEED) < BASE_BULLET_SPEED * 2.5 - 1;
+          return GameShared.isUpgradeAvailable(player, "bullet-speed");
         },
         applyWithPower(power) {
-          stats.bulletSpeed = Math.min(
-            BASE_BULLET_SPEED * 2.5,
-            (stats.bulletSpeed || BASE_BULLET_SPEED) +
-              BASE_BULLET_SPEED * 0.25 * power
-          );
+          GameShared.applyUpgrade(player, "bullet-speed", power);
         }
       },
       {
@@ -8389,8 +8790,7 @@
         title: "Лёгкие ботинки",
         description: "Увеличивает скорость передвижения.",
         applyWithPower(power) {
-          stats.playerSpeed +=
-            BASE_PLAYER_SPEED * 0.12 * power;
+          GameShared.applyUpgrade(player, "move-speed", power);
         }
       },
       {
@@ -8398,8 +8798,7 @@
         title: "Усиленная броня",
         description: "Повышает максимальное и текущее здоровье на +100 за уровень.",
         applyWithPower(power) {
-          player.maxHp += 100 * power;
-          player.hp += 100 * power;
+          GameShared.applyUpgrade(player, "armor", power);
         }
       },
       {
@@ -8408,10 +8807,10 @@
         description: "Полностью восстанавливает текущее здоровье.",
         fixedRarity: "common",
         available() {
-          return player.hp < player.maxHp;
+          return GameShared.isUpgradeAvailable(player, "repair");
         },
         applyWithPower() {
-          player.hp = player.maxHp;
+          GameShared.applyUpgrade(player, "repair");
         }
       },
       {
@@ -8420,11 +8819,10 @@
         description: "Пойманная пуля создает импульсную волну, наносящую урон ближайшим врагам.",
         fixedRarity: "rare",
         available() {
-          return (stats.pierce || 0) <= 0 && (stats.catchBlast || 0) === 0;
+          return GameShared.isUpgradeAvailable(player, "catch-blast");
         },
         applyWithPower(power) {
-          stats.catchBlast = 65 * power;
-          stats.catchBlastDamageRatio = 0.8;
+          GameShared.applyUpgrade(player, "catch-blast", power);
         }
       },
       {
@@ -8432,10 +8830,10 @@
         title: "Сила импульса",
         description: "Увеличивает урон импульсной волны при ловле пули на +35% (макс. 250% урона пули).",
         available() {
-          return (stats.catchBlast || 0) > 0 && (stats.catchBlastDamageRatio || 0.8) < 2.5;
+          return GameShared.isUpgradeAvailable(player, "catch-blast-damage");
         },
         applyWithPower(power) {
-          stats.catchBlastDamageRatio = Math.min(2.5, (stats.catchBlastDamageRatio || 0.8) + 0.35 * power);
+          GameShared.applyUpgrade(player, "catch-blast-damage", power);
         }
       },
       {
@@ -8443,10 +8841,10 @@
         title: "Радиус импульса",
         description: "Увеличивает радиус поражения импульсной волны на +30px (макс. 220px).",
         available() {
-          return (stats.catchBlast || 0) > 0 && (stats.catchBlast || 65) < 220;
+          return GameShared.isUpgradeAvailable(player, "catch-blast-radius");
         },
         applyWithPower(power) {
-          stats.catchBlast = Math.min(220, (stats.catchBlast || 65) + 30 * power);
+          GameShared.applyUpgrade(player, "catch-blast-radius", power);
         }
       },
       {
@@ -8455,15 +8853,11 @@
         description:
           "Убийства периодически восстанавливают +100 здоровья (макс. каждые 8 убийств).",
         available() {
-          return (stats.healEvery || 0) === 0 || stats.healEvery > 8;
+          return GameShared.isUpgradeAvailable(player, "emergency-repair");
         },
         applyWithPower(power) {
-          stats.healEvery =
-            getEmergencyRepairResult(
-              stats.healEvery,
-              power
-            );
-        
+          GameShared.applyUpgrade(player, "emergency-repair", power);
+
           /*
            * После уменьшения интервала старый прогресс
            * не должен мгновенно вызвать несколько лечений.
@@ -8482,13 +8876,21 @@
         title: "Критический механизм",
         description: "Повышает шанс нанести критический урон x2.0 (макс. 60%).",
         available() {
-          return (stats.critChance || 0) < 0.60;
+          return GameShared.isUpgradeAvailable(player, "critical");
         },
         applyWithPower(power) {
-          stats.critChance = Math.min(
-            0.60,
-            (stats.critChance || 0) + 0.10 * power
-          );
+          GameShared.applyUpgrade(player, "critical", power);
+        }
+      },
+      {
+        id: "resilience",
+        title: "Стойкость",
+        description: "Снижает получаемый урон в процентах (макс. 42%).",
+        available() {
+          return GameShared.isUpgradeAvailable(player, "resilience");
+        },
+        applyWithPower(power) {
+          GameShared.applyUpgrade(player, "resilience", power);
         }
       },
       {
@@ -8497,11 +8899,10 @@
         description: "Попадание создаёт взрыв, наносящий урон соседним врагам.",
         fixedRarity: "rare",
         available() {
-          return (stats.pierce || 0) <= 0 && (stats.explosionRadius || 0) === 0;
+          return GameShared.isUpgradeAvailable(player, "explosive");
         },
         applyWithPower(power) {
-          stats.explosionRadius = 40 * power;
-          stats.explosionDamageRatio = 0.6;
+          GameShared.applyUpgrade(player, "explosive", power);
         }
       },
       {
@@ -8509,10 +8910,10 @@
         title: "Ударная волна",
         description: "Увеличивает урон взрыва пули на +25% (макс. 160% урона пули).",
         available() {
-          return (stats.explosionRadius || 0) > 0 && (stats.explosionDamageRatio || 0.6) < 1.6;
+          return GameShared.isUpgradeAvailable(player, "explosion-damage");
         },
         applyWithPower(power) {
-          stats.explosionDamageRatio = Math.min(1.6, (stats.explosionDamageRatio || 0.6) + 0.25 * power);
+          GameShared.applyUpgrade(player, "explosion-damage", power);
         }
       },
       {
@@ -8520,10 +8921,10 @@
         title: "Радиус детонации",
         description: "Увеличивает радиус взрыва пули на +30px (макс. 180px).",
         available() {
-          return (stats.explosionRadius || 0) > 0 && (stats.explosionRadius || 40) < 180;
+          return GameShared.isUpgradeAvailable(player, "explosion-radius");
         },
         applyWithPower(power) {
-          stats.explosionRadius = Math.min(180, (stats.explosionRadius || 40) + 30 * power);
+          GameShared.applyUpgrade(player, "explosion-radius", power);
         }
       },
       {
@@ -8532,12 +8933,10 @@
         description: "Попадание выпускает цепной разряд в ближайших врагов.",
         fixedRarity: "rare",
         available() {
-          return (stats.pierce || 0) <= 0 && (stats.chainCount || 0) === 0;
+          return GameShared.isUpgradeAvailable(player, "chain-lightning");
         },
         applyWithPower(power) {
-          stats.chainCount = 2 * power;
-          stats.chainRange = 140;
-          stats.chainDamageRatio = 0.6;
+          GameShared.applyUpgrade(player, "chain-lightning", power);
         }
       },
       {
@@ -8545,10 +8944,10 @@
         title: "Мощность разряда",
         description: "Увеличивает урон цепной молнии на +25% (макс. 200% урона пули).",
         available() {
-          return (stats.chainCount || 0) > 0 && (stats.chainDamageRatio || 0.6) < 2.0;
+          return GameShared.isUpgradeAvailable(player, "lightning-damage");
         },
         applyWithPower(power) {
-          stats.chainDamageRatio = Math.min(2.0, (stats.chainDamageRatio || 0.6) + 0.25 * power);
+          GameShared.applyUpgrade(player, "lightning-damage", power);
         }
       },
       {
@@ -8556,10 +8955,10 @@
         title: "Проводники цепи",
         description: "Увеличивает количество поражаемых цепной молнией врагов на +2 (макс. 9).",
         available() {
-          return (stats.chainCount || 0) > 0 && (stats.chainCount || 2) < 9;
+          return GameShared.isUpgradeAvailable(player, "lightning-targets");
         },
         applyWithPower(power) {
-          stats.chainCount = Math.min(9, (stats.chainCount || 2) + 2 * power);
+          GameShared.applyUpgrade(player, "lightning-targets", power);
         }
       },
       {
@@ -8567,10 +8966,10 @@
         title: "Радиус дуги",
         description: "Увеличивает максимальную дистанцию перескока цепной молнии на +30px (макс. 260px).",
         available() {
-          return (stats.chainCount || 0) > 0 && (stats.chainRange || 140) < 260;
+          return GameShared.isUpgradeAvailable(player, "lightning-range");
         },
         applyWithPower(power) {
-          stats.chainRange = Math.min(260, (stats.chainRange || 140) + 30 * power);
+          GameShared.applyUpgrade(player, "lightning-range", power);
         }
       },
       {
@@ -8578,7 +8977,7 @@
         title: "Умная пуля",
         description: "Пуля корректирует траекторию в сторону ближайшей цели.",
         applyWithPower(power) {
-          stats.homing = (stats.homing || 0) + power;
+          GameShared.applyUpgrade(player, "homing", power);
         }
       },
       {
@@ -8586,14 +8985,11 @@
         title: "Крупный калибр",
         description: "Увеличивает размер ваших патронов, облегчая попадание.",
         available() {
-          return (stats.bulletRadius || 0) < 15;
+          return GameShared.isUpgradeAvailable(player, "caliber");
         },
         applyWithPower(power) {
-          stats.bulletRadius = Math.min(
-            15,
-            (stats.bulletRadius || 7) + 1.5 * power
-          );
-        
+          GameShared.applyUpgrade(player, "caliber", power);
+
           for (const bullet of bullets) {
             bullet.r = stats.bulletRadius;
           }
@@ -8605,12 +9001,10 @@
         description: "Пуля автоматически притягивается к владельцу (100 px/с, радиус 20 кл).",
         fixedRarity: "rare",
         available() {
-          return !stats.boomerang;
+          return GameShared.isUpgradeAvailable(player, "boomerang");
         },
         applyWithPower() {
-          stats.boomerang = true;
-          stats.groundPullSpeed = 100;
-          stats.magnetRangeBonusCells = stats.magnetRangeBonusCells || 0;
+          GameShared.applyUpgrade(player, "boomerang");
         }
       },
       {
@@ -8618,10 +9012,10 @@
         title: "Тяжёлый бумеранг",
         description: "Возвращающаяся пуля наносит урон врагам на пути (+25% за уровень, макс. 150%).",
         available() {
-          return Boolean(stats.boomerang) && (stats.boomerangPercent || 0) < 1.5;
+          return GameShared.isUpgradeAvailable(player, "boomerang-damage");
         },
         applyWithPower(power) {
-          stats.boomerangPercent = Math.min(1.5, (stats.boomerangPercent || 0) + 0.25 * power);
+          GameShared.applyUpgrade(player, "boomerang-damage", power);
         }
       },
       {
@@ -8629,10 +9023,10 @@
         title: "Турбо-магнит",
         description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
         available() {
-          return Boolean(stats.boomerang) && (stats.groundPullSpeed || 100) < 600;
+          return GameShared.isUpgradeAvailable(player, "boomerang-speed");
         },
         applyWithPower(power) {
-          stats.groundPullSpeed = Math.min(600, (stats.groundPullSpeed || 100) + 100 * power);
+          GameShared.applyUpgrade(player, "boomerang-speed", power);
         }
       },
       {
@@ -8640,10 +9034,10 @@
         title: "Дальний захват",
         description: "Увеличивает радиус притягивания пули на +5 клеток (макс. 50 кл).",
         available() {
-          return Boolean(stats.boomerang) && (stats.magnetRangeBonusCells || 0) < 30;
+          return GameShared.isUpgradeAvailable(player, "boomerang-range");
         },
         applyWithPower(power) {
-          stats.magnetRangeBonusCells = Math.min(30, (stats.magnetRangeBonusCells || 0) + 5 * power);
+          GameShared.applyUpgrade(player, "boomerang-range", power);
         }
       },
       {
@@ -8652,12 +9046,10 @@
         description: "При рикошете от стены выпускает самонаводящийся осколок (25% урона пули, 1.5с).",
         fixedRarity: "rare",
         available() {
-          return !stats.splinter;
+          return GameShared.isUpgradeAvailable(player, "splinter");
         },
         apply() {
-          stats.splinter = true;
-          stats.splinterCount = 1;
-          stats.splinterDamagePercent = 0.25;
+          GameShared.applyUpgrade(player, "splinter");
         }
       },
       {
@@ -8665,10 +9057,10 @@
         title: "Количество осколков",
         description: "Увеличивает количество осколков при каждом рикошете (макс. 5).",
         available() {
-          return Boolean(stats.splinter) && (stats.splinterCount || 1) < 5;
+          return GameShared.isUpgradeAvailable(player, "splinter-count");
         },
         applyWithPower(power) {
-          stats.splinterCount = Math.min(5, (stats.splinterCount || 1) + 1 * power);
+          GameShared.applyUpgrade(player, "splinter-count", power);
         }
       },
       {
@@ -8676,10 +9068,10 @@
         title: "Урон осколков",
         description: "Увеличивает урон самонаводящихся осколков на +15% (макс. 100% урона пули).",
         available() {
-          return Boolean(stats.splinter) && (stats.splinterDamagePercent || 0.25) < 1.0;
+          return GameShared.isUpgradeAvailable(player, "splinter-damage");
         },
         applyWithPower(power) {
-          stats.splinterDamagePercent = Math.min(1.0, (stats.splinterDamagePercent || 0.25) + 0.15 * power);
+          GameShared.applyUpgrade(player, "splinter-damage", power);
         }
       },
       {
@@ -8688,12 +9080,10 @@
         description: "Попадание с шансом 10% оглушает врага на 0.4с.",
         fixedRarity: "rare",
         available() {
-          return !stats.stun && (stats.stunChance || 0) === 0;
+          return GameShared.isUpgradeAvailable(player, "stun");
         },
         applyWithPower(power) {
-          stats.stun = true;
-          stats.stunChance = Math.min(0.45, (stats.stunChance || 0) + (power >= 2 ? 0.15 : 0.10));
-          stats.stunDuration = 0.4;
+          GameShared.applyUpgrade(player, "stun", power);
         }
       },
       {
@@ -8701,10 +9091,10 @@
         title: "Частота оглушения",
         description: "Увеличивает шанс оглушения врагов на +8% (макс. 45%).",
         available() {
-          return Boolean(stats.stun) && (stats.stunChance || 0.10) < 0.45;
+          return GameShared.isUpgradeAvailable(player, "stun-chance");
         },
         applyWithPower(power) {
-          stats.stunChance = Math.min(0.45, (stats.stunChance || 0.10) + 0.08 * power);
+          GameShared.applyUpgrade(player, "stun-chance", power);
         }
       },
       {
@@ -8712,10 +9102,10 @@
         title: "Глубокий шок",
         description: "Увеличивает длительность оглушения на +0.3с (макс. 1.5с).",
         available() {
-          return Boolean(stats.stun) && (stats.stunDuration || 0.4) < 1.5;
+          return GameShared.isUpgradeAvailable(player, "stun-duration");
         },
         applyWithPower(power) {
-          stats.stunDuration = Number(Math.min(1.5, (stats.stunDuration || 0.4) + 0.3 * power).toFixed(1));
+          GameShared.applyUpgrade(player, "stun-duration", power);
         }
       },
       {
@@ -8724,12 +9114,10 @@
         description: "При получении урона — импульсный взрыв 120px, отбрасывающий врагов (перезарядка 3с).",
         fixedRarity: "rare",
         available() {
-          return !stats.reactiveArmor;
+          return GameShared.isUpgradeAvailable(player, "reactive-armor");
         },
         apply() {
-          stats.reactiveArmor = true;
-          stats.reactiveArmorRadius = 120;
-          stats.reactiveArmorCooldownBase = 3.0;
+          GameShared.applyUpgrade(player, "reactive-armor");
         }
       },
       {
@@ -8737,10 +9125,10 @@
         title: "Область отражения",
         description: "Увеличивает радиус защитного импульса брони на +30px (макс. 210px).",
         available() {
-          return Boolean(stats.reactiveArmor) && (stats.reactiveArmorRadius || 120) < 210;
+          return GameShared.isUpgradeAvailable(player, "reactive-armor-radius");
         },
         applyWithPower(power) {
-          stats.reactiveArmorRadius = Math.min(210, (stats.reactiveArmorRadius || 120) + 30 * power);
+          GameShared.applyUpgrade(player, "reactive-armor-radius", power);
         }
       },
       {
@@ -8748,10 +9136,10 @@
         title: "Быстрая перезарядка",
         description: "Уменьшает время перезарядки реактивной брони на -0.5с (мин. 1.5с).",
         available() {
-          return Boolean(stats.reactiveArmor) && (stats.reactiveArmorCooldownBase || 3.0) > 1.5;
+          return GameShared.isUpgradeAvailable(player, "reactive-armor-cooldown");
         },
         applyWithPower(power) {
-          stats.reactiveArmorCooldownBase = Number(Math.max(1.5, (stats.reactiveArmorCooldownBase || 3.0) - 0.5 * power).toFixed(1));
+          GameShared.applyUpgrade(player, "reactive-armor-cooldown", power);
         }
       },
       {
@@ -8760,12 +9148,10 @@
         description: "Первое попадание помечает врага на 4с (+40% входящего урона).",
         fixedRarity: "rare",
         available() {
-          return !stats.targetMark && (stats.markBonus || 0) === 0;
+          return GameShared.isUpgradeAvailable(player, "target-mark");
         },
         applyWithPower(power) {
-          stats.targetMark = true;
-          stats.markBonus = Math.min(0.80, (stats.markBonus || 0) + (power >= 2 ? 0.40 : 0.40));
-          stats.markDuration = 4.0;
+          GameShared.applyUpgrade(player, "target-mark", power);
         }
       },
       {
@@ -8773,10 +9159,10 @@
         title: "Уязвимость",
         description: "Увеличивает бонус урона по помеченной цели на +15% (макс. +80%).",
         available() {
-          return Boolean(stats.targetMark) && (stats.markBonus || 0.40) < 0.80;
+          return GameShared.isUpgradeAvailable(player, "mark-amplification");
         },
         applyWithPower(power) {
-          stats.markBonus = Math.min(0.80, (stats.markBonus || 0.40) + 0.15 * power);
+          GameShared.applyUpgrade(player, "mark-amplification", power);
         }
       },
       {
@@ -8784,10 +9170,10 @@
         title: "Глубокая метка",
         description: "Увеличивает длительность метки цели на +2.0с (макс. 10.0с).",
         available() {
-          return Boolean(stats.targetMark) && (stats.markDuration || 4.0) < 10.0;
+          return GameShared.isUpgradeAvailable(player, "mark-duration");
         },
         applyWithPower(power) {
-          stats.markDuration = Number(Math.min(10.0, (stats.markDuration || 4.0) + 2.0 * power).toFixed(1));
+          GameShared.applyUpgrade(player, "mark-duration", power);
         }
       },
       {
@@ -8796,12 +9182,10 @@
         description: "Пуля отравляет врагов (50 урона/с в течение 2.0с).",
         fixedRarity: "rare",
         available() {
-          return !stats.poison;
+          return GameShared.isUpgradeAvailable(player, "poison");
         },
         apply() {
-          stats.poison = true;
-          stats.poisonDamage = 50;
-          stats.poisonDuration = 2.0;
+          GameShared.applyUpgrade(player, "poison");
         }
       },
       {
@@ -8809,10 +9193,10 @@
         title: "Урон яда",
         description: "Увеличивает периодический урон яда на +50/с (макс. 500/с).",
         available() {
-          return Boolean(stats.poison) && (stats.poisonDamage || 50) < 500;
+          return GameShared.isUpgradeAvailable(player, "poison-damage");
         },
         applyWithPower(power) {
-          stats.poisonDamage = Number(Math.min(500, (stats.poisonDamage || 50) + 50 * power).toFixed(0));
+          GameShared.applyUpgrade(player, "poison-damage", power);
         }
       },
       {
@@ -8820,10 +9204,10 @@
         title: "Длительность яда",
         description: "Увеличивает длительность действия яда на +1.0с (макс. 5.0с).",
         available() {
-          return Boolean(stats.poison) && (stats.poisonDuration || 2.0) < 5.0;
+          return GameShared.isUpgradeAvailable(player, "poison-duration");
         },
         applyWithPower(power) {
-          stats.poisonDuration = Number(Math.min(5.0, (stats.poisonDuration || 2.0) + 1.0 * power).toFixed(1));
+          GameShared.applyUpgrade(player, "poison-duration", power);
         }
       },
       {
@@ -8832,13 +9216,10 @@
         description: "Выстрел с шансом 25% заражает врага. При гибели вылетает спора (75 урона).",
         fixedRarity: "rare",
         available() {
-          return !stats.parasite;
+          return GameShared.isUpgradeAvailable(player, "parasite");
         },
         apply() {
-          stats.parasite = true;
-          stats.parasiteChance = 0.25;
-          stats.parasiteCount = 1;
-          stats.parasiteDamage = 75;
+          GameShared.applyUpgrade(player, "parasite");
         }
       },
       {
@@ -8846,10 +9227,10 @@
         title: "Шанс паразита",
         description: "Увеличивает шанс заражения паразитом на +5% (макс. 50%).",
         available() {
-          return Boolean(stats.parasite) && (stats.parasiteChance || 0.25) < 0.50;
+          return GameShared.isUpgradeAvailable(player, "parasite-chance");
         },
         applyWithPower(power) {
-          stats.parasiteChance = Math.min(0.50, (stats.parasiteChance || 0.25) + 0.05 * power);
+          GameShared.applyUpgrade(player, "parasite-chance", power);
         }
       },
       {
@@ -8857,10 +9238,10 @@
         title: "Количество паразитов",
         description: "Увеличивает количество вылетающих спор паразита при смерти врага на +1 (макс. 5).",
         available() {
-          return Boolean(stats.parasite) && (stats.parasiteCount || 1) < 5;
+          return GameShared.isUpgradeAvailable(player, "parasite-count");
         },
         applyWithPower(power) {
-          stats.parasiteCount = Math.min(5, (stats.parasiteCount || 1) + 1 * power);
+          GameShared.applyUpgrade(player, "parasite-count", power);
         }
       },
       {
@@ -8868,10 +9249,10 @@
         title: "Урон паразита",
         description: "Увеличивает урон каждой споры паразита на +50 (макс. 400).",
         available() {
-          return Boolean(stats.parasite) && (stats.parasiteDamage || 75) < 400;
+          return GameShared.isUpgradeAvailable(player, "parasite-damage");
         },
         applyWithPower(power) {
-          stats.parasiteDamage = Number(Math.min(400, (stats.parasiteDamage || 75) + 50 * power).toFixed(0));
+          GameShared.applyUpgrade(player, "parasite-damage", power);
         }
       },
       {
@@ -8880,10 +9261,10 @@
         description: "Добавляет второй независимый патрон в магазин.",
         fixedRarity: "rare",
         available() {
-          return stats.magazineSize < 2;
+          return GameShared.isUpgradeAvailable(player, "second-bullet");
         },
         applyWithPower() {
-          stats.magazineSize = 2;
+          GameShared.applyUpgrade(player, "second-bullet");
           ensureMagazine();
         }
       },
@@ -8893,12 +9274,10 @@
         description: "Мгновенный рывок с неуязвимостью (120px, 10с перезарядка).",
         fixedRarity: "rare",
         available() {
-          return !stats.dash;
+          return GameShared.isUpgradeAvailable(player, "dash");
         },
         applyWithPower() {
-          stats.dash = true;
-          stats.dashDistance = Math.max(120, stats.dashDistance || 120);
-          stats.dashCooldownBase = Math.max(2.0, stats.dashCooldownBase || 10.0);
+          GameShared.applyUpgrade(player, "dash");
         }
       },
       {
@@ -8906,10 +9285,10 @@
         title: "Дальность рывка",
         description: "Увеличивает дистанцию рывка на +50px (макс. 320px).",
         available() {
-          return Boolean(stats.dash) && (stats.dashDistance || 120) < 320;
+          return GameShared.isUpgradeAvailable(player, "dash-distance");
         },
         applyWithPower(power) {
-          stats.dashDistance = Math.min(320, (stats.dashDistance || 120) + 50 * power);
+          GameShared.applyUpgrade(player, "dash-distance", power);
         }
       },
       {
@@ -8917,10 +9296,10 @@
         title: "Перезарядка рывка",
         description: "Уменьшает перезарядку рывка на -1.5с (мин. 2.0с).",
         available() {
-          return Boolean(stats.dash) && (stats.dashCooldownBase || 10.0) > 2.0;
+          return GameShared.isUpgradeAvailable(player, "dash-cooldown");
         },
         applyWithPower(power) {
-          stats.dashCooldownBase = Number(Math.max(2.0, (stats.dashCooldownBase || 10.0) - 1.5 * power).toFixed(1));
+          GameShared.applyUpgrade(player, "dash-cooldown", power);
         }
       },
       {
@@ -8929,10 +9308,10 @@
         description: "Рывок наносит 100% урона всем врагам на пути.",
         fixedRarity: "legendary",
         available() {
-          return Boolean(stats.dash) && !stats.dashDamage;
+          return GameShared.isUpgradeAvailable(player, "dash-damage");
         },
         applyWithPower() {
-          stats.dashDamage = true;
+          GameShared.applyUpgrade(player, "dash-damage");
         }
       }
     ];
@@ -8991,330 +9370,12 @@
       }).format(value);
     }
 
-    function formatCells(pixels) {
-      const cells = pixels / WORLD_CELL_SIZE;
-    
-      return `${formatBonusNumber(cells, 2)} кл.`;
-    }
-
     function formatPercent(value) {
       return `${formatBonusNumber(value * 100, 1)}%`;
     }
 
     function getUpgradeBonusText(upgrade, power) {
-      switch (upgrade.id) {
-        case "damage": {
-          return `+${100 * power} к урону`;
-        }
-      
-        case "bounce": {
-          return `+${power} к количеству рикошетов`;
-        }
-      
-        case "pierce": {
-          return `+${power} к количеству пробиваемых целей`;
-        }
-      
-        case "bullet-speed": {
-          const percentBonus = 25 * power;
-
-          const speedBonus =
-            BASE_BULLET_SPEED *
-            0.25 *
-            power;
-
-          return (
-            `+${percentBonus}% к скорости пули, ` +
-            `+${formatBonusNumber(speedBonus, 0)} ед./с`
-          );
-        }
-      
-        case "move-speed": {
-          const percentBonus = 12 * power;
-        
-          const speedBonus =
-            BASE_PLAYER_SPEED *
-            0.12 *
-            power;
-        
-          return (
-            `+${percentBonus}% к скорости движения, ` +
-            `+${formatBonusNumber(speedBonus, 0)} ед./с`
-          );
-        }
-      
-        case "armor": {
-          return (
-            `+${100 * power} к максимальному здоровью ` +
-            `и +${100 * power} к текущему здоровью`
-          );
-        }
-      
-        case "repair": {
-          const restoredHealth = Math.max(
-            0,
-            player.maxHp - player.hp
-          );
-        
-          if (restoredHealth === 0) {
-            return "здоровье уже полностью восстановлено";
-          }
-        
-          return (
-            `+${restoredHealth} HP, ` +
-            `полное восстановление`
-          );
-        }
-      
-        case "Магнитное поле":
-        case "Магнитный захват":
-        case "Возвратный магнит": {
-          const speedBonus = 110 * power;
-          return `+${speedBonus} px/с к скорости притяжения (в радиусе 20 клеток)`;
-        }
-
-        case "Радиус магнита": {
-          const current = stats.magnetRangeBonusCells || 0;
-          const result = Math.min(20, current + 5 * power);
-          return `+${result - current} кл. к радиусу притягивания (итог: ${20 + result} кл.)`;
-        }
-      
-        case "catch-blast": {
-          const radiusBonus = 65 * power;
-        
-          return (
-            `+${formatCells(radiusBonus)} ` +
-            `к радиусу импульса (75 урона)`
-          );
-        }
-      
-        case "emergency-repair": {
-          const resultingInterval =
-            getEmergencyRepairResult(
-              stats.healEvery,
-              power
-            );
-        
-          if (stats.healEvery === 0) {
-            return (
-              `лечение +100 HP каждые ` +
-              `${resultingInterval} убийств (макс. 8)`
-            );
-          }
-        
-          return (
-            `лечение +100 HP: ` +
-            `${stats.healEvery} → ` +
-            `${resultingInterval} убийств`
-          );
-        }
-      
-        case "critical": {
-          const maximumCritChance = 0.6;
-          const requestedBonus = 0.10 * power;
-        
-          const resultingChance = Math.min(
-            maximumCritChance,
-            stats.critChance + requestedBonus
-          );
-        
-          const actualBonus =
-            resultingChance - stats.critChance;
-        
-          if (actualBonus <= 0.0001) {
-            return "достигнут предел шанса крита 60%";
-          }
-        
-          if (
-            actualBonus <
-            requestedBonus - 0.0001
-          ) {
-            return (
-              `+${formatPercent(actualBonus)} ` +
-              `к шансу крита (x2.0), итог: ` +
-              `${formatPercent(resultingChance)}, ` +
-              `предел 60%`
-            );
-          }
-        
-          return (
-            `+${formatPercent(actualBonus)} ` +
-            `к шансу крита (x2.0), итог: ` +
-            `${formatPercent(resultingChance)}`
-          );
-        }
-      
-        case "explosive": {
-          const resultingRadius = 40 * power;
-
-          const radiusBonus =
-            resultingRadius -
-            (stats.explosionRadius || 0);
-
-          return (
-            `+${formatCells(radiusBonus)} ` +
-            `к радиусу взрыва (60% урона), итог: ` +
-            `${formatCells(resultingRadius)}`
-          );
-        }
-      
-        case "chain-lightning": {
-          const rangeBonus = 12 * power;
-        
-          return (
-            `+${power} цепных целей по 100 урона, ` +
-            `+${formatCells(rangeBonus)} ` +
-            `к дальности`
-          );
-        }
-
-        case "homing": {
-          const homingBonus = power;
-
-          return (
-            `+${formatBonusNumber(homingBonus, 1)} ` +
-            `к силе самонаведения, итог: ` +
-            `${formatBonusNumber(
-              stats.homing + homingBonus,
-              1
-            )}`
-          );
-        }
-      
-        case "caliber": {
-          const resultingRadius = Math.min(
-            15,
-            stats.bulletRadius + 1.5 * power
-          );
-        
-          const radiusBonus =
-            resultingRadius - stats.bulletRadius;
-        
-          if (radiusBonus <= 0.001) {
-            return "достигнут максимальный размер пули";
-          }
-        
-          return (
-            `+${formatBonusNumber(radiusBonus, 1)} px ` +
-            `к радиусу пули, итог: ` +
-            `${formatBonusNumber(resultingRadius, 1)} px`
-          );
-        }
-
-        case "Возвратный магнит": {
-          const resultingSpeed =
-            getGroundPullResult(
-              stats.groundPullSpeed,
-              power
-            );
-        
-          const speedBonus =
-            resultingSpeed -
-            stats.groundPullSpeed;
-        
-          return (
-            `+${formatCells(speedBonus)}/с ` +
-            `к скорости притяжения, итог: ` +
-            `${formatCells(resultingSpeed)}/с`
-          );
-        }
-      
-        case "boomerang": {
-          return `Магнитный возврат: 100 px/с, радиус 20 клеток`;
-        }
-
-        case "splinter": {
-          const dmg = Math.round((stats.damage || 100) * 0.25);
-          return `1 осколок по ${dmg} урона (25%) при рикошете`;
-        }
-
-        case "splinter-count": {
-          const current = stats.splinterCount || 1;
-          const result = Math.min(5, current + 1 * power);
-          return `+${result - current} осколка при рикошете (итог: ${result})`;
-        }
-
-        case "splinter-damage": {
-          const current = stats.splinterDamagePercent || 0.25;
-          const result = Math.min(1.0, current + 0.15 * power);
-          return `+${Math.round((result - current) * 100)}% к урону осколков (итог: ${Math.round(result * 100)}%)`;
-        }
-
-        case "stun": {
-          const chance = power >= 2 ? 0.15 : 0.10;
-          return `${Math.round(chance * 100)}% шанс оглушения на 0.4с (прерывает атаки)`;
-        }
-
-        case "reactive-armor": {
-          return `Взрыв 120px при уроне, кулдаун 3с`;
-        }
-
-        case "target-mark": {
-          return `+40% урона по помеченному врагу на 4с`;
-        }
-
-        case "poison": {
-          return "Отравление: 50 урона/с на 2.0с";
-        }
-
-        case "poison-damage": {
-          const current = stats.poisonDamage || 50;
-          const result = Number(Math.min(500, current + 50 * power).toFixed(0));
-          return `+${Number((result - current).toFixed(0))} к урону яда (итог: ${result}/с)`;
-        }
-
-        case "poison-duration": {
-          const current = stats.poisonDuration || 2.0;
-          const result = Number(Math.min(5.0, current + 1.0 * power).toFixed(1));
-          return `+${Number((result - current).toFixed(1))}с к длительности яда (итог: ${result}с)`;
-        }
-
-        case "parasite": {
-          return "25% шанс паразита, 1 спора на 75 урона";
-        }
-
-        case "parasite-chance": {
-          const current = stats.parasiteChance || 0.25;
-          const result = Math.min(0.50, current + 0.05 * power);
-          return `+${Math.round((result - current) * 100)}% к шансу паразита (итог: ${Math.round(result * 100)}%)`;
-        }
-
-        case "parasite-count": {
-          const current = stats.parasiteCount || 1;
-          const result = Math.min(5, current + 1 * power);
-          return `+${result - current} паразита при гибели (итог: ${result})`;
-        }
-
-        case "parasite-damage": {
-          const current = stats.parasiteDamage || 75;
-          const result = Number(Math.min(400, current + 50 * power).toFixed(0));
-          return `+${Number((result - current).toFixed(0))} к урону паразита (итог: ${result})`;
-        }
-
-        case "second-bullet": {
-          return "+1 независимый патрон (всего 2)";
-        }
-
-        case "dash": {
-          return `Рывок: 120px, кд 10с, неуязвимость`;
-        }
-
-        case "dash-distance": {
-          const current = stats.dashDistance || 120;
-          const result = Math.min(320, current + 50 * power);
-          return `+${result - current}px к дистанции рывка (итог: ${result}px)`;
-        }
-
-        case "dash-cooldown": {
-          const current = stats.dashCooldownBase || 10.0;
-          const result = Number(Math.max(2.0, current - 1.5 * power).toFixed(1));
-          return `-${Number((current - result).toFixed(1))}с перезарядки (итог: ${result}с)`;
-        }
-
-        case "dash-damage": {
-          return `Урон ${stats.damage} по врагам на пути рывка`;
-        }
-      }
+      return GameShared.findUpgradeDef(upgrade.id)?.bonus(player, power);
     }
 
     function isUpgradeUseful(upgrade) {
@@ -9351,13 +9412,6 @@
       if (
         upgrade.id === "caliber" &&
         stats.bulletRadius >= 15
-      ) {
-        return false;
-      }
-    
-      if (
-        upgrade.id === "emergency-repair" &&
-        stats.healEvery === 5
       ) {
         return false;
       }
@@ -9589,6 +9643,7 @@
       "catch-blast": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
       "emergency-repair": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="M12 7v6M9 10h6" stroke="#060c16" stroke-width="2.2" stroke-linecap="round"/></svg>`,
       "critical": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="12,2 14.8,9.2 22,12 14.8,14.8 12,22 9.2,14.8 2,12 9.2,9.2"/><circle cx="12" cy="12" r="2.2" fill="#060c16"/></svg>`,
+      "resilience": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2l8 3.5v6c0 5-3.4 8.6-8 10.5-4.6-1.9-8-5.5-8-10.5v-6z"/></svg>`,
       "explosive": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>`,
       "chain-lightning": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
       "homing": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>`,
@@ -9708,7 +9763,7 @@
           "Описание отсутствует.",
         bonusText: receivedBonusText,
         icon: getUpgradeIcon(
-          selectedUpgrade.title
+          selectedUpgrade.id
         ),
         rarityKey: rarity.key || "common",
         rarityLabel: rarity.label || "ОБЫЧНОЕ",
@@ -10554,11 +10609,13 @@ osc.stop(now + 0.05);
             mute: Boolean(parsed.mute),
             sensitivity: typeof parsed.sensitivity === "number" ? Math.max(0.4, Math.min(2.5, parsed.sensitivity)) : 1.0,
             screenShake: parsed.screenShake !== false,
-            bulletSkin: typeof parsed.bulletSkin === "string" ? parsed.bulletSkin : "neon"
+            bulletSkin: typeof parsed.bulletSkin === "string" ? parsed.bulletSkin : "neon",
+            playerSkin: typeof parsed.playerSkin === "string" ? parsed.playerSkin : "cyan",
+            showExactValues: Boolean(parsed.showExactValues)
           };
         }
       } catch {}
-      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon" };
+      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon", playerSkin: "cyan", showExactValues: false };
     }
 
     function saveGameSettings() {
@@ -10746,6 +10803,7 @@ osc.stop(now + 0.05);
 
     function showMainMenu() {
       currentMenuSubView = "main";
+      stopNetworkRoomListPolling();
       if (skinPreviewAnimId) {
         cancelAnimationFrame(skinPreviewAnimId);
         skinPreviewAnimId = null;
@@ -10841,7 +10899,7 @@ osc.stop(now + 0.05);
               <div class="mode-card-body">
                 <div class="mode-card-badge">ARMORY & SKINS</div>
                 <h3>Оружейная</h3>
-                <p>12 скинов пули, анимации ядра, орбитальные эффекты и живая демонстрация.</p>
+                <p>18 скинов пули и 11 обликов бойца, анимации ядра, орбитальные эффекты и живая демонстрация.</p>
               </div>
               <div class="mode-card-arrow">→</div>
             </button>
@@ -11018,6 +11076,18 @@ osc.stop(now + 0.05);
                   </button>
                 </div>
               </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Точные значения</span>
+                  <span class="setting-desc">Показывать числовые значения в скобках рядом с процентами</span>
+                </div>
+                <div class="setting-control">
+                  <button type="button" id="settingExactToggle" class="cyber-toggle-btn ${gameSettings.showExactValues ? 'active' : ''}">
+                    ${gameSettings.showExactValues ? '⚡ ВКЛ' : '✖ ВЫКЛ'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -11045,6 +11115,7 @@ osc.stop(now + 0.05);
       const sensRange = panel.querySelector("#settingSensitivity");
       const sensVal = panel.querySelector("#settingSensVal");
       const shakeBtn = panel.querySelector("#settingShakeToggle");
+      const exactBtn = panel.querySelector("#settingExactToggle");
       const backBtn = panel.querySelector("#settingsBackBtn");
       const resetBtn = panel.querySelector("#settingsResetBtn");
       const saveBtn = panel.querySelector("#settingsSaveBtn");
@@ -11103,6 +11174,16 @@ osc.stop(now + 0.05);
         saveGameSettings();
         soundManager.playUiClick();
       };
+
+      if (exactBtn) {
+        exactBtn.onclick = () => {
+          gameSettings.showExactValues = !gameSettings.showExactValues;
+          exactBtn.textContent = gameSettings.showExactValues ? "⚡ ВКЛ" : "✖ ВЫКЛ";
+          exactBtn.classList.toggle("active", gameSettings.showExactValues);
+          saveGameSettings();
+          soundManager.playUiClick();
+        };
+      }
 
       const exitSettings = () => {
         soundManager.playUiClick();
@@ -11199,7 +11280,7 @@ osc.stop(now + 0.05);
       renderKeybinds();
 
       resetBtn.onclick = () => {
-        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon" };
+        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon", playerSkin: "cyan" };
         keybinds = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
         saveGameSettings();
         saveKeybinds();
@@ -11211,9 +11292,19 @@ osc.stop(now + 0.05);
     }
 
     let skinPreviewAnimId = null;
+    let armoryTab = "bullet";
+    let selectedBulletSkinId = "neon";
+    let selectedPlayerSkinId = "cyan";
 
     function showSkinsMenu() {
       currentMenuSubView = "skins";
+      armoryTab = "bullet";
+      selectedBulletSkinId = gameSettings.bulletSkin || "neon";
+      selectedPlayerSkinId = gameSettings.playerSkin || "cyan";
+      renderArmoryModal();
+    }
+
+    function renderArmoryModal() {
       if (skinPreviewAnimId) {
         cancelAnimationFrame(skinPreviewAnimId);
         skinPreviewAnimId = null;
@@ -11223,31 +11314,47 @@ osc.stop(now + 0.05);
       overlay.classList.remove("ingame-settings-mode");
       overlay.classList.remove("hidden");
 
-      let selectedSkinId = gameSettings.bulletSkin || "neon";
+      const isBulletTab = armoryTab === "bullet";
+      const catalog = isBulletTab ? BULLET_SKIN_CATALOG : PLAYER_SKIN_CATALOG;
+      const equippedId = isBulletTab ? (gameSettings.bulletSkin || "neon") : (gameSettings.playerSkin || "cyan");
+      const selectedId = isBulletTab ? selectedBulletSkinId : selectedPlayerSkinId;
 
       panel.innerHTML = `
+        <!-- Supported Bullet Skins: data-skin="neon" data-skin="fire" data-skin="quantum" data-skin="toxic"
+        data-skin="cosmic" data-skin="plasma" data-skin="void" data-skin="inferno" data-skin="glitch" data-skin="prism"
+        data-skin="holy" data-skin="ruby" data-skin="frost" data-skin="shadow" data-skin="gold" data-skin="circuit"
+        data-skin="storm" data-skin="candy" -->
+        <!-- Supported Player Skins: data-skin="cyan" data-skin="crimson" data-skin="amber" data-skin="emerald"
+        data-skin="violet" data-skin="gold" data-skin="ice" data-skin="toxic" data-skin="inferno" data-skin="obsidian"
+        data-skin="holy" -->
         <div class="cyber-modal-container" style="max-width: 1040px; width: 100%;">
           <div class="cyber-modal-header">
             <div class="cyber-modal-icon" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #c084fc;">🎨</div>
             <div>
-              <h2 class="cyber-modal-title">Оружейная // Скины снаряда</h2>
-              <div class="cyber-modal-subtitle">12 стилей пули с уникальной геометрией, орбиталями, визуальными эффектами и цветным шлейфом</div>
+              <h2 class="cyber-modal-title">Оружейная // ${isBulletTab ? "Скины снаряда" : "Скины бойца"}</h2>
+              <div class="cyber-modal-subtitle">${isBulletTab
+                ? `${BULLET_SKIN_CATALOG.length} стилей пули с уникальной геометрией, орбиталями, визуальными эффектами и цветным шлейфом`
+                : `${PLAYER_SKIN_CATALOG.length} обликов бойца с уникальной палитрой брони, свечением и живой демонстрацией`}</div>
             </div>
           </div>
 
-          <!-- Supported Skins: data-skin="neon" data-skin="fire" data-skin="quantum" data-skin="toxic" data-skin="cosmic" data-skin="plasma" data-skin="void" data-skin="inferno" data-skin="glitch" data-skin="prism" data-skin="holy" data-skin="ruby" -->
+          <div class="guide-tabs-bar">
+            <button type="button" class="guide-tab-btn ${isBulletTab ? 'active' : ''}" data-armory-tab="bullet">🔫 Скины снаряда</button>
+            <button type="button" class="guide-tab-btn ${!isBulletTab ? 'active' : ''}" data-armory-tab="player">🛡️ Скины бойца</button>
+          </div>
+
           <div class="skins-armory-layout" style="flex: 1; min-height: 0;">
             <!-- Left: Skin Catalog -->
             <div class="skins-catalog-panel" style="flex: 1.25; display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%;">
               <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <span>Снаряды в арсенале (${BULLET_SKIN_CATALOG.length})</span>
-                <span style="color: #38bdf8;">Экипирован: <strong id="activeSkinLabel" style="color: #f8fafc;">${(BULLET_SKIN_CATALOG.find(s => s.id === (gameSettings.bulletSkin || 'neon'))?.name) || 'Плазмоид'}</strong></span>
+                <span>${isBulletTab ? "Снаряды" : "Бойцы"} в арсенале (${catalog.length})</span>
+                <span style="color: #38bdf8;">Экипирован: <strong id="activeSkinLabel" style="color: #f8fafc;">${(catalog.find(s => s.id === equippedId)?.name) || catalog[0].name}</strong></span>
               </div>
               
               <div class="skins-selector-scroll" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 9px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px;">
-                ${BULLET_SKIN_CATALOG.map(s => {
-                  const isEquipped = (gameSettings.bulletSkin || 'neon') === s.id;
-                  const isSelected = selectedSkinId === s.id;
+                ${catalog.map(s => {
+                  const isEquipped = equippedId === s.id;
+                  const isSelected = selectedId === s.id;
                   return `
                     <button type="button" class="cyber-skin-card ${isSelected ? 'selected' : ''} ${isEquipped ? 'equipped' : ''}" data-skin="${s.id}">
                       <div class="skin-card-icon">${s.icon}</div>
@@ -11296,6 +11403,17 @@ osc.stop(now + 0.05);
         </div>
       `;
 
+      // Armory tab switcher
+      panel.querySelectorAll("[data-armory-tab]").forEach(btn => {
+        btn.onclick = () => {
+          const tab = btn.dataset.armoryTab;
+          if (tab === armoryTab) return;
+          armoryTab = tab;
+          soundManager.playUiClick();
+          renderArmoryModal();
+        };
+      });
+
       const titleEl = panel.querySelector("#previewSkinTitle");
       const descEl = panel.querySelector("#previewSkinDesc");
       const tagBadgeEl = panel.querySelector("#previewTagBadge");
@@ -11305,8 +11423,15 @@ osc.stop(now + 0.05);
       const pCanvas = panel.querySelector("#skinPreviewCanvas");
       const pCtx = pCanvas ? pCanvas.getContext("2d") : null;
 
+      const getSelectedId = () => (isBulletTab ? selectedBulletSkinId : selectedPlayerSkinId);
+      const setSelectedId = id => {
+        if (isBulletTab) selectedBulletSkinId = id;
+        else selectedPlayerSkinId = id;
+      };
+      const getEquippedId = () => (isBulletTab ? (gameSettings.bulletSkin || "neon") : (gameSettings.playerSkin || "cyan"));
+
       const updatePreviewDetails = () => {
-        const skinMeta = BULLET_SKIN_CATALOG.find(s => s.id === selectedSkinId) || BULLET_SKIN_CATALOG[0];
+        const skinMeta = catalog.find(s => s.id === getSelectedId()) || catalog[0];
         if (titleEl) titleEl.textContent = `${skinMeta.icon} ${skinMeta.name}`;
         if (descEl) descEl.textContent = skinMeta.desc;
         if (tagBadgeEl) {
@@ -11315,7 +11440,7 @@ osc.stop(now + 0.05);
           tagBadgeEl.style.borderColor = skinMeta.tagColor || "rgba(56,189,248,0.3)";
         }
 
-        const isEquipped = (gameSettings.bulletSkin || "neon") === selectedSkinId;
+        const isEquipped = getEquippedId() === getSelectedId();
         if (equipBtn) {
           if (isEquipped) {
             equipBtn.textContent = "✔ Экипировано";
@@ -11328,18 +11453,18 @@ osc.stop(now + 0.05);
           }
         }
         if (activeLabel) {
-          const eqMeta = BULLET_SKIN_CATALOG.find(s => s.id === (gameSettings.bulletSkin || 'neon')) || BULLET_SKIN_CATALOG[0];
+          const eqMeta = catalog.find(s => s.id === getEquippedId()) || catalog[0];
           activeLabel.textContent = eqMeta.name;
         }
 
         // Update card styles
         panel.querySelectorAll(".cyber-skin-card").forEach(c => {
           const sId = c.dataset.skin;
-          c.classList.toggle("selected", sId === selectedSkinId);
-          c.classList.toggle("equipped", sId === (gameSettings.bulletSkin || "neon"));
+          c.classList.toggle("selected", sId === getSelectedId());
+          c.classList.toggle("equipped", sId === getEquippedId());
           const statusEl = c.querySelector(".skin-card-status");
           if (statusEl) {
-            statusEl.textContent = (sId === (gameSettings.bulletSkin || "neon")) ? "✓ ЭКИПИРОВАНО" : "ВЫБРАТЬ";
+            statusEl.textContent = (sId === getEquippedId()) ? "✓ ЭКИПИРОВАНО" : "ВЫБРАТЬ";
           }
         });
       };
@@ -11349,7 +11474,7 @@ osc.stop(now + 0.05);
       // Card click listener
       panel.querySelectorAll(".cyber-skin-card").forEach(c => {
         c.onclick = () => {
-          selectedSkinId = c.dataset.skin;
+          setSelectedId(c.dataset.skin);
           soundManager.playUiClick();
           updatePreviewDetails();
         };
@@ -11358,10 +11483,18 @@ osc.stop(now + 0.05);
       // Equip button listener
       if (equipBtn) {
         equipBtn.onclick = () => {
-          gameSettings.bulletSkin = selectedSkinId;
-          saveGameSettings();
-          if (window.net?.isMultiplayer) {
-            net.sendSkin(gameSettings.bulletSkin);
+          if (isBulletTab) {
+            gameSettings.bulletSkin = selectedBulletSkinId;
+            saveGameSettings();
+            if (window.net?.isMultiplayer) {
+              net.sendSkin(gameSettings.bulletSkin);
+            }
+          } else {
+            gameSettings.playerSkin = selectedPlayerSkinId;
+            saveGameSettings();
+            if (window.net?.isMultiplayer) {
+              net.sendPlayerSkin(gameSettings.playerSkin);
+            }
           }
           soundManager.playUiClick();
           updatePreviewDetails();
@@ -11371,7 +11504,11 @@ osc.stop(now + 0.05);
       const trySkinBtn = panel.querySelector("#trySkinBtn");
       if (trySkinBtn) {
         trySkinBtn.onclick = () => {
-          gameSettings.bulletSkin = selectedSkinId;
+          if (isBulletTab) {
+            gameSettings.bulletSkin = selectedBulletSkinId;
+          } else {
+            gameSettings.playerSkin = selectedPlayerSkinId;
+          }
           saveGameSettings();
           soundManager.playUiClick();
           runMode = "solo";
@@ -11415,19 +11552,21 @@ osc.stop(now + 0.05);
         const cx = pCanvas.width / 2 + Math.cos(pAngle) * 32;
         const cy = pCanvas.height / 2 + Math.sin(pAngle * 2) * 16;
 
-        // Spawn live trail particles
-        const trailCol = getSkinTrailColor(selectedSkinId, "#00f2fe");
-        previewParticles.push({
-          x: cx + (Math.random() - 0.5) * 4,
-          y: cy + (Math.random() - 0.5) * 4,
-          r: 2.5 + Math.random() * 3,
-          alpha: 0.85,
-          color: trailCol,
-          life: 0.45,
-          maxLife: 0.45,
-          vx: -Math.cos(pAngle) * 22 + (Math.random() - 0.5) * 8,
-          vy: -Math.sin(pAngle * 2) * 22 + (Math.random() - 0.5) * 8
-        });
+        if (isBulletTab) {
+          // Spawn live trail particles
+          const trailCol = getSkinTrailColor(selectedBulletSkinId, "#00f2fe");
+          previewParticles.push({
+            x: cx + (Math.random() - 0.5) * 4,
+            y: cy + (Math.random() - 0.5) * 4,
+            r: 2.5 + Math.random() * 3,
+            alpha: 0.85,
+            color: trailCol,
+            life: 0.45,
+            maxLife: 0.45,
+            vx: -Math.cos(pAngle) * 22 + (Math.random() - 0.5) * 8,
+            vy: -Math.sin(pAngle * 2) * 22 + (Math.random() - 0.5) * 8
+          });
+        }
 
         // Update & draw trail particles
         for (let i = previewParticles.length - 1; i >= 0; i--) {
@@ -11451,13 +11590,36 @@ osc.stop(now + 0.05);
           pCtx.restore();
         }
 
-        // Draw the bullet using the real game bullet skin renderer
-        pCtx.save();
-        pCtx.translate(cx, cy);
-        const pulse = 1 + Math.sin(t * 0.008) * 0.12;
-        const bulletRadius = 9.5;
-        drawBulletWithSkin(pCtx, selectedSkinId, bulletRadius, pulse, true, { body: "#38bdf8", glow: "rgba(56, 189, 248, 0.2)", light: "#e0f2fe" });
-        pCtx.restore();
+        if (isBulletTab) {
+          // Draw the bullet using the real game bullet skin renderer
+          pCtx.save();
+          pCtx.translate(cx, cy);
+          const pulse = 1 + Math.sin(t * 0.008) * 0.12;
+          const bulletRadius = 9.5;
+          drawBulletWithSkin(pCtx, selectedBulletSkinId, bulletRadius, pulse, true, { body: "#38bdf8", glow: "rgba(56, 189, 248, 0.2)", light: "#e0f2fe" });
+          pCtx.restore();
+        } else {
+          // Draw the player avatar using the chosen skin palette
+          const playerSkinColors = getPlayerSkinColors(selectedPlayerSkinId);
+          const bobY = cy + Math.sin(t * 0.004) * 6;
+          pCtx.save();
+          pCtx.translate(cx, bobY);
+
+          pCtx.beginPath();
+          pCtx.arc(0, 0, 20, 0, Math.PI * 2);
+          pCtx.fillStyle = playerSkinColors.glow;
+          pCtx.fill();
+
+          drawPlayerSkinBody(pCtx, selectedPlayerSkinId, 13, null);
+
+          pCtx.rotate(pAngle);
+          pCtx.beginPath();
+          pCtx.arc(13 * 0.45, 0, 3.5, 0, Math.PI * 2);
+          pCtx.fillStyle = playerSkinColors.light || "#ffffff";
+          pCtx.fill();
+
+          pCtx.restore();
+        }
 
         skinPreviewAnimId = requestAnimationFrame(renderPreviewFrame);
       };
@@ -11634,6 +11796,45 @@ osc.stop(now + 0.05);
           "Проходит сквозь пули в бестелесной форме"
         ],
         tactics: "Следите за свечением ауры: стреляйте только когда фантом полностью материализовался."
+      },
+      {
+        id: "mirage",
+        name: "Мираж",
+        icon: "🌫️",
+        color: "#a78bfa",
+        tag: "ПРИЗРАЧНЫЙ",
+        tagColor: "#a78bfa",
+        hp: "150 HP (+100/6 волн)",
+        speed: "70 px/s (+2.0/волна)",
+        wave: "Волна 7+",
+        xp: "140 XP",
+        desc: "Сиреневый морок (#a78bfa): 6 секунд полностью невидим, затем на 1 секунду проявляется — и снова прячется.",
+        abilities: [
+          "Невидим 6с, виден 1с — цикл повторяется, пока жив",
+          "Прямому урону невидимость не мешает — попадает и стреляет по силуэту вслепую",
+          "Умные пули не наводятся на него, пока он невидим — цель ловят только в окне видимости"
+        ],
+        tactics: "Стреляйте по последней известной позиции вслепую или ждите секундного окна видимости, чтобы умные пули захватили цель."
+      },
+      {
+        id: "sentinel",
+        name: "Часовой",
+        icon: "🛡️",
+        color: "#f59e0b",
+        tag: "ЩИТ",
+        tagColor: "#f59e0b",
+        hp: "350 HP (+100/4 волны)",
+        speed: "45 px/s (+1.5/волна)",
+        wave: "Волна 9+",
+        xp: "265 XP",
+        desc: "Бронированный страж (#f59e0b) с направленным щитом спереди. Разворачивается к цели заметно медленнее остальных врагов.",
+        abilities: [
+          "Щит спереди блокирует 80% урона в секторе ~130°",
+          "С боков и со спины получает полный урон",
+          "Разворот к цели ограничен низкой скоростью поворота — легко зайти сбоку",
+          "Самонаводящиеся пули наводятся на него как на любого другого врага — без исключений"
+        ],
+        tactics: "Обходите с фланга или заходите со спины — щит блокирует урон только спереди, а медленный разворот Часового этому благоприятствует."
       },
       {
         id: "magnetizer",
@@ -12478,6 +12679,10 @@ osc.stop(now + 0.05);
               r = 15; color = "#88eedd";
             } else if (mobId === "magnetizer") {
               r = 19; color = "#c084fc";
+            } else if (mobId === "mirage") {
+              r = 11; color = "#a78bfa";
+            } else if (mobId === "sentinel") {
+              r = 19; color = "#f59e0b";
             } else if (mobId === "boss") {
               r = 38; color = "#ff3f8f";
             }
@@ -12610,6 +12815,19 @@ osc.stop(now + 0.05);
                 bCtx.fillStyle = "#5eead4";
                 bCtx.fill();
                 bCtx.restore();
+              }
+            } else if (mobId === "mirage") {
+              // Невидим 6с, затем виден 1с, снова прячется
+              const cyclePosMs = now % 7000;
+              const fadeMs = 120;
+              const visibleMs = 1000;
+              if (cyclePosMs < 6000) {
+                extraAlpha = 0;
+              } else {
+                const t = cyclePosMs - 6000;
+                extraAlpha = t < fadeMs
+                  ? t / fadeMs
+                  : (t > visibleMs - fadeMs ? (visibleMs - t) / fadeMs : 1);
               }
             } else if (mobId === "tank") {
               // Плавный тяжелый марш танка
@@ -13298,6 +13516,23 @@ osc.stop(now + 0.05);
               </div>
             </div>
 
+            <!-- Card 3: Server Browser -->
+            <div class="guide-card-item" style="display: flex; flex-direction: column; gap: 12px; padding: 20px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="guide-card-header" style="margin-bottom: 0;">
+                  <span class="guide-num">03</span>
+                  <h4>📡 Список серверов</h4>
+                </div>
+                <button type="button" id="networkRoomListRefreshBtn" class="secondary-button" style="padding: 6px 12px; font-size: 11px; min-width: unset;">
+                  🔄 Обновить
+                </button>
+              </div>
+              <p style="font-size: 12px; color: #94a3b8; margin: 0;">Открытые лобби, ожидающие второго игрока. Нажмите на комнату, чтобы подключиться.</p>
+              <div id="networkRoomListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto;">
+                <div style="font-size: 12px; color: #64748b; text-align: center; padding: 10px;">Загрузка списка...</div>
+              </div>
+            </div>
+
             <!-- Status Message and Server Indicator -->
             <div id="networkMessageContainer">
               ${getNetworkMessageHtml()}
@@ -13342,7 +13577,22 @@ osc.stop(now + 0.05);
       
       const nameInput = panel.querySelector("#networkPlayerName");
       const codeInput = panel.querySelector("#networkRoomCode");
-      
+
+      stopNetworkRoomListPolling();
+      refreshNetworkRoomList();
+      networkRoomListInterval = setInterval(refreshNetworkRoomList, 5000);
+
+      panel.querySelector("#networkRoomListRefreshBtn")?.addEventListener("click", () => {
+        refreshNetworkRoomList();
+      });
+
+      panel.querySelector("#networkRoomListContainer")?.addEventListener("click", event => {
+        const item = event.target.closest("[data-room-code]");
+        if (!item) return;
+        codeInput.value = item.dataset.roomCode;
+        handleJoinRoom();
+      });
+
       codeInput.addEventListener("input", () => {
         codeInput.value = normalizeRoomCode(codeInput.value);
       });
@@ -13366,7 +13616,7 @@ osc.stop(now + 0.05);
         const joinBtn = panel.querySelector('[data-network-action="join"]');
         if (joinBtn) joinBtn.disabled = true;
 
-        const result = await net.joinRoom(code, playerName, gameSettings.bulletSkin || "neon");
+        const result = await net.joinRoom(code, playerName, gameSettings.bulletSkin || "neon", gameSettings.playerSkin || "cyan");
 
         if (!result.success) {
           setNetworkMessage(
@@ -13378,6 +13628,7 @@ osc.stop(now + 0.05);
 
         networkRoom = result.room;
         setNetworkMessage("", false);
+        stopNetworkRoomListPolling();
 
         if (result.snapshot || (result.room && result.room.started)) {
           overlay.classList.add("hidden");
@@ -13444,7 +13695,7 @@ osc.stop(now + 0.05);
       
         if (action === "create") {
           const result =
-            await net.createRoom(playerName, gameSettings.bulletSkin || "neon");
+            await net.createRoom(playerName, gameSettings.bulletSkin || "neon", gameSettings.playerSkin || "cyan");
         
           if (!result.success) {
             setNetworkMessage(
@@ -13458,6 +13709,7 @@ osc.stop(now + 0.05);
         
           networkRoom = result.room;
           setNetworkMessage("", false);
+          stopNetworkRoomListPolling();
           renderNetworkLobby();
           return;
         }
@@ -13546,6 +13798,7 @@ osc.stop(now + 0.05);
     function renderNetworkLobby() {
       hidePauseMenu();
       hideUpgradeTooltip();
+      stopNetworkRoomListPolling();
       overlay.classList.remove("hidden");
 
       if (!networkRoom) {
@@ -13604,7 +13857,10 @@ osc.stop(now + 0.05);
                   ${escapeHtml(roomPlayer.name)}
                 </div>
                 <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-                  Скин патрона: <strong style="color: #38bdf8;">${escapeHtml(roomPlayer.bulletSkin || 'neon')}</strong>
+                  Скин патрона: <strong style="color: #38bdf8;">${escapeHtml((BULLET_SKIN_CATALOG.find(s => s.id === roomPlayer.bulletSkin)?.name) || roomPlayer.bulletSkin || 'neon')}</strong>
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                  Скин бойца: <strong style="color: #c084fc;">${escapeHtml((PLAYER_SKIN_CATALOG.find(s => s.id === roomPlayer.playerSkin)?.name) || roomPlayer.playerSkin || 'cyan')}</strong>
                 </div>
               </div>
 
@@ -13808,7 +14064,7 @@ osc.stop(now + 0.05);
           button.disabled = true;
           button.textContent = "Отправка...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(true, gameSettings.bulletSkin || "neon");
+            await net.sendReady(true, gameSettings.bulletSkin || "neon", gameSettings.playerSkin || "cyan");
           }
           return;
         }
@@ -13817,7 +14073,7 @@ osc.stop(now + 0.05);
           button.disabled = true;
           button.textContent = "Отмена...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(false, gameSettings.bulletSkin || "neon");
+            await net.sendReady(false, gameSettings.bulletSkin || "neon", gameSettings.playerSkin || "cyan");
           }
           return;
         }
@@ -13877,7 +14133,7 @@ osc.stop(now + 0.05);
                   <span class="upgrade-number">0${coopSelectedUpgradeIndex + 1}</span>
                   <span class="rarity-label">${escapeHtml(chosenOffer.rarityLabel || 'ОБЫЧНОЕ')}</span>
                 </div>
-                <div class="upgrade-icon">${getUpgradeIcon(chosenOffer.title)}</div>
+                <div class="upgrade-icon">${getUpgradeIcon(chosenOffer.upgradeId || chosenOffer.title)}</div>
                 <h2>${escapeHtml(chosenOffer.title)}</h2>
                 <p>${escapeHtml(chosenOffer.description)}</p>
                 <div class="upgrade-bonus">(${escapeHtml(chosenOffer.bonusText)})</div>
@@ -14195,7 +14451,7 @@ osc.stop(now + 0.05);
           button.disabled = true;
           button.textContent = "Отправка...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(true, gameSettings.bulletSkin || "neon");
+            await net.sendReady(true, gameSettings.bulletSkin || "neon", gameSettings.playerSkin || "cyan");
           }
           return;
         }
@@ -14204,16 +14460,26 @@ osc.stop(now + 0.05);
           button.disabled = true;
           button.textContent = "Отмена...";
           if (window.net?.isMultiplayer) {
-            await net.sendReady(false, gameSettings.bulletSkin || "neon");
+            await net.sendReady(false, gameSettings.bulletSkin || "neon", gameSettings.playerSkin || "cyan");
           }
           return;
         }
 
         if (action === "lobby") {
           button.disabled = true;
+          const originalLabel = button.textContent;
           button.textContent = "Возврат в лобби...";
           if (window.net?.isMultiplayer) {
-            await net.returnToLobby();
+            const result = await net.returnToLobby();
+            if (!result || !result.success) {
+              // Сервер не ответил/отказал — не оставляем кнопку залипшей навсегда,
+              // возвращаем её в исходное состояние, чтобы можно было повторить попытку.
+              button.disabled = false;
+              button.textContent = originalLabel;
+              setNetworkMessage?.(
+                result?.message || "Не удалось вернуться в лобби, попробуйте ещё раз"
+              );
+            }
           }
           return;
         }
@@ -15278,6 +15544,11 @@ osc.stop(now + 0.05);
             reviveBeacon:
               snapshotPlayer.reviveBeacon || null,
 
+            revivePrompt:
+              snapshotPlayer.revivePrompt || null,
+            revivePromptTimer:
+              snapshotPlayer.revivePrompt?.timer ?? null,
+
             hitFlash: 0
           };
         
@@ -15292,10 +15563,13 @@ osc.stop(now + 0.05);
           coopPlayer.name ||
           "Игрок";
         coopPlayer.bulletSkin = snapshotPlayer.bulletSkin || coopPlayer.bulletSkin || "neon";
+        coopPlayer.playerSkin = snapshotPlayer.playerSkin || coopPlayer.playerSkin || "cyan";
       
         coopPlayer.serverX = snapshotX;
         coopPlayer.serverY = snapshotY;
         coopPlayer.reviveBeacon = snapshotPlayer.reviveBeacon || null;
+        coopPlayer.revivePrompt = snapshotPlayer.revivePrompt || null;
+        coopPlayer.revivePromptTimer = snapshotPlayer.revivePrompt?.timer ?? null;
 
         if (snapshotPlayer.id !== window.net?.playerId) {
           coopPlayer.prevTargetX = coopPlayer.targetX;
@@ -15869,7 +16143,10 @@ osc.stop(now + 0.05);
               Boolean(snapshotEnemy.shieldActive),
 
             bossId:
-              snapshotEnemy.bossId || null
+              snapshotEnemy.bossId || null,
+
+            spawnTime:
+              snapshotEnemy.type === "mirage" ? performance.now() / 1000 : 0
           };
 
           coopSession.enemies.set(
@@ -16037,6 +16314,9 @@ osc.stop(now + 0.05);
         coopEnemy.poisoned =
           Boolean(snapshotEnemy.poisoned);
 
+        coopEnemy.mirageVisible =
+          Boolean(snapshotEnemy.mirageVisible);
+
         coopEnemy.parasiteInfested =
           Boolean(snapshotEnemy.parasiteInfested);
 
@@ -16054,7 +16334,11 @@ osc.stop(now + 0.05);
         if (snapshotEnemy.bossId) {
           coopEnemy.bossId = snapshotEnemy.bossId;
         }
-      
+
+        if (snapshotEnemy.facingAngle !== undefined) {
+          coopEnemy.facingAngle = snapshotEnemy.facingAngle;
+        }
+
         /*
          * Новый враг сразу появляется в серверной
          * позиции. Дальнейшее движение интерполируется.
@@ -16348,7 +16632,13 @@ osc.stop(now + 0.05);
           0,
           (coopPlayer.invulnerability || 0) - dt
         );
+
+        if (coopPlayer.revivePrompt?.active && Number.isFinite(coopPlayer.revivePromptTimer)) {
+          coopPlayer.revivePromptTimer = Math.max(0, coopPlayer.revivePromptTimer - dt);
+        }
       }
+
+      updateReviveOverlay();
 
       updateCoopParticles(presentationDt);
       updateDamageNumbersIn(coopDamageNumbers, presentationDt);
@@ -17026,15 +17316,14 @@ osc.stop(now + 0.05);
       const positionY =
         coopPlayer.displayY;
     
-      const colors =
-        coopPlayerColors[
-          coopPlayer.colorIndex %
-          coopPlayerColors.length
-        ];
-    
       const isLocal =
         coopPlayer.id ===
         window.net?.playerId;
+
+      const skinId = isLocal
+        ? (gameSettings.playerSkin || "cyan")
+        : (coopPlayer.playerSkin || (coopPlayer.colorIndex === 1 ? "amber" : "cyan"));
+      const colors = getPlayerSkinColors(skinId);
 
       const isAlive = coopPlayer.alive !== false;
     
@@ -17100,28 +17389,12 @@ osc.stop(now + 0.05);
         : "rgba(121, 132, 148, 0.26)";
       ctx.fill();
     
-      ctx.beginPath();
-    
-      ctx.arc(
-        0,
-        0,
+      drawPlayerSkinBody(
+        ctx,
+        skinId,
         coopPlayer.r,
-        0,
-        Math.PI * 2
+        !isAlive ? "#6f7886" : (hitFlash > 0 ? "#ff7289" : null)
       );
-    
-      ctx.fillStyle = !isAlive
-        ? "#6f7886"
-        : hitFlash > 0
-          ? "#ff7289"
-          : colors.body;
-      ctx.shadowColor = isAlive
-        ? colors.body
-        : "#6f7886";
-      ctx.shadowBlur = 17;
-      ctx.fill();
-    
-      ctx.shadowBlur = 0;
     
       if (isAlive) {
         const aimTargetX = isLocal ? coopPointer.x : coopPlayer.aimX;
@@ -17711,6 +17984,261 @@ osc.stop(now + 0.05);
         ctx.shadowBlur = 16;
         ctx.fill();
 
+      } else if (skin === "frost") {
+        const rot = t * 0.006;
+        ctx.rotate(rot);
+        // Frozen mist halo
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(125, 211, 252, 0.1)";
+        ctx.fill();
+        // Hexagonal crystal shard
+        ctx.beginPath();
+        for (let g = 0; g < 6; g++) {
+          const ga = (g / 6) * Math.PI * 2;
+          const gx = Math.cos(ga) * r * 2.0 * pulse;
+          const gy = Math.sin(ga) * r * 2.0 * pulse;
+          if (g === 0) ctx.moveTo(gx, gy);
+          else ctx.lineTo(gx, gy);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "rgba(186, 230, 253, 0.7)";
+        ctx.lineWidth = 1.4;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+        // Falling ice shards
+        for (let f = 0; f < 5; f++) {
+          const fa = (f / 5) * Math.PI * 2 + t * 0.003;
+          const fDist = r * 1.5 + Math.sin(t * 0.01 + f * 2) * r * 0.35;
+          ctx.save();
+          ctx.translate(Math.cos(fa) * fDist, Math.sin(fa) * fDist);
+          ctx.rotate(fa + Math.PI / 2);
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.4);
+          ctx.lineTo(r * 0.14, r * 0.2);
+          ctx.lineTo(-r * 0.14, r * 0.2);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(224, 242, 254, 0.85)";
+          ctx.fill();
+          ctx.restore();
+        }
+        // Core
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const frostGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        frostGrad.addColorStop(0, "#ffffff");
+        frostGrad.addColorStop(0.5, "#e0f2fe");
+        frostGrad.addColorStop(1, "#38bdf8");
+        ctx.fillStyle = frostGrad;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+
+      } else if (skin === "shadow") {
+        const rot = t * 0.003;
+        ctx.rotate(rot);
+        // Dark void aura
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.6 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(49, 46, 129, 0.18)";
+        ctx.fill();
+        // Smoky wisps orbiting
+        for (let w = 0; w < 5; w++) {
+          const wa = (w / 5) * Math.PI * 2 - t * 0.005;
+          const wDist = r * 1.6 + Math.sin(t * 0.008 + w * 2) * r * 0.5;
+          ctx.beginPath();
+          ctx.arc(Math.cos(wa) * wDist, Math.sin(wa) * wDist, r * 0.35 + Math.sin(t * 0.01 + w) * r * 0.12, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(167, 139, 250, 0.45)";
+          ctx.shadowColor = "#7c3aed";
+          ctx.shadowBlur = 10;
+          ctx.fill();
+        }
+        // Sharp rim
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.35 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(167, 139, 250, 0.55)";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        // Core (dark with purple rim light)
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        shadowGrad.addColorStop(0, "#4c1d95");
+        shadowGrad.addColorStop(0.6, "#1e1b4b");
+        shadowGrad.addColorStop(1, "#0b0a1f");
+        ctx.fillStyle = shadowGrad;
+        ctx.shadowColor = "#7c3aed";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(196, 181, 253, 0.6)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+      } else if (skin === "gold") {
+        const rot = t * 0.005;
+        ctx.rotate(rot);
+        // Golden aura
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.4 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(251, 191, 36, 0.14)";
+        ctx.fill();
+        // Rotating diamond facets
+        for (let f = 0; f < 4; f++) {
+          ctx.save();
+          ctx.rotate((f * Math.PI) / 2 + Math.PI / 4);
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 1.9 * pulse);
+          ctx.lineTo(r * 0.55, 0);
+          ctx.lineTo(0, r * 0.5);
+          ctx.lineTo(-r * 0.55, 0);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(253, 230, 138, 0.35)";
+          ctx.strokeStyle = "#fbbf24";
+          ctx.lineWidth = 1;
+          ctx.shadowColor = "#f59e0b";
+          ctx.shadowBlur = 12;
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Sparkle flashes
+        const sparkleA = (t * 0.006) % (Math.PI * 2);
+        for (let s = 0; s < 3; s++) {
+          const sa = sparkleA + (s / 3) * Math.PI * 2;
+          const sr = r * 1.1;
+          ctx.beginPath();
+          ctx.arc(Math.cos(sa) * sr, Math.sin(sa) * sr, r * 0.12, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          ctx.fill();
+        }
+        // Core
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const goldGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        goldGrad.addColorStop(0, "#fffbeb");
+        goldGrad.addColorStop(0.5, "#fde68a");
+        goldGrad.addColorStop(1, "#f59e0b");
+        ctx.fillStyle = goldGrad;
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+
+      } else if (skin === "circuit") {
+        // Rotating circuit grid ring
+        const rot = t * 0.004;
+        ctx.rotate(rot);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.3 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(34, 211, 238, 0.35)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Circuit trace lines
+        ctx.strokeStyle = "rgba(103, 232, 249, 0.55)";
+        ctx.lineWidth = 1;
+        for (let l = 0; l < 6; l++) {
+          const la = (l / 6) * Math.PI * 2;
+          const midR = r * 1.35;
+          const outR = r * 2.0 + (Math.floor(t * 0.002 + l) % 2) * r * 0.2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(la) * midR, Math.sin(la) * midR);
+          ctx.lineTo(Math.cos(la) * outR, Math.sin(la) * outR);
+          ctx.stroke();
+          // Lit node — sequentially blinking like data pulse
+          const litIndex = Math.floor(t * 0.006) % 6;
+          ctx.beginPath();
+          ctx.arc(Math.cos(la) * outR, Math.sin(la) * outR, l === litIndex ? r * 0.22 : r * 0.12, 0, Math.PI * 2);
+          ctx.fillStyle = l === litIndex ? "#a5f3fc" : "rgba(34, 211, 238, 0.5)";
+          ctx.shadowColor = "#22d3ee";
+          ctx.shadowBlur = l === litIndex ? 12 : 4;
+          ctx.fill();
+        }
+        // Core (digital chip look)
+        ctx.beginPath();
+        ctx.rect(-r * 0.75, -r * 0.75, r * 1.5, r * 1.5);
+        const circGrad = ctx.createLinearGradient(-r, -r, r, r);
+        circGrad.addColorStop(0, "#ecfeff");
+        circGrad.addColorStop(0.5, "#67e8f9");
+        circGrad.addColorStop(1, "#0891b2");
+        ctx.fillStyle = circGrad;
+        ctx.shadowColor = "#06b6d4";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+
+      } else if (skin === "storm") {
+        // Electric storm halo
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.6 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(96, 165, 250, 0.1)";
+        ctx.fill();
+        // Random crackling lightning bolts
+        ctx.strokeStyle = "#dbeafe";
+        ctx.lineWidth = 1.4;
+        ctx.shadowColor = "#3b82f6";
+        ctx.shadowBlur = 14;
+        for (let b = 0; b < 4; b++) {
+          const ba = (b / 4) * Math.PI * 2 + Math.sin(t * 0.01 + b) * 0.4;
+          const boltLen = r * (1.6 + Math.sin(t * 0.02 + b * 5) * 0.6);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          const midX = Math.cos(ba) * boltLen * 0.5 + Math.cos(ba + 1.2) * r * 0.4;
+          const midY = Math.sin(ba) * boltLen * 0.5 + Math.sin(ba + 1.2) * r * 0.4;
+          ctx.lineTo(midX, midY);
+          ctx.lineTo(Math.cos(ba) * boltLen, Math.sin(ba) * boltLen);
+          ctx.stroke();
+        }
+        // Core
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const stormGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        stormGrad.addColorStop(0, "#ffffff");
+        stormGrad.addColorStop(0.5, "#dbeafe");
+        stormGrad.addColorStop(1, "#3b82f6");
+        ctx.fillStyle = stormGrad;
+        ctx.shadowColor = "#3b82f6";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+      } else if (skin === "candy") {
+        const rot = t * 0.006;
+        ctx.rotate(rot);
+        // Soft pastel halo
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.4 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(244, 114, 182, 0.14)";
+        ctx.fill();
+        // Barber-pole swirl stripes
+        for (let s = 0; s < 6; s++) {
+          const sa = (s / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, r * (1.2 + s * 0.18), sa, sa + Math.PI / 4);
+          ctx.strokeStyle = s % 2 === 0 ? "rgba(244, 114, 182, 0.65)" : "rgba(255, 255, 255, 0.7)";
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+        }
+        // Sparkle hearts
+        for (let h = 0; h < 3; h++) {
+          const ha = (h / 3) * Math.PI * 2 + t * 0.004;
+          const hDist = r * 1.5;
+          ctx.beginPath();
+          ctx.arc(Math.cos(ha) * hDist, Math.sin(ha) * hDist, r * 0.16, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+          ctx.shadowColor = "#ec4899";
+          ctx.shadowBlur = 8;
+          ctx.fill();
+        }
+        // Core
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const candyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        candyGrad.addColorStop(0, "#ffffff");
+        candyGrad.addColorStop(0.5, "#fbcfe8");
+        candyGrad.addColorStop(1, "#ec4899");
+        ctx.fillStyle = candyGrad;
+        ctx.shadowColor = "#ec4899";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+
       } else {
         // Default neon
         // Energy ring pulse
@@ -17885,8 +18413,8 @@ osc.stop(now + 0.05);
       );
     
       ctx.lineTo(
-        localPlayer.displayX + dx * 160,
-        localPlayer.displayY + dy * 160
+        localPlayer.displayX + dx * (localPlayer.stats?.dashDistance || 160),
+        localPlayer.displayY + dy * (localPlayer.stats?.dashDistance || 160)
       );
     
       ctx.strokeStyle =
@@ -17913,7 +18441,22 @@ osc.stop(now + 0.05);
 
       const healthRatio = clamp(boss.hp / (boss.maxHp || 1), 0, 1);
 
+      /*
+       * Прозрачность 50% если игрок в зоне 2 клеток (100px) от бара.
+       */
+      const myPlayer = coopSession.players.get(window.net?.playerId);
+      const barBottom = y + barHeight + 6;
+      const proximityZone = 100;
+      let barAlpha = 1.0;
+      if (myPlayer && myPlayer.alive) {
+        const playerScreenY = myPlayer.displayY;
+        if (playerScreenY < barBottom + proximityZone) {
+          barAlpha = 0.5;
+        }
+      }
+
       ctx.save();
+      ctx.globalAlpha = barAlpha;
 
       // Outer glow and background
       ctx.fillStyle = "rgba(4, 8, 16, 0.88)";
@@ -18236,6 +18779,24 @@ osc.stop(now + 0.05);
       }
 
       /*
+       * Мираж невидим 6 секунд, затем появляется на 1 секунду и снова прячется.
+       * Пока невидим — умные пули его не видят (см. applySmartHoming).
+       */
+      if (enemy.type === "mirage") {
+        const cyclePos = ((performance.now() / 1000) - (enemy.spawnTime || 0)) % MIRAGE_CYCLE;
+        const fade = 0.12;
+        const visibleDur = MIRAGE_CYCLE - MIRAGE_HIDDEN;
+        if (cyclePos < MIRAGE_HIDDEN) {
+          ctx.globalAlpha = 0;
+        } else {
+          const t = cyclePos - MIRAGE_HIDDEN;
+          ctx.globalAlpha = t < fade
+            ? t / fade
+            : (t > visibleDur - fade ? (visibleDur - t) / fade : 1);
+        }
+      }
+
+      /*
        * Метка цели — подсветка.
        */
       if (enemy.targetMarked) {
@@ -18338,7 +18899,8 @@ osc.stop(now + 0.05);
           chargeDy: enemy.chargeDy,
           chargeProgress,
           coolingProgress,
-          isCharging: Boolean(enemy.isCharging)
+          isCharging: Boolean(enemy.isCharging),
+          facingAngle: enemy.facingAngle
         });
       }
 
@@ -19164,8 +19726,8 @@ osc.stop(now + 0.05);
       ctx.moveTo(player.x, player.y);
     
       ctx.lineTo(
-        player.x + direction.x * 160,
-        player.y + direction.y * 160
+        player.x + direction.x * (stats.dashDistance || 160),
+        player.y + direction.y * (stats.dashDistance || 160)
       );
     
       ctx.strokeStyle =
@@ -19185,6 +19747,8 @@ osc.stop(now + 0.05);
       if (blinking) {
         return;
       }
+
+      const skin = getPlayerSkinColors(gameSettings.playerSkin || "cyan");
 
       ctx.save();
       ctx.translate(player.x, player.y);
@@ -19215,18 +19779,15 @@ osc.stop(now + 0.05);
 
       ctx.beginPath();
       ctx.arc(0, 0, player.r + 7, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(85, 216, 255, 0.18)";
+      ctx.fillStyle = skin.glow;
       ctx.fill();
 
-      ctx.beginPath();
-      ctx.arc(0, 0, player.r, 0, Math.PI * 2);
-      ctx.fillStyle = playerHitFlash > 0
-        ? "#ff7289"
-        : "#55d8ff";
-      ctx.shadowColor = "#55d8ff";
-      ctx.shadowBlur = 17;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      drawPlayerSkinBody(
+        ctx,
+        gameSettings.playerSkin || "cyan",
+        player.r,
+        playerHitFlash > 0 ? "#ff7289" : null
+      );
 
       const aimAngle = Math.atan2(
         pointer.y - player.y,
@@ -19237,7 +19798,7 @@ osc.stop(now + 0.05);
 
       ctx.beginPath();
       ctx.arc(player.r * 0.45, 0, 5, 0, Math.PI * 2);
-      ctx.fillStyle = "#c8f7ff";
+      ctx.fillStyle = skin.light || "#c8f7ff";
       ctx.fill();
 
       ctx.restore();
@@ -19499,6 +20060,24 @@ osc.stop(now + 0.05);
         }
 
         /*
+         * Мираж невидим 6 секунд, затем появляется на 1 секунду и снова прячется.
+         * Пока невидим — умные пули его не видят (см. applySmartHoming).
+         */
+        if (enemy.type === "mirage") {
+          const cyclePos = ((performance.now() / 1000) - (enemy.spawnTime || 0)) % MIRAGE_CYCLE;
+          const fade = 0.12;
+          const visibleDur = MIRAGE_CYCLE - MIRAGE_HIDDEN;
+          if (cyclePos < MIRAGE_HIDDEN) {
+            ctx.globalAlpha = 0;
+          } else {
+            const t = cyclePos - MIRAGE_HIDDEN;
+            ctx.globalAlpha = t < fade
+              ? t / fade
+              : (t > visibleDur - fade ? (visibleDur - t) / fade : 1);
+          }
+        }
+
+        /*
          * Метка цели — жёлтая подсветка.
          */
         if (enemy.targetMarked) {
@@ -19594,7 +20173,8 @@ osc.stop(now + 0.05);
             chargeDy: enemy.chargeDy,
             chargeProgress,
             coolingProgress,
-            isCharging: Boolean(enemy.isCharging)
+            isCharging: Boolean(enemy.isCharging),
+            facingAngle: enemy.facingAngle
           });
         }
 
@@ -20689,7 +21269,7 @@ osc.stop(now + 0.05);
               familyId: famKey,
               title: fam.title,
               description: isBase ? (item.description || fam.title) : "",
-              icon: getUpgradeIcon(fam.title),
+              icon: getUpgradeIcon(fam.id),
               rarityKey: "rare",
               rarityLabel: "РЕДКОЕ",
               baseActive: isBase,
@@ -20734,7 +21314,7 @@ osc.stop(now + 0.05);
               id: rawKey,
               title: item.title,
               description: item.description,
-              icon: getUpgradeIcon(item.title),
+              icon: getUpgradeIcon(item.upgradeId || item.id || item.title),
               rarityKey: item.rarityKey || item.rarity?.key || "common",
               rarityLabel: item.rarityLabel || item.rarity?.label || "ОБЫЧНОЕ",
               bonusText: item.bonusText,
@@ -20758,7 +21338,7 @@ osc.stop(now + 0.05);
 
     function renderPauseUpgradeCardHtml(entry, group, index) {
       const rarityKey = entry.rarityKey || "common";
-      const iconHtml = entry.icon || getUpgradeIcon(entry.title);
+      const iconHtml = entry.icon || getUpgradeIcon(entry.id || entry.title);
 
       if (entry.isFamily) {
         const badgesHtml = [
@@ -21626,6 +22206,69 @@ osc.stop(now + 0.05);
       }
     });
 
+    /*
+     * Панель мониторинга сети (F3) — перемещаемая мышью.
+     * Позиция сохраняется в localStorage между сессиями.
+     */
+    (function setupNetStatsDrag() {
+      try {
+        const raw = localStorage.getItem("one_bullet_netstats_pos");
+        if (raw) {
+          const pos = JSON.parse(raw);
+          if (Number.isFinite(pos?.left) && Number.isFinite(pos?.top)) {
+            netStatsEl.style.left = `${pos.left}px`;
+            netStatsEl.style.top = `${pos.top}px`;
+          }
+        }
+      } catch {}
+
+      let dragging = false;
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+
+      netStatsEl.addEventListener("mousedown", event => {
+        dragging = true;
+        const rect = netStatsEl.getBoundingClientRect();
+        dragOffsetX = event.clientX - rect.left;
+        dragOffsetY = event.clientY - rect.top;
+        event.preventDefault();
+      });
+
+      window.addEventListener("mousemove", event => {
+        if (!dragging) return;
+        const left = clamp(event.clientX - dragOffsetX, 0, window.innerWidth - netStatsEl.offsetWidth);
+        const top = clamp(event.clientY - dragOffsetY, 0, window.innerHeight - netStatsEl.offsetHeight);
+        netStatsEl.style.left = `${left}px`;
+        netStatsEl.style.top = `${top}px`;
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        try {
+          localStorage.setItem("one_bullet_netstats_pos", JSON.stringify({
+            left: parseFloat(netStatsEl.style.left) || 10,
+            top: parseFloat(netStatsEl.style.top) || 10
+          }));
+        } catch {}
+      });
+    })();
+
+    /*
+     * QTE воскрешения: пробел засчитывается каждый раз, пока промпт активен.
+     */
+    document.addEventListener("keydown", event => {
+      if (event.code !== "Space") return;
+      const localPlayer = coopSession.players?.get(window.net?.playerId);
+      if (!localPlayer?.revivePrompt?.active) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!event.repeat) {
+        window.net?.sendRevivePress?.();
+      }
+    }, true);
+
     function gameLoop(currentTime) {
       /*
        * Следующий кадр назначается сразу.
@@ -21743,7 +22386,7 @@ osc.stop(now + 0.05);
     }
 
     const UPGRADE_FAMILIES = [
-      { id: "core", label: "Основные", members: ["damage", "bounce", "pierce", "bullet-speed", "move-speed", "armor", "repair", "critical", "caliber", "second-bullet", "homing", "emergency-repair"] },
+      { id: "core", label: "Основные", members: ["damage", "bounce", "pierce", "bullet-speed", "move-speed", "armor", "repair", "critical", "resilience", "caliber", "second-bullet", "homing", "emergency-repair", "resurrection"] },
       { id: "catch-blast", label: "Импульсный захват", base: "catch-blast", members: ["catch-blast-damage", "catch-blast-radius"] },
       { id: "explosive", label: "Взрыв", base: "explosive", members: ["explosion-damage", "explosion-radius"] },
       { id: "chain-lightning", label: "Молния", base: "chain-lightning", members: ["lightning-damage", "lightning-targets", "lightning-range"] },
@@ -21762,6 +22405,7 @@ osc.stop(now + 0.05);
       "bullet-speed": "Разогнанный ствол", "move-speed": "Лёгкие ботинки",
       armor: "Усиленная броня", repair: "Ремонтный комплект",
       critical: "Крит. механизм", caliber: "Крупный калибр",
+      resilience: "Стойкость",
       "second-bullet": "Запасной патрон",
       "catch-blast": "Импульсный захват", "catch-blast-damage": "Сила импульса",
       "catch-blast-radius": "Радиус импульса",
@@ -21786,12 +22430,14 @@ osc.stop(now + 0.05);
       parasite: "Пуля с паразитом", "parasite-chance": "Шанс паразита",
       "parasite-count": "Кол-во паразитов", "parasite-damage": "Урон паразита",
       dash: "Рывок", "dash-distance": "Дальность рывка",
-      "dash-cooldown": "Перезарядка рывка", "dash-damage": "Разящий рывок"
+      "dash-cooldown": "Перезарядка рывка", "dash-damage": "Разящий рывок",
+      resurrection: "Воскрешение"
     };
 
     const UPGRADE_MAX = {
       "bullet-speed": { stat: "bulletSpeed", max: 1625 },
       critical: { stat: "critChance", max: 0.6 },
+      resilience: { stat: "damageResistance", max: 0.42 },
       caliber: { stat: "bulletRadius", max: 15 },
       "catch-blast-damage": { stat: "catchBlastDamageRatio", max: 2.5 },
       "catch-blast-radius": { stat: "catchBlast", max: 220 },
@@ -21811,11 +22457,11 @@ osc.stop(now + 0.05);
       "reactive-armor-cooldown": { stat: "reactiveArmorCooldownBase", min: 1.5 },
       "mark-amplification": { stat: "markBonus", max: 0.80 },
       "mark-duration": { stat: "markDuration", max: 10.0 },
-      "poison-damage": { stat: "poisonDamage", max: 500 },
+      "poison-damage": { stat: "poisonDamageRatio", max: 5.0 },
       "poison-duration": { stat: "poisonDuration", max: 5.0 },
       "parasite-chance": { stat: "parasiteChance", max: 0.50 },
       "parasite-count": { stat: "parasiteCount", max: 5 },
-      "parasite-damage": { stat: "parasiteDamage", max: 400 },
+      "parasite-damage": { stat: "parasiteDamageRatio", max: 4.0 },
       "dash-distance": { stat: "dashDistance", max: 320 },
       "dash-cooldown": { stat: "dashCooldownBase", min: 2.0 },
       "emergency-repair": { stat: "healEvery", min: 8 },
@@ -21832,7 +22478,8 @@ osc.stop(now + 0.05);
       parasite: { stat: "parasite", boolean: true },
       dash: { stat: "dash", boolean: true },
       "dash-damage": { stat: "dashDamage", boolean: true },
-      "second-bullet": { stat: "magazineSize", max: 2 }
+      "second-bullet": { stat: "magazineSize", max: 2 },
+      resurrection: { stat: "resurrection", boolean: true }
     };
 
     const debug = {
@@ -22234,6 +22881,7 @@ osc.stop(now + 0.05);
           armor: "armor", "усиленная броня": "armor", "броня": "armor",
           repair: "repair", heal: "repair", "ремонтный комплект": "repair", "ремонт": "repair",
           crit: "critical", critical: "critical", "критический механизм": "critical", "крит": "critical",
+          resilience: "resilience", "стойкость": "resilience", "сопротивление": "resilience",
           caliber: "caliber", "крупный калибр": "caliber", "калибр": "caliber",
           "second-bullet": "second-bullet", second: "second-bullet", "запасной патрон": "second-bullet", "патрон": "second-bullet",
           "catch-blast": "catch-blast", blast: "catch-blast", "импульсный захват": "catch-blast",
@@ -22307,7 +22955,7 @@ osc.stop(now + 0.05);
             title: targetUp.title,
             description: targetUp.description || "",
             bonusText: typeof targetUp.bonus === "function" ? targetUp.bonus(player, p) : "",
-            icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(targetUp.title) : "◆",
+            icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(targetUp.id) : "◆",
             rarityKey: targetUp.fixedRarity || (p >= 3 ? "legendary" : p >= 2 ? "rare" : "common"),
             rarityLabel: targetUp.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : targetUp.fixedRarity === "rare" ? "РЕДКОЕ" : (p >= 3 ? "ЛЕГЕНДАРНОЕ" : p >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
             power: p
@@ -22365,7 +23013,7 @@ osc.stop(now + 0.05);
               title: item.upgrade.title,
               description: item.upgrade.description || "",
               bonusText: typeof item.upgrade.bonus === "function" ? item.upgrade.bonus(player, item.power) : "",
-              icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(item.upgrade.title) : "◆",
+              icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(item.upgrade.id) : "◆",
               rarityKey: item.upgrade.fixedRarity || (item.power >= 3 ? "legendary" : item.power >= 2 ? "rare" : "common"),
               rarityLabel: item.upgrade.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : item.upgrade.fixedRarity === "rare" ? "РЕДКОЕ" : (item.power >= 3 ? "ЛЕГЕНДАРНОЕ" : item.power >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
               power: item.power

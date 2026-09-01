@@ -225,10 +225,15 @@ class OneBulletNetwork extends EventTarget {
     });
   }
 
-  async createRoom(name) {
+  async listRooms() {
+    const result = await this.request("room:list", {}, 4000);
+    return result?.success ? (result.rooms || []) : [];
+  }
+
+  async createRoom(name, bulletSkin = "neon", playerSkin = "cyan") {
     const result = await this.request(
       "room:create",
-      { name }
+      { name, bulletSkin, playerSkin }
     );
 
     if (result.success) {
@@ -244,7 +249,7 @@ class OneBulletNetwork extends EventTarget {
     return result;
   }
 
-  async joinRoom(code, name, bulletSkin = "neon") {
+  async joinRoom(code, name, bulletSkin = "neon", playerSkin = "cyan") {
     const saved = this.getReconnectData();
     const token = (saved && saved.roomCode === code) ? saved.token : null;
 
@@ -254,6 +259,7 @@ class OneBulletNetwork extends EventTarget {
         code,
         name,
         bulletSkin,
+        playerSkin,
         token
       }
     );
@@ -333,14 +339,21 @@ class OneBulletNetwork extends EventTarget {
     return this.request("room:return-to-lobby");
   }
 
-  async sendReady(ready, bulletSkin = "neon") {
-    return this.request("room:ready", { ready: Boolean(ready), bulletSkin });
+  async sendReady(ready, bulletSkin = "neon", playerSkin = "cyan") {
+    return this.request("room:ready", { ready: Boolean(ready), bulletSkin, playerSkin });
   }
 
   sendSkin(bulletSkin) {
     if (!this.isMultiplayer || this.socket?.connected === false) return;
     try {
       this.socket.emit("net:set-skin", { bulletSkin });
+    } catch {}
+  }
+
+  sendPlayerSkin(playerSkin) {
+    if (!this.isMultiplayer || this.socket?.connected === false) return;
+    try {
+      this.socket.emit("net:set-player-skin", { playerSkin });
     } catch {}
   }
 
@@ -385,6 +398,15 @@ class OneBulletNetwork extends EventTarget {
     }
     try {
       this.socket.emit("net:toggle-pause");
+    } catch {}
+  }
+
+  sendRevivePress() {
+    if (!this.isMultiplayer || this.socket?.connected === false) {
+      return;
+    }
+    try {
+      this.socket.emit("net:revive-press");
     } catch {}
   }
 

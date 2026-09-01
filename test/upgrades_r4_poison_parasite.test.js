@@ -65,16 +65,16 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     // Apply base poison
     ctx.applyServerUpgrade(world, player1, { id: "poison", power: 1 });
     assert.equal(player1.stats.poison, true);
-    assert.equal(player1.stats.poisonDamage, 50);
+    assert.equal(player1.stats.poisonDamageRatio, 0.5);
     assert.equal(player1.stats.poisonDuration, 2.0);
 
     // Upgrade poison damage with power 3 (+1.5 -> 2.0)
     ctx.applyServerUpgrade(world, player1, { id: "poison-damage", power: 3 });
-    assert.equal(player1.stats.poisonDamage, 200);
+    assert.equal(player1.stats.poisonDamageRatio, 2.0);
 
     // Exceed damage cap (5.0 max)
     ctx.applyServerUpgrade(world, player1, { id: "poison-damage", power: 10 });
-    assert.equal(player1.stats.poisonDamage, 500, "Poison damage must clamp at 5.0 max");
+    assert.equal(player1.stats.poisonDamageRatio, 5.0, "Poison damage must clamp at 5.0 max");
 
     const poisonDmgUpg = ctx.SERVER_UPGRADES.find(u => u.id === "poison-damage");
     assert.equal(poisonDmgUpg.available(player1), false, "Poison damage must become unavailable once capped at 500");
@@ -99,7 +99,7 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
     assert.equal(player1.stats.parasite, true);
     assert.equal(player1.stats.parasiteChance, 0.25);
     assert.equal(player1.stats.parasiteCount, 1);
-    assert.equal(player1.stats.parasiteDamage, 75);
+    assert.equal(player1.stats.parasiteDamageRatio, 0.75);
 
     // Upgrade parasite chance with power 2 (+10% -> 35%)
     ctx.applyServerUpgrade(world, player1, { id: "parasite-chance", power: 2 });
@@ -125,11 +125,11 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
 
     // Upgrade parasite damage (+1.0 -> 2.0)
     ctx.applyServerUpgrade(world, player1, { id: "parasite-damage", power: 2 });
-    assert.equal(player1.stats.parasiteDamage, 175);
+    assert.equal(player1.stats.parasiteDamageRatio, 1.75);
 
     // Exceed damage cap (4.0 max)
     ctx.applyServerUpgrade(world, player1, { id: "parasite-damage", power: 10 });
-    assert.equal(player1.stats.parasiteDamage, 400, "Parasite damage must clamp at 4.0 max");
+    assert.equal(player1.stats.parasiteDamageRatio, 4.0, "Parasite damage must clamp at 4.0 max");
 
     const parasiteDmgUpg = ctx.SERVER_UPGRADES.find(u => u.id === "parasite-damage");
     assert.equal(parasiteDmgUpg.available(player1), false, "Parasite damage must become unavailable once capped at 400");
@@ -142,7 +142,7 @@ test("R4 Poison Bullet and Parasite Bullet Comprehensive Suite", async (t) => {
   await t.test("Tier 3.1: Poison Bullet DoT application and 1.0s periodic tick damage", () => {
     const { room, world, player1 } = createTestWorld(ctx);
     player1.stats.poison = true;
-    player1.stats.poisonDamage = 150;
+    player1.stats.poisonDamageRatio = 1.5;
     player1.stats.poisonDuration = 3.0;
 
     const enemy = ctx.createServerEnemy(world, "tank", 400, 400, true);

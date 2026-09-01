@@ -25,6 +25,12 @@ function createEnemyBase(type, wave) {
     case "phantom":
       return { type, r: 12, speed: 75 + wave * 2, hp: 100 + Math.floor(wave / 8) * 100, color: "#88eedd" };
 
+    case "mirage":
+      return { type, r: 11, speed: 70 + level * 2, hp: 150 + Math.floor(level / 6) * 100, color: "#a78bfa" };
+
+    case "sentinel":
+      return { type, r: 19, speed: 45 + level * 1.5, hp: 350 + Math.floor(level / 4) * 100, color: "#f59e0b", turnRate: Math.PI * 0.5, facingAngle: 0 };
+
     case "magnetizer":
       return { type, r: 16, speed: 40 + wave * 1.2, hp: 500 + Math.floor(wave / 3) * 100, color: "#c084fc" };
 

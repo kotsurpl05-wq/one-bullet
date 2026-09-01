@@ -190,7 +190,8 @@ function loadServerInstance() {
     require("../../shared/xp"),
     require("../../shared/enemy-xp"),
     require("../../shared/player-stats"),
-    require("../../shared/enemy-factory")
+    require("../../shared/enemy-factory"),
+    require("../../shared/upgrades")
   ];
   for (const mod of sharedModules) {
     for (const [key, value] of Object.entries(mod)) {
