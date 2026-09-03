@@ -7,3 +7,4 @@ yarn-error.log*
 .agents/
 public/shared-bundle.js
 public/shared-bundle.js.map
+.worktrees/
