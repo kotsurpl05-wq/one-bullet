@@ -55,7 +55,9 @@ test("Co-op snapshot bandwidth contract", async t => {
         "isPhased", "twinPartnerId", "isEnraged",
         "chargeState", "chargeDx", "chargeDy",
         "chargeProgress", "coolingProgress",
-        "sporesCount", "bossId"
+        "sporesCount", "bossId",
+        "mirageVisible", "sniperState",
+        "sniperTimer", "sniperTargetX", "sniperTargetY"
       ]);
 
       for (const key of keys) {
@@ -87,7 +89,6 @@ test("Co-op snapshot bandwidth contract", async t => {
       // Эти поля не читаются в applyCoopSnapshot.
       const deadFields = [
         "dashState", "dashTimer",
-        "sniperState", "sniperTargetX", "sniperTargetY",
         "shieldActive", "phase"
       ];
 

@@ -131,7 +131,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       assert.equal(bullet.vy, 0, "Bullet outside 400px range should maintain vy = 0");
     });
 
-    await t1.test("2.4 Contested Ground Pull: Player with 500 pull overcomes Magnetizer gradient pull at 200px (325 force)", () => {
+    await t1.test("2.4 Contested Ground Pull: Player with 500 pull overcomes Magnetizer gradient pull at 200px (~166.7 force)", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 100;
       player.y = 300;
@@ -149,17 +149,17 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       ctx.updateServerBullet({ world }, bullet, dt);
 
       // Player pulls left at 500*0.1 = 50px
-      // Magnetizer pulls right at (150 + (1 - 200/400)*350)*0.1 = 32.5px
-      // Net movement = -17.5px -> bullet.x should be 282.5
+      // Magnetizer pulls right at (100 + (1 - 200/300)*200)*0.1 = 16.667px
+      // Net movement = -33.333px -> bullet.x should be 266.667
       assert.ok(bullet.x < 300, `Bullet must move towards player (expected < 300, got ${bullet.x})`);
-      assert.ok(Math.abs(bullet.x - 282.5) < 0.001, `Bullet x should be exactly 282.5, got ${bullet.x}`);
+      assert.ok(Math.abs(bullet.x - 266.6667) < 0.01, `Bullet x should be ~266.667, got ${bullet.x}`);
     });
 
-    await t1.test("2.5 Contested Ground Pull: Magnetizer gradient pull (325 force at 200px) overpowers Player 200 pull", () => {
+    await t1.test("2.5 Contested Ground Pull: Magnetizer gradient pull (~166.7 force at 200px) overpowers Player 100 pull", () => {
       const { world, player1: player } = createTestWorld(ctx);
       player.x = 100;
       player.y = 300;
-      player.stats = { ...(player.stats || {}), groundPullSpeed: 200, boomerang: true };
+      player.stats = { ...(player.stats || {}), groundPullSpeed: 100, boomerang: true };
 
       const magnetizer = ctx.createServerEnemy(world, "magnetizer", 500, 300, true);
       world.enemies.set(magnetizer.id, magnetizer);
@@ -172,11 +172,11 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       const dt = 0.1;
       ctx.updateServerBullet({ world }, bullet, dt);
 
-      // Player pulls left at 200*0.1 = 20px
-      // Magnetizer pulls right at 32.5px
-      // Net movement = +12.5px -> bullet.x should be 312.5
+      // Player pulls left at 100*0.1 = 10px
+      // Magnetizer pulls right at 16.667px
+      // Net movement = +6.667px -> bullet.x should be 306.667
       assert.ok(bullet.x > 300, `Bullet must move towards magnetizer (expected > 300, got ${bullet.x})`);
-      assert.ok(Math.abs(bullet.x - 312.5) < 0.001, `Bullet x should be exactly 312.5, got ${bullet.x}`);
+      assert.ok(Math.abs(bullet.x - 306.6667) < 0.01, `Bullet x should be ~306.667, got ${bullet.x}`);
     });
   });
 

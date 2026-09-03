@@ -70,8 +70,9 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     const shockwaveProjectiles = [...world.enemyProjectiles.values()].slice(-8);
     for (const proj of shockwaveProjectiles) {
       assert.equal(proj.color, "#ff496c");
-      assert.equal(proj.damage, 100);
-      assert.equal(proj.r, 6.5);
+      // Base damage 100, scaled by getEnemyDamageMultiplier(wave=10) = 1 + 9*0.02 = 1.18 -> 118
+      assert.equal(proj.damage, 118);
+      assert.equal(proj.r, 5.2);
       const speed = Math.hypot(proj.vx, proj.vy);
       assert.ok(Math.abs(speed - 190) < 1.0, `Expected speed ~190, got ${speed}`);
     }
@@ -127,9 +128,9 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     assert.equal(world.enemyProjectiles.size, initialProjCount + 1);
     const sniperBolt = [...world.enemyProjectiles.values()].pop();
 
-    assert.equal(sniperBolt.damage, 200, "Sniper bolt must deal 2 damage");
+    assert.equal(sniperBolt.damage, 236, "Sniper bolt base damage 200 scaled by wave-10 multiplier (1.18) = 236");
     assert.equal(sniperBolt.color, "#ff1744");
-    assert.equal(sniperBolt.r, 9);
+    assert.equal(sniperBolt.r, 7.2);
     const speed = Math.hypot(sniperBolt.vx, sniperBolt.vy);
     assert.ok(Math.abs(speed - 900) < 1.0, `Sniper bolt speed should be 900, got ${speed}`);
     assert.ok(sniperBolt.vx > 0, "Sniper bolt should travel toward target (positive vx)");

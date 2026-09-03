@@ -73,7 +73,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     assert.equal(player1.alive, false, "Player should still be dead before reaching 3.0s");
   });
 
-  await t.test("Tier 1 - Unit 3: Revival State (30% HP, 1.5s Invulnerability, Alive, Beacon Removed)", () => {
+  await t.test("Tier 1 - Unit 3: Revival State (30% HP, 2.0s Invulnerability, Alive, Beacon Removed)", () => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.maxHp = 10;
     player1.hp = 1;
@@ -95,8 +95,8 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     const expectedHp = Math.max(1, Math.ceil(player1.maxHp * 0.3));
     assert.equal(player1.hp, expectedHp, `Revived player HP should be 30% max HP (${expectedHp}), got ${player1.hp}`);
     assert.ok(
-      Math.abs(player1.invulnerability - 1.5) < 0.1 || player1.invulnerability >= 1.4,
-      `Invulnerability must be ~1.5s (got ${player1.invulnerability})`
+      Math.abs(player1.invulnerability - 2.0) < 0.1 || player1.invulnerability >= 1.9,
+      `Invulnerability must be ~2.0s (got ${player1.invulnerability})`
     );
     assert.ok(
       !player1.reviveBeacon || player1.reviveBeacon.active === false,

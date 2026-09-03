@@ -10,12 +10,12 @@ const { Server } = require("socket.io");
 const { clamp, random, distance, distToSegmentSquared, distToSegment } = require("./shared/math");
 const { PLAYER_SPEED, BULLET_SPEED, BULLET_RADIUS, BULLET_BOUNCES, WORLD_WIDTH, WORLD_HEIGHT, CRYSTAL_RADIUS } = require("./shared/constants");
 const { getExperienceRequirement } = require("./shared/xp");
-const { getEnemyExperience, getContactDamage } = require("./shared/enemy-xp");
+const { getEnemyExperience, getContactDamage, getEnemyDamageMultiplier } = require("./shared/enemy-xp");
 const { createPlayerStats } = require("./shared/player-stats");
 const { createEnemyBase } = require("./shared/enemy-factory");
 const { UPGRADE_DEFS, applyUpgrade } = require("./shared/upgrades");
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3001;
 
 const app = express();
 const server = http.createServer(app);
@@ -348,6 +348,17 @@ const COOP_BOSS_HP_MULTIPLIER = 1.1;
 const COOP_WAVE_BREAK = 3.5;
 
 const COOP_PLAYER_INVULNERABILITY = 0.22;
+/*
+ * Неуязвимость при любом возвращении в бой (восстановление
+ * между волнами, спасение маяком, успешное воскрешение QTE) —
+ * даёт игроку 2 секунды, чтобы уйти от врагов, а не умереть повторно мгновенно.
+ */
+const COOP_RESPAWN_INVULNERABILITY = 2.0;
+/*
+ * Легендарное "Воскрешение": сколько раз нужно нажать пробел за 5 секунд,
+ * чтобы выжить при смертельном уроне.
+ */
+const COOP_RESURRECTION_REQUIRED_PRESSES = 3;
 const COOP_ENEMY_CONTACT_COOLDOWN = 0.85;
 
 const COOP_EXPERIENCE_MULTIPLIER = 1.7;
@@ -784,8 +795,8 @@ function refreshServerBulletContacts(
 }
 
 
-const MIRAGE_CYCLE = 7.0;
-const MIRAGE_HIDDEN = 6.0;
+const MIRAGE_CYCLE = 6.0;
+const MIRAGE_HIDDEN = 4.0;
 
 function applyServerSmartHoming(bullet, candidateEnemies, homingPower, dt) {
   if (homingPower <= 0 || !candidateEnemies || candidateEnemies.size === 0) return;
@@ -797,7 +808,7 @@ function applyServerSmartHoming(bullet, candidateEnemies, homingPower, dt) {
 
   let bestEnemy = null;
   let bestScore = Infinity;
-  const maxRange = 245 + homingPower * 28; // Сбалансированный радиус (-20%)
+  const maxRange = 212.5 + homingPower * 62.5; // Ур.1: 275px, Ур.2: 337px, Ур.3: 400px
 
   for (const enemy of candidateEnemies.values()) {
     if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) continue;
@@ -835,7 +846,7 @@ function applyServerSmartHoming(bullet, candidateEnemies, homingPower, dt) {
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-    const maxTurnSpeed = 2.9 + homingPower * 1.4; // Аккуратная скорость доворота (-20%)
+    const maxTurnSpeed = (45 + homingPower * 15) * Math.PI / 180; // Ур.1: 60°/с, Ур.2: 75°/с, Ур.3: 90°/с
     const maxTurnThisFrame = maxTurnSpeed * dt;
 
     if (dist < 28 && Math.abs(angleDiff) < 0.35) {
@@ -931,14 +942,14 @@ function updateServerBullet(
       }
 
       /*
-       * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px с градиентом от 150 до 500.
+       * Магнетизатор: притягивает упавшие на землю пули в радиусе 300px с градиентом от 100 до 300.
        * Если у игрока есть бумеранг/магнит, силы суммируются векторно (борьба притяжений).
        */
       for (const enemy of world.enemies.values()) {
         if (enemy.type !== "magnetizer" || !enemy.hasEnteredArena || enemy.hp <= 0) continue;
         const distToMag = distance(bullet.x, bullet.y, enemy.x, enemy.y);
-        if (distToMag < 400 && distToMag > enemy.r + bullet.r) {
-          const magPull = (150 + (1 - distToMag / 400) * 350) * dt;
+        if (distToMag < 300 && distToMag > enemy.r + bullet.r) {
+          const magPull = (100 + (1 - distToMag / 300) * 200) * dt;
           moveX += ((enemy.x - bullet.x) / distToMag) * magPull;
           moveY += ((enemy.y - bullet.y) / distToMag) * magPull;
         }
@@ -1471,7 +1482,7 @@ function reviveServerPlayers(world) {
 
       coopPlayer.x = position.x;
       coopPlayer.y = position.y;
-      coopPlayer.invulnerability = 1;
+      coopPlayer.invulnerability = COOP_RESPAWN_INVULNERABILITY;
       coopPlayer.reviveBeacon = null;
 
       for (
@@ -1739,7 +1750,7 @@ function updateServerCoopWorld(
               1,
               Math.ceil(coopPlayer.maxHp * 0.3)
             );
-            coopPlayer.invulnerability = 1.5;
+            coopPlayer.invulnerability = COOP_RESPAWN_INVULNERABILITY;
             coopPlayer.x = beacon.x;
             coopPlayer.y = beacon.y;
             coopPlayer.reviveBeacon = null;
@@ -1777,6 +1788,9 @@ function updateServerCoopWorld(
     world,
     dt
   );
+
+  updateServerGasterBlasters(world, dt);
+  updateServerDamageZones(world, dt);
 
   updateServerEnemyProjectiles(
     world,
@@ -1902,6 +1916,16 @@ function createServerEnemy(
     shieldActive: base.shieldActive || false,
     shieldTriggered: base.shieldTriggered || false,
     stunTimer: base.stunTimer || 0,
+
+    turretMode: false,
+    turretCooldown: 28,
+    turretTimer: 0,
+    turretBlasterState: "idle",
+    turretBlasterCooldown: 1.5,
+    turretBlasterShotIdx: 0,
+    turretBlasterPatternIdx: 0,
+    turretZoneCooldown: 4,
+    armorRespawnCooldown: 0,
 
     // Type-specific fields:
     phaseTimer: type === "phantom" ? 0 : undefined,
@@ -2202,6 +2226,12 @@ const SERVER_UPGRADE_RARITIES = {
     key: "legendary",
     label: "ЛЕГЕНДАРНОЕ",
     power: 3
+  },
+
+  unique: {
+    key: "unique",
+    label: "УНИКАЛЬНОЕ",
+    power: 3
   }
 };
 
@@ -2245,7 +2275,9 @@ function rollServerUpgradeRarity(upgrade) {
 
   const roll = Math.random();
 
-  if (roll < 0.08) {
+  // unique only via fixedRarity — no random unique rolls
+
+  if (roll < 0.07) {
     return SERVER_UPGRADE_RARITIES.legendary;
   }
 
@@ -2362,7 +2394,11 @@ function createCoopWorld(room) {
     waveClearTimer: 0,
 
     gameOver: false,
-    snapshotAccumulator: 0
+    snapshotAccumulator: 0,
+    gasterBlasters: new Map(),
+    nextGasterBlasterId: 1,
+    damageZones: new Map(),
+    nextDamageZoneId: 1
   };
 
   roomPlayers.forEach(
@@ -2423,6 +2459,19 @@ function createCoopWorld(room) {
   return world;
 }
 
+/*
+ * Игрок считается допустимой целью для ИИ врагов, только если он жив
+ * и не находится в состоянии "падения" (QTE воскрешения). Это отдаёт
+ * ему агро сразу при смерти/падении, давая шанс убежать после подъёма.
+ */
+function isServerPlayerTargetable(coopPlayer) {
+  return Boolean(
+    coopPlayer &&
+    coopPlayer.alive &&
+    !coopPlayer.revivePrompt?.active
+  );
+}
+
 function getNearestAliveServerPlayer(
   world,
   enemy
@@ -2432,7 +2481,7 @@ function getNearestAliveServerPlayer(
    */
   if (enemy.revengeTargetId) {
     const revengeTarget = world.players.get(enemy.revengeTargetId);
-    if (revengeTarget && revengeTarget.alive) {
+    if (revengeTarget && isServerPlayerTargetable(revengeTarget)) {
       return revengeTarget;
     }
     enemy.revengeTargetId = null;
@@ -2445,7 +2494,7 @@ function getNearestAliveServerPlayer(
     const coopPlayer of
     world.players.values()
   ) {
-    if (!coopPlayer.alive) {
+    if (!isServerPlayerTargetable(coopPlayer)) {
       continue;
     }
 
@@ -2523,7 +2572,7 @@ function damageServerPlayer(
 
   coopPlayer.hp = Math.max(
     0,
-    coopPlayer.hp - amount * (1 - (coopPlayer.stats?.damageResistance || 0))
+    Math.round(coopPlayer.hp - amount * (1 - (coopPlayer.stats?.damageResistance || 0)))
   );
 
   coopPlayer.invulnerability =
@@ -2563,7 +2612,7 @@ function damageServerPlayer(
     /*
      * Воскрешение: если у игрока есть бонус и он ещё не использован,
      * вместо мгновенной смерти входим в состояние revive-prompt.
-     * Клиент показывает QTE (5× пробел за 5 сек).
+     * Клиент показывает QTE (3× пробел за 5 сек).
      */
     if (
       coopPlayer.stats?.resurrection &&
@@ -2574,7 +2623,7 @@ function damageServerPlayer(
       coopPlayer.revivePrompt = {
         active: true,
         presses: 0,
-        required: 5,
+        required: COOP_RESURRECTION_REQUIRED_PRESSES,
         timer: 5.0,
         startedAt: Date.now()
       };
@@ -2887,6 +2936,10 @@ function damageServerEnemy(
     }
   }
 
+  if (enemy.type === "boss" && enemy.turretMode) {
+    return false;
+  }
+
   if (enemy.type === "boss" && enemy.shieldActive) {
     amount = Math.max(1, Math.floor(amount * 0.2));
   }
@@ -2996,13 +3049,13 @@ function resolveServerEnemyOverlaps(
       let secondWeight = 0.5;
 
       if (first.type === "boss") {
-        firstWeight = 0.08;
-        secondWeight = 0.92;
+        if (first.turretMode) { firstWeight = 0; secondWeight = 1; }
+        else { firstWeight = 0.08; secondWeight = 0.92; }
       } else if (
         second.type === "boss"
       ) {
-        firstWeight = 0.92;
-        secondWeight = 0.08;
+        if (second.turretMode) { firstWeight = 1; secondWeight = 0; }
+        else { firstWeight = 0.92; secondWeight = 0.08; }
       } else if (
         first.type === "tank"
       ) {
@@ -3048,7 +3101,8 @@ function createServerEnemyProjectile(
     vy: Math.sin(angle) * speed,
     r: radius,
     color,
-    damage
+    // Урон вражеских снарядов растёт вместе с волной (см. getEnemyDamageMultiplier).
+    damage: Math.round(damage * getEnemyDamageMultiplier(world.wave))
   };
 
   world.enemyProjectiles.set(projectile.id, projectile);
@@ -3095,7 +3149,7 @@ function shootServerBossSpread(world, enemy, target, phase) {
       enemy.y + Math.sin(angle) * (enemy.r + 8),
       angle,
       speed,
-      7.5,
+      6,
       "#ff4f91",
       100
     );
@@ -3115,7 +3169,7 @@ function shootServerBossSpread(world, enemy, target, phase) {
           enemy.y + Math.sin(angle) * (enemy.r + 8),
           angle,
           speed,
-          7.5,
+          6,
           "#ff4f91",
           100
         );
@@ -3139,7 +3193,7 @@ function shootServerBossRadial(world, enemy, phase) {
       enemy.y + Math.sin(angle) * (enemy.r + 5),
       angle,
       speed,
-      7,
+      5.6,
       "#ff9b45",
       100
     );
@@ -3157,7 +3211,7 @@ function shootServerBossShockwave(world, enemy) {
       enemy.y + Math.sin(angle) * (enemy.r + 6),
       angle,
       speed,
-      6.5,
+      5.2,
       "#ff496c",
       100
     );
@@ -3172,10 +3226,176 @@ function shootServerBossSniperBolt(world, enemy, targetX, targetY) {
     enemy.y + Math.sin(angle) * (enemy.r + 10),
     angle,
     900,
-    9,
+    7.2,
     "#ff1744",
     200
   );
+}
+
+// Circular sweep patterns — beams rotate around arena, player must dodge in circle.
+// Dense patterns (~5x blasters): small angular steps = tight sweep, always a safe trailing gap.
+const GASTER_BLASTER_PATTERNS = [
+  // 1. Full CW sweep — 30 beams
+  { start: 0,                     step: Math.PI / 16,  count: 30 },
+  // 2. Full CCW sweep
+  { start: Math.PI,               step: -Math.PI / 16, count: 30 },
+  // 3. CW from top-right, tight arc — 25 beams
+  { start: Math.PI / 4,           step: Math.PI / 14,  count: 25 },
+  // 4. CCW from bottom-left
+  { start: Math.PI * 1.25,        step: -Math.PI / 14, count: 25 },
+  // 5. Fast half-circle CW — 20 beams
+  { start: -Math.PI / 6,          step: Math.PI / 10,  count: 20 },
+  // 6. Fast half-circle CCW mirror
+  { start: Math.PI + Math.PI / 6, step: -Math.PI / 10, count: 20 },
+];
+
+function getBorderPoint(cx, cy, W, H, angle) {
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+  let t = Infinity;
+  if (cosA > 0.0001)  t = Math.min(t, (W - cx) / cosA);
+  else if (cosA < -0.0001) t = Math.min(t, -cx / cosA);
+  if (sinA > 0.0001)  t = Math.min(t, (H - cy) / sinA);
+  else if (sinA < -0.0001) t = Math.min(t, -cy / sinA);
+  return { x: cx + cosA * t, y: cy + sinA * t };
+}
+
+function spawnServerGasterBlasterPair(world, boss, patternAngle) {
+  // Find nearest alive player as aim target
+  let tx = COOP_WORLD_WIDTH / 2, ty = COOP_WORLD_HEIGHT / 2;
+  let minDist = Infinity;
+  for (const p of world.players.values()) {
+    if (!p.alive) continue;
+    const d = Math.hypot(p.x - boss.x, p.y - boss.y);
+    if (d < minDist) { minDist = d; tx = p.x; ty = p.y; }
+  }
+
+  // Blaster 1: from boss, aimed at target with angular offset
+  const aimToTarget = Math.atan2(ty - boss.y, tx - boss.x) + patternAngle;
+  const b1 = {
+    id: world.nextGasterBlasterId++,
+    x: boss.x, y: boss.y,
+    aimAngle: aimToTarget,
+    state: "telegraph",
+    stateTimer: 1.3,
+    bossId: boss.id
+  };
+  world.gasterBlasters.set(b1.id, b1);
+
+  // Blaster 2: from border, aimed toward target
+  const borderAngle = Math.atan2(ty - COOP_WORLD_HEIGHT / 2, tx - COOP_WORLD_WIDTH / 2) + patternAngle + Math.PI;
+  const borderPos = getBorderPoint(COOP_WORLD_WIDTH / 2, COOP_WORLD_HEIGHT / 2, COOP_WORLD_WIDTH, COOP_WORLD_HEIGHT, borderAngle);
+  const aimFromBorder = Math.atan2(ty - borderPos.y, tx - borderPos.x);
+  const b2 = {
+    id: world.nextGasterBlasterId++,
+    x: borderPos.x, y: borderPos.y,
+    aimAngle: aimFromBorder,
+    state: "telegraph",
+    stateTimer: 1.3,
+    bossId: boss.id
+  };
+  world.gasterBlasters.set(b2.id, b2);
+}
+
+function isHitByBeam(px, py, pr, bx, by, aimAngle) {
+  const cosA = Math.cos(aimAngle);
+  const sinA = Math.sin(aimAngle);
+  const dx = px - bx;
+  const dy = py - by;
+  const along = dx * cosA + dy * sinA;
+  const perp  = -dx * sinA + dy * cosA;
+  return along > -pr && along < 3500 && Math.abs(perp) < 28 + pr;
+}
+
+function updateServerGasterBlasters(world, dt) {
+  for (const [id, blaster] of world.gasterBlasters) {
+    blaster.stateTimer -= dt;
+    if (blaster.stateTimer <= 0) {
+      if (blaster.state === "telegraph") {
+        blaster.state = "firing";
+        blaster.stateTimer = 0.25;
+      } else {
+        world.gasterBlasters.delete(id);
+        continue;
+      }
+    }
+    // Continuous damage during firing
+    if (blaster.state === "firing") {
+      for (const p of world.players.values()) {
+        if (!p.alive) continue;
+        if (isHitByBeam(p.x, p.y, p.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
+          damageServerPlayer(world, p, 90 * dt / 0.25);
+        }
+      }
+    }
+  }
+}
+
+function updateServerDamageZones(world, dt) {
+  for (const [id, zone] of world.damageZones) {
+    zone.timer -= dt;
+    if (zone.timer <= 0) {
+      for (const player of world.players.values()) {
+        if (!player.alive) continue;
+        const dx = player.x - zone.x;
+        const dy = player.y - zone.y;
+        if (dx * dx + dy * dy < zone.r * zone.r) {
+          damageServerPlayer(world, player, 110);
+        }
+      }
+      world.damageZones.delete(id);
+    }
+  }
+}
+
+function updateServerBossTurretAttacks(world, boss, target, dt) {
+  const pattern = GASTER_BLASTER_PATTERNS[boss.turretBlasterPatternIdx % 6];
+  const BATCH = 5; // spawn 5 pairs (10 blasters) per step
+
+  // Gaster blaster attack
+  if (boss.turretBlasterState === "idle") {
+    boss.turretBlasterCooldown -= dt;
+    if (boss.turretBlasterCooldown <= 0 && boss.turretBlasterShotIdx < pattern.count) {
+      for (let b = 0; b < BATCH && boss.turretBlasterShotIdx + b < pattern.count; b++) {
+        const angle = pattern.start + pattern.step * (boss.turretBlasterShotIdx + b);
+        spawnServerGasterBlasterPair(world, boss, angle);
+      }
+      boss.turretBlasterState = "waiting";
+      boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.45;
+    }
+  } else if (boss.turretBlasterState === "waiting") {
+    boss.turretBlasterWaitTimer -= dt;
+    if (boss.turretBlasterWaitTimer <= 0) {
+      boss.turretBlasterShotIdx += BATCH;
+      if (boss.turretBlasterShotIdx >= pattern.count) {
+        boss.turretBlasterState = "idle";
+        boss.turretBlasterCooldown = 2.5;
+        boss.turretBlasterShotIdx = 0;
+        boss.turretBlasterPatternIdx = (boss.turretBlasterPatternIdx + 1) % 6;
+      } else {
+        boss.turretBlasterState = "idle";
+        boss.turretBlasterCooldown = 0;
+      }
+    }
+  }
+
+  // Damage zone attack
+  boss.turretZoneCooldown -= dt;
+  if (boss.turretZoneCooldown <= 0 && target) {
+    for (let i = 0; i < 2; i++) {
+      const zone = {
+        id: world.nextDamageZoneId++,
+        x: target.x + (i === 0 ? 0 : random(-60, 60)),
+        y: target.y + (i === 0 ? 0 : random(-60, 60)),
+        r: 240,
+        timer: 1.5 + i * 0.7,
+        maxTimer: 1.5 + i * 0.7,
+        bossId: boss.id
+      };
+      world.damageZones.set(zone.id, zone);
+    }
+    boss.turretZoneCooldown = 6;
+  }
 }
 
 function spawnServerBossDrones(world, boss) {
@@ -3193,8 +3413,8 @@ function spawnServerBossDrones(world, boss) {
   for (let i = 0; i < corners.length; i++) {
     const drone = createServerEnemy(world, "boss_drone", corners[i].x, corners[i].y, true);
     drone.bossId = boss.id;
-    drone.hp = 2500;
-    drone.maxHp = 2500;
+    drone.hp = 1750;
+    drone.maxHp = 1750;
     drone.speed = 0;
     drone.r = 24;
     drone.color = "#00f2fe";
@@ -3473,12 +3693,52 @@ function updateServerEnemies(
           enemy.dashState = "none";
           enemy.sniperState = "none";
           enemy.spiralActive = false;
+          enemy.armorRespawnCooldown = 60;
+        }
+      }
+
+      if (enemy.armorRespawnCooldown > 0) {
+        enemy.armorRespawnCooldown -= dt;
+        if (enemy.armorRespawnCooldown <= 0) {
+          enemy.shieldTriggered = false;
         }
       }
 
       if (enemy.stunTimer > 0) {
         enemy.stunTimer -= dt;
         continue;
+      }
+
+      // Turret mode cooldown tick
+      if (enemy.turretCooldown > 0) {
+        enemy.turretCooldown -= dt;
+      }
+
+      // Enter turret mode
+      if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena) {
+        enemy.x = COOP_WORLD_WIDTH / 2;
+        enemy.y = COOP_WORLD_HEIGHT / 2;
+        enemy.turretMode = true;
+        enemy.turretTimer = 20;
+        enemy.dashState = "none";
+        enemy.sniperState = "none";
+        enemy.spiralActive = false;
+        enemy.turretBlasterState = "idle";
+        enemy.turretBlasterCooldown = 1.5;
+        enemy.turretBlasterShotIdx = 0;
+        enemy.turretZoneCooldown = 4;
+      }
+
+      // Turret mode active: run turret attacks, skip normal AI
+      if (enemy.turretMode) {
+        enemy.turretTimer -= dt;
+        if (enemy.turretTimer <= 0) {
+          enemy.turretMode = false;
+          enemy.turretCooldown = 35;
+        } else {
+          updateServerBossTurretAttacks(world, enemy, target, dt);
+          continue;
+        }
       }
 
       // 1. Dash
@@ -3564,6 +3824,43 @@ function updateServerEnemies(
             enemy.spiralActive = false;
             enemy.spiralCooldown = random(6.0, 8.5);
           }
+        }
+      }
+
+      // 4. Phase 3: Gaster blasters + damage zones in normal mode
+      if (phase === 2 && enemy.hasEnteredArena && !enemy.turretMode) {
+        enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 5;
+        enemy.normalBlasterCooldown -= dt;
+        if (enemy.normalBlasterCooldown <= 0) {
+          enemy.normalBlasterPatternIdx = enemy.normalBlasterPatternIdx || 0;
+          const pat = GASTER_BLASTER_PATTERNS[enemy.normalBlasterPatternIdx % 6];
+          for (let b = 0; b < 3; b++) {
+            const angle = pat.start + pat.step * ((enemy.normalBlasterShotCounter || 0) + b);
+            spawnServerGasterBlasterPair(world, enemy, angle);
+          }
+          enemy.normalBlasterShotCounter = ((enemy.normalBlasterShotCounter || 0) + 3) % pat.count;
+          if (enemy.normalBlasterShotCounter === 0) {
+            enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % 6;
+          }
+          enemy.normalBlasterCooldown = 4;
+        }
+
+        enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 6;
+        enemy.normalZoneCooldown -= dt;
+        if (enemy.normalZoneCooldown <= 0 && target) {
+          for (let i = 0; i < 2; i++) {
+            const zone = {
+              id: world.nextDamageZoneId++,
+              x: target.x + (i === 0 ? 0 : random(-80, 80)),
+              y: target.y + (i === 0 ? 0 : random(-80, 80)),
+              r: 240,
+              timer: 1.5 + i * 0.7,
+              maxTimer: 1.5 + i * 0.7,
+              bossId: enemy.id
+            };
+            world.damageZones.set(zone.id, zone);
+          }
+          enemy.normalZoneCooldown = 6;
         }
       }
 
@@ -3733,11 +4030,13 @@ function updateServerEnemies(
       target.r + enemy.r
     ) {
       const pushStrength =
-        enemy.type === "boss"
-          ? 25
-          : enemy.type === "tank"
-            ? 17
-            : 12;
+        (enemy.type === "boss" && enemy.turretMode)
+          ? 0
+          : enemy.type === "boss"
+            ? 25
+            : enemy.type === "tank"
+              ? 17
+              : 12;
 
       enemy.x -=
         dx * pushStrength;
@@ -3813,8 +4112,13 @@ function updateServerCoopPlayer(
   if (coopPlayer.revivePrompt?.active) {
     coopPlayer.revivePrompt.timer -= dt;
     if (coopPlayer.revivePrompt.timer <= 0) {
-      coopPlayer.revivePrompt.active = false;
-      coopPlayer.stats.resurrectionUsed = true;
+      /*
+       * QTE провален (или проигнорирован) — бонус воскрешения
+       * НЕ считается потраченным, чтобы он остался доступен
+       * при следующей смерти. Игрок просто погибает как обычно
+       * и получает маяк воскрешения от напарника.
+       */
+      coopPlayer.revivePrompt = null;
       coopPlayer.invulnerability = 0;
       coopPlayer.alive = false;
 
@@ -3881,7 +4185,7 @@ function updateServerCoopPlayer(
     coopPlayer.dashTimer = 0.18;
     coopPlayer.dashVx = ddx * dashSpeed;
     coopPlayer.dashVy = ddy * dashSpeed;
-    coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.18);
+    coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.18 + 0.3);
     coopPlayer.dashHitEnemies = new Set();
     input.dash = false;
   }
@@ -4508,7 +4812,7 @@ function createServerCoopSnapshot(room, options) {
       r: coopPlayer.r,
       colorIndex: coopPlayer.colorIndex,
 
-      hp: coopPlayer.hp,
+      hp: Math.round(coopPlayer.hp),
       maxHp: coopPlayer.maxHp,
 
       alive: coopPlayer.alive,
@@ -4655,6 +4959,25 @@ function createServerCoopSnapshot(room, options) {
         serialized.shieldActive = 1;
       }
 
+      if (enemy.type === "boss" && enemy.turretMode) {
+        serialized.turretMode = 1;
+      }
+
+      /*
+       * Состояние снайперского выстрела всегда отправляется для босса,
+       * чтобы клиент надёжно узнавал о завершении фазы "locked" и
+       * убирал лазерный прицел/вспышку (иначе поле застряло бы навсегда,
+       * т.к. остальные поля здесь шлются только при отличии от дефолта).
+       */
+      if (enemy.type === "boss") {
+        serialized.sniperState = enemy.sniperState || "none";
+        if (enemy.sniperState === "locked") {
+          serialized.sniperTimer = Number((enemy.sniperTimer || 0).toFixed(2));
+          serialized.sniperTargetX = Math.round(enemy.sniperTargetX || enemy.x);
+          serialized.sniperTargetY = Math.round(enemy.sniperTargetY || enemy.y);
+        }
+      }
+
       if ((enemy.type === "boss_drone" || enemy.type === "boss_pylon") && enemy.bossId) {
         serialized.bossId = enemy.bossId;
       }
@@ -4715,7 +5038,25 @@ function createServerCoopSnapshot(room, options) {
       vx: Math.round(shard.vx),
       vy: Math.round(shard.vy),
       r: shard.r || 4
-    })) : []
+    })) : [],
+
+    gasterBlasters: [...world.gasterBlasters.values()].map(b => ({
+      id: b.id,
+      x: Math.round(b.x),
+      y: Math.round(b.y),
+      aimAngle: Number(b.aimAngle.toFixed(3)),
+      state: b.state,
+      stateTimer: Number(b.stateTimer.toFixed(2))
+    })),
+
+    damageZones: [...world.damageZones.values()].map(z => ({
+      id: z.id,
+      x: Math.round(z.x),
+      y: Math.round(z.y),
+      r: z.r,
+      timer: Number(z.timer.toFixed(2)),
+      maxTimer: z.maxTimer
+    }))
   };
 }
 
@@ -5243,13 +5584,13 @@ io.on("connection", socket => {
 
     if (prompt.presses >= prompt.required) {
       /*
-       * QTE пройден: воскрешение со 100 HP,
-       * иммунитет отменён по требованию — сразу под удар.
+       * QTE пройден: воскрешение с 10% от максимального HP
+       * и 2 секундами неуязвимости, чтобы успеть отбежать.
        */
       prompt.active = false;
       coopPlayer.alive = true;
-      coopPlayer.hp = Math.min(coopPlayer.maxHp, 100);
-      coopPlayer.invulnerability = 0;
+      coopPlayer.hp = Math.max(1, Math.ceil(coopPlayer.maxHp * 0.1));
+      coopPlayer.invulnerability = COOP_RESPAWN_INVULNERABILITY;
       coopPlayer.stats.resurrectionUsed = true;
 
       for (const bullet of room.world.bullets.values()) {

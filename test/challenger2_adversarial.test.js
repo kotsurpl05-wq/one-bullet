@@ -86,7 +86,7 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       { name: "Pierce build", stats: { pierce: 3, explosionRadius: 0, chainCount: 0, catchBlast: 0 } },
       { name: "AOE Explosive build", stats: { pierce: 0, explosionRadius: 80, chainCount: 4, catchBlast: 130 } },
       { name: "Max Crit build", stats: { critChance: 0.6 } },
-      { name: "Max Bullet Radius build", stats: { bulletRadius: 15 } },
+      { name: "Max Bullet Radius build", stats: { bulletRadius: 21 } },
       { name: "Second Bullet build", stats: { magazineSize: 2 } },
       { name: "Low HP", hp: 1, maxHp: 6, stats: {} },
       { name: "Full HP", hp: 6, maxHp: 6, stats: {} }

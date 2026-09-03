@@ -147,18 +147,18 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     assert.equal(world.gameOver, true, "World must transition to gameOver when both co-op players are dead");
   });
 
-  await t.test("Tier 2.3: Upgrade stat caps enforcement (Critical capped at 60%, Caliber at 15px)", () => {
+  await t.test("Tier 2.3: Upgrade stat caps enforcement (Critical capped at 60%, Caliber at 21px)", () => {
     const { player1: player } = createTestWorld(ctx);
     player.stats.critChance = 0.50;
-    player.stats.bulletRadius = 14.0;
+    player.stats.bulletRadius = 19.0;
 
     // Apply critical upgrade with power 2 (+36%)
     player.stats.critChance = Math.min(0.60, player.stats.critChance + 0.18 * 2);
     assert.equal(player.stats.critChance, 0.60, "Crit chance must be capped at 60% (0.60)");
 
-    // Apply caliber upgrade with power 2 (+3.0px)
-    player.stats.bulletRadius = Math.min(15.0, player.stats.bulletRadius + 1.5 * 2);
-    assert.equal(player.stats.bulletRadius, 15.0, "Bullet radius must be capped at 15.0px");
+    // Apply caliber upgrade with power 2 (+6.0px, would exceed cap)
+    player.stats.bulletRadius = Math.min(21.0, player.stats.bulletRadius + 3.0 * 2);
+    assert.equal(player.stats.bulletRadius, 21.0, "Bullet radius must be capped at 21.0px");
   });
 
   // =========================================================================
@@ -514,10 +514,10 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
       if (dist <= player1.reviveBeacon.radius && player1.reviveBeacon.active) {
         player1.reviveBeacon.progress += dt;
         if (player1.reviveBeacon.progress >= player1.reviveBeacon.requiredTime - 1e-4) {
-          // Trigger revive: 30% HP and 1.5s invulnerability
+          // Trigger revive: 30% HP and 2.0s invulnerability (respawn escape window)
           player1.alive = true;
           player1.hp = Math.max(1, Math.ceil(player1.maxHp * 0.3)); // 6 * 0.3 = 1.8 -> 2 HP
-          player1.invulnerability = 1.5;
+          player1.invulnerability = 2.0;
           player1.reviveBeacon.active = false;
           reviveComplete = true;
         }
@@ -527,10 +527,10 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
     assert.equal(reviveComplete, true, "Revive must complete after 3.0s continuous proximity");
     assert.equal(player1.alive, true, "Player 1 must be revived");
     assert.equal(player1.hp, 2, "Revived player should have 30% max HP (2 HP)");
-    assert.equal(player1.invulnerability, 1.5, "Revived player must receive 1.5s invulnerability");
+    assert.equal(player1.invulnerability, 2.0, "Revived player must receive 2.0s invulnerability");
     assert.equal(player1.reviveBeacon.active, false, "Beacon must be deactivated");
 
-    // 4. Enemy attacks Player 1 during 1.5s invulnerability -> takes 0 damage
+    // 4. Enemy attacks Player 1 during 2.0s invulnerability -> takes 0 damage
     if (player1.invulnerability > 0) {
       // Immune!
     } else {

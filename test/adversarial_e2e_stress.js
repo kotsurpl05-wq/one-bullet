@@ -354,8 +354,8 @@ runHarness("Rapid Upgrade Stacking (100 Upgrades in Single Frame) & Cap Stress",
     for (let i = 0; i < 100; i++) {
       ctx.applyServerUpgrade(world, player1, { upgradeId: "caliber", power: 1 });
     }
-    // Caliber is capped at 15px
-    assert.equal(player1.stats.bulletRadius, 15, `Bullet radius must cap at 15px, got ${player1.stats.bulletRadius}`);
+    // Caliber is capped at 21px
+    assert.equal(player1.stats.bulletRadius, 21, `Bullet radius must cap at 21px, got ${player1.stats.bulletRadius}`);
 
     // 3. Stack second-bullet (should set magazineSize = 2 without runaway duplication)
     for (let i = 0; i < 10; i++) {

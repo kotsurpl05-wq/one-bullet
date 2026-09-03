@@ -15,9 +15,14 @@ const UPGRADE_DEFS = [
   {
     id: "bounce",
     title: "Дополнительный рикошет",
-    description: "Ваши патроны могут дополнительно отскакивать от стен.",
+    description: "Ваши патроны могут дополнительно отскакивать от стен (макс. 6 рикошетов).",
+    available(player) {
+      return (player.stats.maxBounces || 1) < 6;
+    },
     bonus(player, power) {
-      return `+${power} к количеству рикошетов`;
+      const current = player.stats.maxBounces || 1;
+      const result = Math.min(6, current + power);
+      return `+${result - current} к количеству рикошетов (итог: ${result})`;
     }
   },
 
@@ -66,7 +71,7 @@ const UPGRADE_DEFS = [
 
   {
     id: "armor",
-    title: "Усиленная броня",
+    title: "Живучесть",
     description: "Повышает максимальное и текущее здоровье на +100 за уровень.",
     bonus(player, power) {
       return `+${100 * power} к максимальному и текущему здоровью`;
@@ -79,7 +84,7 @@ const UPGRADE_DEFS = [
     description: "Полностью восстанавливает текущее здоровье.",
     fixedRarity: "common",
     available(player) {
-      return player.hp < player.maxHp;
+      return player.hp > 0 && player.hp < player.maxHp;
     },
     bonus(player) {
       return `+${Math.max(0, player.maxHp - player.hp)} HP (полное восстановление)`;
@@ -119,12 +124,12 @@ const UPGRADE_DEFS = [
   {
     id: "caliber",
     title: "Крупный калибр",
-    description: "Увеличивает размер ваших патронов, облегчая попадание.",
+    description: "Увеличивает размер ваших патронов, облегчая попадание (макс. 21 px).",
     available(player) {
-      return player.stats.bulletRadius < 15;
+      return player.stats.bulletRadius < 21;
     },
     bonus(player, power) {
-      const result = Math.min(15, player.stats.bulletRadius + 1.5 * power);
+      const result = Math.min(21, player.stats.bulletRadius + 3 * power);
       return `+${(result - player.stats.bulletRadius).toFixed(1)} px к радиусу патрона (итог: ${result.toFixed(1)} px)`;
     }
   },
@@ -189,7 +194,7 @@ const UPGRADE_DEFS = [
     title: "Аварийный ремонт",
     description: "Убийства периодически восстанавливают +100 здоровья (макс. каждые 8 убийств).",
     available(player) {
-      return (player.stats?.healEvery || 0) === 0 || player.stats.healEvery > 8;
+      return player.hp > 0 && ((player.stats?.healEvery || 0) === 0 || player.stats.healEvery > 8);
     },
     bonus(player, power) {
       const current = player.stats?.healEvery || 0;
@@ -304,10 +309,15 @@ const UPGRADE_DEFS = [
   {
     id: "homing",
     title: "Умная пуля",
-    description: "Пуля корректирует траекторию в сторону ближайшей цели.",
-    bonus(player, power) {
-      const current = (player.stats.homing || 0) + power;
-      return `+${power} к силе наведения (итог: ${current})`;
+    description: "Пуля слегка доворачивает в сторону ближайшей цели (макс. 3 уровня). 1 ур.: 275px/60°, 2 ур.: 337px/75°, 3 ур.: 400px/90°.",
+    fixedRarity: "legendary",
+    available(player) {
+      return (player.stats.homing || 0) < 3;
+    },
+    bonus(player) {
+      const current = player.stats.homing || 0;
+      const result = Math.min(3, current + 1);
+      return `Уровень наведения: ${result}/3`;
     }
   },
 
@@ -672,7 +682,7 @@ const UPGRADE_DEFS = [
     id: "dash-damage",
     title: "Разящий рывок",
     description: "Рывок наносит 100% урона всем врагам на пути.",
-    fixedRarity: "legendary",
+    fixedRarity: "unique",
     available(player) {
       return Boolean(player.stats?.dash) && !player.stats?.dashDamage;
     },
@@ -684,13 +694,13 @@ const UPGRADE_DEFS = [
   {
     id: "resurrection",
     title: "Воскрешение",
-    description: "Одноразовый шанс встать после гибели. При смерти появится промпт — нажмите Пробел 5 раз за 5 секунд.",
-    fixedRarity: "legendary",
+    description: "Одноразовый шанс встать после гибели. При смерти появится промпт — нажмите Пробел 3 раза за 5 секунд.",
+    fixedRarity: "unique",
     available(player) {
       return !player.stats?.resurrection && !player.stats?.resurrectionUsed;
     },
     bonus() {
-      return "Воскрешение с 100 HP (одноразовое)";
+      return "Воскрешение с 10% от максимального HP (одноразовое)";
     }
   }
 ];
@@ -712,7 +722,7 @@ function applyUpgrade(player, id, power = 1) {
       break;
 
     case "bounce":
-      player.stats.maxBounces += power;
+      player.stats.maxBounces = Math.min(6, (player.stats.maxBounces || 1) + power);
       break;
 
     case "pierce":
@@ -762,9 +772,9 @@ function applyUpgrade(player, id, power = 1) {
     case "caliber":
       player.stats.bulletRadius =
         Math.min(
-          15,
+          21,
           player.stats.bulletRadius +
-            1.5 * power
+            3 * power
         );
       break;
 
@@ -773,7 +783,9 @@ function applyUpgrade(player, id, power = 1) {
       break;
 
     case "homing":
-      player.stats.homing = (player.stats.homing || 0) + power;
+      // Легендарное улучшение с 3 фиксированными уровнями — каждый пик даёт ровно +1 уровень
+      // независимо от силы броска (power игнорируется намеренно).
+      player.stats.homing = Math.min(3, (player.stats.homing || 0) + 1);
       break;
 
     case "catch-blast":

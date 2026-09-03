@@ -291,7 +291,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     for (const offer of offers) {
       assert.ok(offer.upgradeId, "Offer must contain upgradeId");
       assert.ok(offer.title, "Offer must contain title");
-      assert.ok(["common", "rare", "legendary"].includes(offer.rarityKey), "Valid rarityKey required");
+      assert.ok(["common", "rare", "legendary", "unique"].includes(offer.rarityKey), "Valid rarityKey required");
       assert.ok(offer.power >= 1 && offer.power <= 3, "Valid power required");
       assert.ok(typeof offer.bonusText === "string", "Valid bonusText required");
 

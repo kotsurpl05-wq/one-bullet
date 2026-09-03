@@ -377,15 +377,15 @@ test("repair: available() only when hp < maxHp; heals to full", () => {
   assert.equal(player.hp, player.maxHp);
 });
 
-test("caliber: clamps bulletRadius to 15 and resizes existing bullets", () => {
+test("caliber: clamps bulletRadius to 21 and resizes existing bullets", () => {
   const upgrades = client.freshUpgrades();
   const caliber = findUpgrade(upgrades, "caliber");
   client.evaluate(`bullets.length = 0; bullets.push({r: 7}, {r: 7});`);
   caliber.applyWithPower(10);
   const stats = client.getStats();
-  assert.equal(stats.bulletRadius, 15, "bulletRadius must clamp at 15");
+  assert.equal(stats.bulletRadius, 21, "bulletRadius must clamp at 21");
   const bulletRadii = [...client.readBinding("bullets")].map(b => b.r);
-  assert.deepEqual(bulletRadii, [15, 15], "existing bullets must be resized to the new radius");
+  assert.deepEqual(bulletRadii, [21, 21], "existing bullets must be resized to the new radius");
 });
 
 test("second-bullet: sets magazineSize=2 and calls ensureMagazine()", () => {

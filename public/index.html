@@ -38,6 +38,7 @@
 
       --rare: #7198ff;
       --legendary: #ffd36b;
+      --unique: #ff3b3b;
     }
 
     * {
@@ -454,6 +455,19 @@
         inset 0 0 35px rgba(255, 171, 49, 0.1);
     }
 
+    .upgrade-card.unique {
+      border-color: rgba(255, 59, 59, 0.85);
+      box-shadow:
+        inset 0 0 35px rgba(255, 59, 59, 0.12);
+    }
+
+    .upgrade-card.unique:hover {
+      border-color: var(--unique);
+      box-shadow:
+        0 12px 40px rgba(255, 59, 59, 0.22),
+        inset 0 0 38px rgba(255, 59, 59, 0.15);
+    }
+
     .upgrade-card.selected {
       border-color: var(--cyan-bright) !important;
       background: linear-gradient(145deg, #182e4e, #132036) !important;
@@ -469,6 +483,11 @@
     .upgrade-card.legendary.selected {
       border-color: var(--legendary) !important;
       box-shadow: 0 0 32px rgba(255, 190, 72, 0.6), inset 0 0 28px rgba(255, 190, 72, 0.3) !important;
+    }
+
+    .upgrade-card.unique.selected {
+      border-color: var(--unique) !important;
+      box-shadow: 0 0 32px rgba(255, 59, 59, 0.65), inset 0 0 28px rgba(255, 59, 59, 0.32) !important;
     }
 
     /* Шапка выбора улучшений с кнопкой реролла */
@@ -861,6 +880,12 @@
         0 0 12px rgba(255, 190, 72, 0.4);
     }
 
+    .upgrade-card.unique .rarity-label {
+      color: var(--unique);
+      text-shadow:
+        0 0 12px rgba(255, 59, 59, 0.45);
+    }
+
     .upgrade-card h2 {
       margin: 18px 0 8px;
       font-size: 21px;
@@ -888,6 +913,12 @@
       color: var(--legendary);
       text-shadow:
         0 0 12px rgba(255, 190, 72, 0.18);
+    }
+
+    .upgrade-card.unique .upgrade-bonus {
+      color: var(--unique);
+      text-shadow:
+        0 0 12px rgba(255, 59, 59, 0.2);
     }
 
     /* Общие секции меню */
@@ -1566,6 +1597,14 @@
         0 0 13px rgba(255, 176, 45, 0.05);
     }
 
+    .pause-upgrade-card.unique {
+      color: var(--unique);
+      border-color: rgba(255, 59, 59, 0.75);
+      box-shadow:
+        inset 0 0 22px rgba(255, 59, 59, 0.12),
+        0 0 13px rgba(255, 59, 59, 0.08);
+    }
+
     .pause-upgrade-icon {
       display: flex;
       align-items: center;
@@ -1596,6 +1635,11 @@
     .pause-upgrade-card.legendary .pause-rarity-mark {
       background: var(--legendary);
       box-shadow: 0 0 8px var(--legendary);
+    }
+
+    .pause-upgrade-card.unique .pause-rarity-mark {
+      background: var(--unique);
+      box-shadow: 0 0 8px var(--unique);
     }
 
     .pause-upgrade-number {
@@ -1744,6 +1788,10 @@
       border-color: rgba(255, 190, 72, 0.78);
     }
 
+    .upgrade-tooltip.unique {
+      border-color: rgba(255, 59, 59, 0.8);
+    }
+
     .tooltip-rarity {
       font-size: 10px;
       font-weight: 900;
@@ -1760,6 +1808,10 @@
 
     .upgrade-tooltip.legendary .tooltip-rarity {
       color: var(--legendary);
+    }
+
+    .upgrade-tooltip.unique .tooltip-rarity {
+      color: var(--unique);
     }
 
     .tooltip-title {
@@ -1786,6 +1838,10 @@
 
     .upgrade-tooltip.legendary .tooltip-bonus {
       color: var(--legendary);
+    }
+
+    .upgrade-tooltip.unique .tooltip-bonus {
+      color: var(--unique);
     }
 
     /* HUD сетевой сессии */
@@ -2819,7 +2875,7 @@
   <div id="coopReviveOverlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9500; display: flex; align-items: center; justify-content: center; pointer-events: none; background: rgba(4, 4, 10, 0.55);">
     <div style="pointer-events: none; text-align: center; padding: 28px 46px; border-radius: 16px; background: rgba(10, 4, 14, 0.9); border: 2px solid rgba(255, 63, 143, 0.75); box-shadow: 0 0 40px rgba(255, 63, 143, 0.45);">
       <div style="font-size: 26px; font-weight: 900; color: #ff9b45; text-shadow: 0 0 16px rgba(255,63,143,0.8); letter-spacing: 1px;">ХОТИТЕ ВСТАТЬ?</div>
-      <div style="margin-top: 10px; font-size: 15px; color: #ffe4ee;">Жмите <strong style="color:#ffffff;">ПРОБЕЛ</strong> — нужно <span id="coopRevivePresses">0 / 5</span> раз</div>
+      <div style="margin-top: 10px; font-size: 15px; color: #ffe4ee;">Жмите <strong style="color:#ffffff;">ПРОБЕЛ</strong> — нужно <span id="coopRevivePresses">0 / 3</span> раз</div>
       <div style="margin-top: 16px; width: 320px; height: 14px; background: rgba(255,255,255,0.08); border-radius: 7px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
         <div id="coopReviveTimerFill" style="height: 100%; width: 100%; background: linear-gradient(90deg, #ff3f8f, #ff9b45); transition: width 0.1s linear;"></div>
       </div>
@@ -3122,6 +3178,10 @@
     const particles = [];
     const enemyProjectiles = [];
     const splinterShards = [];
+    const soloGasterBlasters = [];
+    let nextSoloGasterBlasterId = 1;
+    const soloDamageZones = [];
+    let nextSoloDamageZoneId = 1;
     const parasiteSpores = [];
     const medkits = [];
     let nextMedkitId = 1;
@@ -3688,8 +3748,8 @@
     const WORLD_CELL_SIZE = 48;
     const BASE_PLAYER_SPEED = 300;
     const BASE_BULLET_SPEED = 650;
-    const MIRAGE_CYCLE = 7.0;
-    const MIRAGE_HIDDEN = 6.0;
+    const MIRAGE_CYCLE = 6.0;
+    const MIRAGE_HIDDEN = 4.0;
     const PLAYER_HIT_INVULNERABILITY = 0.22;
     const ENEMY_CONTACT_COOLDOWN = 0.85;
     const REPAIR_HEAL_COOLDOWN = 1.75;
@@ -3936,6 +3996,8 @@
     function startTraining() {
       enemies.length = 0;
       enemyProjectiles.length = 0;
+      soloGasterBlasters.length = 0;
+      soloDamageZones.length = 0;
       experienceCrystals.length = 0;
       medkits.length = 0;
       particles.length = 0;
@@ -3968,6 +4030,8 @@
       trainingMode = false;
       enemies.length = 0;
       enemyProjectiles.length = 0;
+      soloGasterBlasters.length = 0;
+      soloDamageZones.length = 0;
       experienceCrystals.length = 0;
       medkits.length = 0;
       particles.length = 0;
@@ -4194,15 +4258,16 @@
       killsValue.textContent = coopSession.kills;
       scoreValue.textContent = coopSession.score;
       levelValue.textContent = coopSession.level;
-      experienceValue.textContent = gameSettings.showExactValues
-        ? `${coopSession.experience} / ${coopSession.experienceToNext} (${Math.round(experienceRatio * 100)}%)`
-        : `${coopSession.experience} / ${coopSession.experienceToNext}`;
 
       const experienceRatio =
         coopSession.experienceToNext > 0
           ? coopSession.experience /
             coopSession.experienceToNext
           : 0;
+
+      experienceValue.textContent = gameSettings.showExactValues
+        ? `${coopSession.experience} / ${coopSession.experienceToNext} (${Math.round(experienceRatio * 100)}%)`
+        : `${coopSession.experience} / ${coopSession.experienceToNext}`;
 
       experienceFill.style.width =
         `${clamp(experienceRatio, 0, 1) * 100}%`;
@@ -4358,7 +4423,9 @@
 
     /*
      * Промпт воскрешения (легендарный бонус): показывает
-     * QTE — 5 нажатий ПРОБЕЛА за 5 секунд, иначе смерть окончательна.
+     * QTE — 3 нажатия ПРОБЕЛА за 5 секунд. Если не успеть,
+     * бонус не считается потраченным (сработает в следующий раз),
+     * но игрок погибает как обычно и ждёт маяк воскрешения от напарника.
      */
     function updateReviveOverlay() {
       const overlayEl = document.getElementById("coopReviveOverlay");
@@ -4385,7 +4452,7 @@
         : prompt.timer;
 
       const presses = prompt.presses || 0;
-      const required = prompt.required || 5;
+      const required = prompt.required || 3;
 
       const timerEl = overlayEl.querySelector("#coopReviveTimer");
       const timerFillEl = overlayEl.querySelector("#coopReviveTimerFill");
@@ -4918,6 +4985,10 @@
        * Щит босса: снижает урон на 80% пока активны угловые генераторы щита.
        * После уничтожения всех 4 генераторов щит спадает и босс получает 100% полный урон!
        */
+      if (enemy.type === "boss" && enemy.turretMode) {
+        createParticles(enemy.x, enemy.y, "#ffd700", 4, 100);
+        return;
+      }
       if (enemy.type === "boss" && enemy.shieldActive) {
         damage = Math.max(1, Math.floor(damage * 0.2));
         createParticles(enemy.x, enemy.y, "#00f2fe", 8, 140);
@@ -5763,7 +5834,7 @@
       activePlayer.dashTimer = 0.18;
       activePlayer.dashVx = dx * dashSpeed;
       activePlayer.dashVy = dy * dashSpeed;
-      activePlayer.invulnerability = Math.max(activePlayer.invulnerability || 0, 0.18);
+      activePlayer.invulnerability = Math.max(activePlayer.invulnerability || 0, 0.18 + 0.3);
       activePlayer.dashHitEnemies = new Set();
 
       soundManager.playDash();
@@ -5893,7 +5964,7 @@
         }
 
         /*
-         * Магнетизатор: притягивает упавшие на землю пули в радиусе 400px с градиентом от 150 до 500.
+         * Магнетизатор: притягивает упавшие на землю пули в радиусе 300px с градиентом от 100 до 300.
          * Если у игрока есть бумеранг/магнит, силы суммируются векторно (борьба притяжений).
          */
         for (const enemy of enemies) {
@@ -5903,8 +5974,8 @@
             enemy.y - bullet.y
           );
 
-          if (distToMag < 400 && distToMag > enemy.r + bullet.r) {
-            const magPull = (150 + (1 - distToMag / 400) * 350) * dt;
+          if (distToMag < 300 && distToMag > enemy.r + bullet.r) {
+            const magPull = (100 + (1 - distToMag / 300) * 200) * dt;
             moveX += ((enemy.x - bullet.x) / distToMag) * magPull;
             moveY += ((enemy.y - bullet.y) / distToMag) * magPull;
           }
@@ -6270,7 +6341,7 @@
 
       let bestEnemy = null;
       let bestScore = Infinity;
-      const maxRange = 245 + homingPower * 28; // Сбалансированный радиус (-20%)
+      const maxRange = 212.5 + homingPower * 62.5; // Ур.1: 275px, Ур.2: 337px, Ур.3: 400px
 
       for (const enemy of candidateEnemies) {
         if (!enemy || (Number.isFinite(enemy.hp) && enemy.hp <= 0)) continue;
@@ -6312,7 +6383,7 @@
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-        const maxTurnSpeed = 2.9 + homingPower * 1.4; // Аккуратная угловая скорость (-20%)
+        const maxTurnSpeed = (45 + homingPower * 15) * Math.PI / 180; // Ур.1: 60°/с, Ур.2: 75°/с, Ур.3: 90°/с
         const maxTurnThisFrame = maxTurnSpeed * dt;
 
         if (dist < 28 && Math.abs(angleDiff) < 0.35) {
@@ -6605,7 +6676,8 @@
         vy: Math.sin(angle) * speed,
         r: radius,
         color,
-        damage
+        // Урон вражеских снарядов растёт вместе с волной (см. GameShared.getEnemyDamageMultiplier).
+        damage: Math.round(damage * GameShared.getEnemyDamageMultiplier(wave))
       });
     }
 
@@ -6681,7 +6753,7 @@
       
           angle,
           speed,
-          7,
+          5.6,
           "#ff4f91",
           100
         );
@@ -6740,7 +6812,7 @@
       
           angle,
           speed,
-          6,
+          4.8,
           "#ff9b45",
           100
         );
@@ -6768,7 +6840,7 @@
           enemy.y + Math.sin(angle) * (enemy.r + 6),
           angle,
           speed,
-          6.5,
+          5.2,
           "#ff496c",
           100
         );
@@ -6784,7 +6856,7 @@
         enemy.y + Math.sin(angle) * (enemy.r + 10),
         angle,
         900,
-        9,
+        7.2,
         "#ff1744",
         200
       );
@@ -6818,7 +6890,151 @@
       }
     }
 
-    
+    // --- Solo Gaster Blaster & Damage Zone subsystem ---
+    const SOLO_GASTER_PATTERNS = [
+      { start: 0,                     step: Math.PI / 16,  count: 30 },
+      { start: Math.PI,               step: -Math.PI / 16, count: 30 },
+      { start: Math.PI / 4,           step: Math.PI / 14,  count: 25 },
+      { start: Math.PI * 1.25,        step: -Math.PI / 14, count: 25 },
+      { start: -Math.PI / 6,          step: Math.PI / 10,  count: 20 },
+      { start: Math.PI + Math.PI / 6, step: -Math.PI / 10, count: 20 },
+    ];
+
+    function getSoloBorderPoint(cx, cy, W, H, angle) {
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      let t = Infinity;
+      if (cosA > 0.0001)  t = Math.min(t, (W - cx) / cosA);
+      else if (cosA < -0.0001) t = Math.min(t, -cx / cosA);
+      if (sinA > 0.0001)  t = Math.min(t, (H - cy) / sinA);
+      else if (sinA < -0.0001) t = Math.min(t, -cy / sinA);
+      return { x: cx + cosA * t, y: cy + sinA * t };
+    }
+
+    function spawnSoloGasterBlasterPair(boss, patternAngle) {
+      const px = player.x || SOLO_WORLD_WIDTH / 2;
+      const py = player.y || SOLO_WORLD_HEIGHT / 2;
+
+      // Blaster 1: from boss, aimed at player with angular offset
+      const aimToPLayer = Math.atan2(py - boss.y, px - boss.x) + patternAngle;
+      soloGasterBlasters.push({
+        id: nextSoloGasterBlasterId++,
+        x: boss.x, y: boss.y,
+        aimAngle: aimToPLayer,
+        state: "telegraph",
+        stateTimer: 1.3,
+        bossId: boss.id
+      });
+
+      // Blaster 2: from border, aimed toward player
+      const borderAngle = Math.atan2(py - SOLO_WORLD_HEIGHT / 2, px - SOLO_WORLD_WIDTH / 2) + patternAngle;
+      const borderPos = getSoloBorderPoint(SOLO_WORLD_WIDTH / 2, SOLO_WORLD_HEIGHT / 2, SOLO_WORLD_WIDTH, SOLO_WORLD_HEIGHT, borderAngle + Math.PI);
+      const aimFromBorder = Math.atan2(py - borderPos.y, px - borderPos.x);
+      soloGasterBlasters.push({
+        id: nextSoloGasterBlasterId++,
+        x: borderPos.x, y: borderPos.y,
+        aimAngle: aimFromBorder,
+        state: "telegraph",
+        stateTimer: 1.3,
+        bossId: boss.id
+      });
+    }
+    function isSoloHitByBeam(px, py, pr, bx, by, aimAngle) {
+      const cosA = Math.cos(aimAngle);
+      const sinA = Math.sin(aimAngle);
+      const ddx = px - bx;
+      const ddy = py - by;
+      const along = ddx * cosA + ddy * sinA;
+      const perp  = -ddx * sinA + ddy * cosA;
+      return along > -pr && along < 3500 && Math.abs(perp) < 28 + pr;
+    }
+
+    function updateSoloGasterBlasters(dt) {
+      for (let i = soloGasterBlasters.length - 1; i >= 0; i--) {
+        const blaster = soloGasterBlasters[i];
+        blaster.stateTimer -= dt;
+        if (blaster.stateTimer <= 0) {
+          if (blaster.state === "telegraph") {
+            blaster.state = "firing";
+            blaster.stateTimer = 0.25;
+          } else {
+            soloGasterBlasters.splice(i, 1);
+            continue;
+          }
+        }
+        // Continuous damage during firing
+        if (blaster.state === "firing" && player.hp > 0) {
+          if (isSoloHitByBeam(player.x, player.y, player.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
+            damagePlayer(90 * dt / 0.25);
+          }
+        }
+      }
+    }
+
+    function updateSoloDamageZones(dt) {
+      for (let i = soloDamageZones.length - 1; i >= 0; i--) {
+        const zone = soloDamageZones[i];
+        zone.timer -= dt;
+        if (zone.timer <= 0) {
+          if (player.hp > 0) {
+            const zdx = player.x - zone.x;
+            const zdy = player.y - zone.y;
+            if (zdx * zdx + zdy * zdy < zone.r * zone.r) {
+              damagePlayer(110);
+            }
+          }
+          soloDamageZones.splice(i, 1);
+        }
+      }
+    }
+
+    function updateSoloBossTurretAttacks(boss, dt) {
+      const pattern = SOLO_GASTER_PATTERNS[boss.turretBlasterPatternIdx % 6];
+      const BATCH = 5;
+
+      if (boss.turretBlasterState === "idle") {
+        boss.turretBlasterCooldown -= dt;
+        if (boss.turretBlasterCooldown <= 0 && boss.turretBlasterShotIdx < pattern.count) {
+          for (let b = 0; b < BATCH && boss.turretBlasterShotIdx + b < pattern.count; b++) {
+            const angle = pattern.start + pattern.step * (boss.turretBlasterShotIdx + b);
+            spawnSoloGasterBlasterPair(boss, angle);
+          }
+          boss.turretBlasterState = "waiting";
+          boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.45;
+        }
+      } else if (boss.turretBlasterState === "waiting") {
+        boss.turretBlasterWaitTimer -= dt;
+        if (boss.turretBlasterWaitTimer <= 0) {
+          boss.turretBlasterShotIdx += BATCH;
+          if (boss.turretBlasterShotIdx >= pattern.count) {
+            boss.turretBlasterState = "idle";
+            boss.turretBlasterCooldown = 2.5;
+            boss.turretBlasterShotIdx = 0;
+            boss.turretBlasterPatternIdx = (boss.turretBlasterPatternIdx + 1) % 6;
+          } else {
+            boss.turretBlasterState = "idle";
+            boss.turretBlasterCooldown = 0;
+          }
+        }
+      }
+
+      boss.turretZoneCooldown -= dt;
+      if (boss.turretZoneCooldown <= 0 && player.hp > 0) {
+        for (let z = 0; z < 2; z++) {
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: player.x + (z === 0 ? 0 : random(-60, 60)),
+            y: player.y + (z === 0 ? 0 : random(-60, 60)),
+            r: 240,
+            timer: 1.5 + z * 0.7,
+            maxTimer: 1.5 + z * 0.7,
+            bossId: boss.id
+          });
+        }
+        boss.turretZoneCooldown = 6;
+      }
+    }
+
     function updateSplinterShards(dt) {
       for (let i = splinterShards.length - 1; i >= 0; i--) {
         const shard = splinterShards[i];
@@ -7270,6 +7486,51 @@
             ctx.fillStyle = "#e0f2fe";
             ctx.shadowColor = "#00f2fe";
             ctx.shadowBlur = 8;
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // 5b. Turret mode: Golden invincibility shield
+        if (opts.turretMode) {
+          const goldPulse = 1 + Math.sin(now * 0.008) * 0.08;
+          const goldRadius = (r + 18) * goldPulse;
+          ctx.save();
+          ctx.rotate(-now * 0.0012);
+          ctx.strokeStyle = "#ffd700";
+          ctx.shadowColor = "#ffa500";
+          ctx.shadowBlur = 22;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          for (let s = 0; s < 6; s++) {
+            const sa = (s / 6) * Math.PI * 2;
+            const sx = Math.cos(sa) * goldRadius;
+            const sy = Math.sin(sa) * goldRadius;
+            if (s === 0) ctx.moveTo(sx, sy);
+            else ctx.lineTo(sx, sy);
+          }
+          ctx.closePath();
+          ctx.fillStyle = "rgba(255, 215, 0, 0.12)";
+          ctx.fill();
+          ctx.stroke();
+
+          // Outer glow ring
+          ctx.beginPath();
+          ctx.arc(0, 0, goldRadius * 1.08, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(255, 165, 0, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Golden vertex nodes
+          for (let s = 0; s < 6; s++) {
+            const sa = (s / 6) * Math.PI * 2;
+            const sx = Math.cos(sa) * goldRadius;
+            const sy = Math.sin(sa) * goldRadius;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff8dc";
+            ctx.shadowColor = "#ffd700";
+            ctx.shadowBlur = 10;
             ctx.fill();
           }
           ctx.restore();
@@ -7823,11 +8084,11 @@
             let secondWeight = 0.5;
           
             if (first.type === "boss") {
-              firstWeight = 0.08;
-              secondWeight = 0.92;
+              if (first.turretMode) { firstWeight = 0; secondWeight = 1; }
+              else { firstWeight = 0.08; secondWeight = 0.92; }
             } else if (second.type === "boss") {
-              firstWeight = 0.92;
-              secondWeight = 0.08;
+              if (second.turretMode) { firstWeight = 1; secondWeight = 0; }
+              else { firstWeight = 0.92; secondWeight = 0.08; }
             } else if (first.type === "tank") {
               firstWeight = 0.28;
               secondWeight = 0.72;
@@ -8088,9 +8349,18 @@
               enemy.dashState = "none";
               enemy.sniperState = "none";
               enemy.spiralActive = false;
+              enemy.armorRespawnCooldown = 60;
               createRing(enemy.x, enemy.y, 80, "#00f2fe");
               createParticles(enemy.x, enemy.y, "#00f2fe", 35, 260);
               screenShake = Math.max(screenShake, 14);
+            }
+          }
+
+          // Armor respawn: after 60s cooldown, shields can re-trigger
+          if (enemy.armorRespawnCooldown > 0) {
+            enemy.armorRespawnCooldown -= dt;
+            if (enemy.armorRespawnCooldown <= 0) {
+              enemy.shieldTriggered = false;
             }
           }
 
@@ -8098,6 +8368,42 @@
           if (enemy.stunTimer > 0) {
             enemy.stunTimer -= dt;
             continue;
+          }
+
+          // Turret mode cooldown
+          enemy.turretCooldown = typeof enemy.turretCooldown === "number" ? enemy.turretCooldown : 28;
+          if (enemy.turretCooldown > 0) {
+            enemy.turretCooldown -= dt;
+          }
+
+          // Enter turret mode
+          if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena) {
+            enemy.x = SOLO_WORLD_WIDTH / 2;
+            enemy.y = SOLO_WORLD_HEIGHT / 2;
+            enemy.turretMode = true;
+            enemy.turretTimer = 20;
+            enemy.dashState = "none";
+            enemy.sniperState = "none";
+            enemy.spiralActive = false;
+            enemy.turretBlasterState = "idle";
+            enemy.turretBlasterCooldown = 1.5;
+            enemy.turretBlasterShotIdx = 0;
+            enemy.turretBlasterPatternIdx = enemy.turretBlasterPatternIdx || 0;
+            enemy.turretZoneCooldown = 4;
+            createRing(enemy.x, enemy.y, 90, "#ffd700");
+            screenShake = Math.max(screenShake, 8);
+          }
+
+          // Turret mode active: run turret attacks, skip normal AI
+          if (enemy.turretMode) {
+            enemy.turretTimer -= dt;
+            if (enemy.turretTimer <= 0) {
+              enemy.turretMode = false;
+              enemy.turretCooldown = 35;
+            } else {
+              updateSoloBossTurretAttacks(enemy, dt);
+              continue;
+            }
           }
 
           enemy.dashState = enemy.dashState || "none";
@@ -8189,6 +8495,43 @@
                 enemy.spiralActive = false;
                 enemy.spiralCooldown = random(6.0, 8.5);
               }
+            }
+          }
+
+          // 4. Phase 3: Gaster blasters + damage zones even in normal mode
+          if (phase === 2 && enemyCanAttack && !enemy.turretMode) {
+            enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 5;
+            enemy.normalBlasterCooldown -= dt;
+            if (enemy.normalBlasterCooldown <= 0) {
+              enemy.normalBlasterPatternIdx = enemy.normalBlasterPatternIdx || 0;
+              const pattern = SOLO_GASTER_PATTERNS[enemy.normalBlasterPatternIdx % 6];
+              // Spawn 3 pairs (6 blasters) from current pattern position
+              for (let b = 0; b < 3; b++) {
+                const angle = pattern.start + pattern.step * ((enemy.normalBlasterShotCounter || 0) + b);
+                spawnSoloGasterBlasterPair(enemy, angle);
+              }
+              enemy.normalBlasterShotCounter = ((enemy.normalBlasterShotCounter || 0) + 3) % pattern.count;
+              if (enemy.normalBlasterShotCounter === 0) {
+                enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % 6;
+              }
+              enemy.normalBlasterCooldown = 4;
+            }
+
+            enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 6;
+            enemy.normalZoneCooldown -= dt;
+            if (enemy.normalZoneCooldown <= 0 && player.hp > 0) {
+              for (let z = 0; z < 2; z++) {
+                soloDamageZones.push({
+                  id: nextSoloDamageZoneId++,
+                  x: player.x + (z === 0 ? 0 : random(-80, 80)),
+                  y: player.y + (z === 0 ? 0 : random(-80, 80)),
+                  r: 240,
+                  timer: 1.5 + z * 0.7,
+                  maxTimer: 1.5 + z * 0.7,
+                  bossId: enemy.id
+                });
+              }
+              enemy.normalZoneCooldown = 6;
             }
           }
 
@@ -8385,11 +8728,13 @@
          * неуязвимости, чтобы он не стоял внутри игрока.
          */
         const pushStrength =
-          enemy.type === "boss"
-            ? 25
-            : enemy.type === "tank"
-              ? 17
-              : 12;
+          (enemy.type === "boss" && enemy.turretMode)
+            ? 0
+            : enemy.type === "boss"
+              ? 25
+              : enemy.type === "tank"
+                ? 17
+                : 12;
       
         enemy.x -=
           dx * pushStrength;
@@ -8631,6 +8976,8 @@
       updateMedkits(dt);
       updateEnemyProjectiles(dt);
       updateSplinterShards(dt);
+      updateSoloGasterBlasters(dt);
+      updateSoloDamageZones(dt);
       updateParasiteSpores(dt);
       updateExperienceCrystals(dt);
       updateParticles(dt);
@@ -8758,7 +9105,10 @@
       {
         id: "bounce",
         title: "Дополнительный рикошет",
-        description: "Ваши патроны могут дополнительно отскакивать от стен.",
+        description: "Ваши патроны могут дополнительно отскакивать от стен (макс. 6 рикошетов).",
+        available() {
+          return GameShared.isUpgradeAvailable(player, "bounce");
+        },
         applyWithPower(power) {
           GameShared.applyUpgrade(player, "bounce", power);
         }
@@ -8795,7 +9145,7 @@
       },
       {
         id: "armor",
-        title: "Усиленная броня",
+        title: "Живучесть",
         description: "Повышает максимальное и текущее здоровье на +100 за уровень.",
         applyWithPower(power) {
           GameShared.applyUpgrade(player, "armor", power);
@@ -8975,15 +9325,19 @@
       {
         id: "homing",
         title: "Умная пуля",
-        description: "Пуля корректирует траекторию в сторону ближайшей цели.",
-        applyWithPower(power) {
-          GameShared.applyUpgrade(player, "homing", power);
+        description: "Пуля слегка доворачивает в сторону ближайшей цели (макс. 3 уровня). 1 ур.: 275px/60°, 2 ур.: 337px/75°, 3 ур.: 400px/90°.",
+        fixedRarity: "legendary",
+        available() {
+          return GameShared.isUpgradeAvailable(player, "homing");
+        },
+        applyWithPower() {
+          GameShared.applyUpgrade(player, "homing");
         }
       },
       {
         id: "caliber",
         title: "Крупный калибр",
-        description: "Увеличивает размер ваших патронов, облегчая попадание.",
+        description: "Увеличивает размер ваших патронов, облегчая попадание (макс. 21 px).",
         available() {
           return GameShared.isUpgradeAvailable(player, "caliber");
         },
@@ -9306,7 +9660,7 @@
         id: "dash-damage",
         title: "Разящий рывок",
         description: "Рывок наносит 100% урона всем врагам на пути.",
-        fixedRarity: "legendary",
+        fixedRarity: "unique",
         available() {
           return GameShared.isUpgradeAvailable(player, "dash-damage");
         },
@@ -9337,6 +9691,12 @@
         key: "legendary",
         label: "ЛЕГЕНДАРНОЕ",
         power: 3
+      },
+
+      unique: {
+        key: "unique",
+        label: "УНИКАЛЬНОЕ",
+        power: 3
       }
     };
     
@@ -9352,7 +9712,9 @@
     
       const roll = Math.random();
     
-      if (roll < 0.08) {
+      // unique only via fixedRarity — no random unique rolls
+
+      if (roll < 0.07) {
         return upgradeRarities.legendary;
       }
     
@@ -9682,7 +10044,8 @@
       "dash": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><path d="M3 8l3 4-3 4" opacity="0.5"/></svg>`,
       "dash-distance": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h18"/><polyline points="15 6 21 12 15 18"/><line x1="7" y1="8" x2="7" y2="16" stroke-dasharray="2 2"/></svg>`,
       "dash-cooldown": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>`,
-      "dash-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff3f8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><line x1="10" y1="8" x2="14" y2="16" stroke="#ffd36b" stroke-width="1.8"/><line x1="14" y1="8" x2="10" y2="16" stroke="#ffd36b" stroke-width="1.8"/></svg>`
+      "dash-damage": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff3f8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/><line x1="10" y1="8" x2="14" y2="16" stroke="#ffd36b" stroke-width="1.8"/><line x1="14" y1="8" x2="10" y2="16" stroke="#ffd36b" stroke-width="1.8"/></svg>`,
+      "resurrection": `<svg viewBox="0 0 24 24" class="upgrade-svg-icon" fill="none" stroke="#ff3b3b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-4.97 0-9-4.03-9-9s4.03-9 9-9 9 4.03 9 9-4.03 9-9 9z"/><path d="M12 8v5"/><path d="M9 11l3 4 3-4"/><line x1="12" y1="16" x2="12" y2="17" stroke-width="2"/></svg>`
     };
 
     function getUpgradeIcon(idOrTitle) {
@@ -9757,6 +10120,7 @@
       }
     
       selectedUpgradeHistory.push({
+        upgradeId: selectedUpgrade.id,
         title: selectedUpgrade.title,
         description:
           selectedUpgrade.description ||
@@ -10762,6 +11126,17 @@ osc.stop(now + 0.05);
     /* =========================================================================
        СИСТЕМА НАСТРОЕК И СТАТИСТИКИ
        ========================================================================= */
+    /*
+     * Доступные стили прицела (настройка в меню "Настройки").
+     * Используется как загрузкой настроек, так и отрисовкой (drawCrosshairShape).
+     */
+    const CROSSHAIR_STYLES = [
+      { id: "classic", label: "Классический" },
+      { id: "dot", label: "Точка" },
+      { id: "cross", label: "Крест" },
+      { id: "bracket", label: "Скобки" }
+    ];
+
     function loadGameSettings() {
       try {
         const raw = localStorage.getItem("one_bullet_settings_v1");
@@ -10776,11 +11151,14 @@ osc.stop(now + 0.05);
             screenShake: parsed.screenShake !== false,
             bulletSkin: typeof parsed.bulletSkin === "string" ? parsed.bulletSkin : "neon",
             playerSkin: typeof parsed.playerSkin === "string" ? parsed.playerSkin : "cyan",
+            crosshairStyle: CROSSHAIR_STYLES.some(s => s.id === parsed.crosshairStyle) ? parsed.crosshairStyle : "classic",
+            crosshairSize: typeof parsed.crosshairSize === "number" ? Math.max(0.5, Math.min(2.0, parsed.crosshairSize)) : 1.0,
+            crosshairOpacity: typeof parsed.crosshairOpacity === "number" ? Math.max(0.2, Math.min(1.0, parsed.crosshairOpacity)) : 1.0,
             showExactValues: Boolean(parsed.showExactValues)
           };
         }
       } catch {}
-      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon", playerSkin: "cyan", showExactValues: false };
+      return { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon", playerSkin: "cyan", crosshairStyle: "classic", crosshairSize: 1.0, crosshairOpacity: 1.0, showExactValues: false };
     }
 
     function saveGameSettings() {
@@ -11093,7 +11471,7 @@ osc.stop(now + 0.05);
           <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
             <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
               <span style="font-size: 15px;">📜</span>
-              <span>История обновлений (v2.11)</span>
+              <span>История обновлений (v2.14)</span>
             </button>
           </div>
         </div>
@@ -11253,6 +11631,47 @@ osc.stop(now + 0.05);
                   </button>
                 </div>
               </div>
+
+              <div class="setting-row" style="align-items: flex-start;">
+                <div class="setting-info">
+                  <span class="setting-name">🎯 Стиль прицела</span>
+                  <span class="setting-desc">Форма, размер и прозрачность прицела в бою (соло и кооп)</span>
+                </div>
+                <div class="setting-control" style="flex-direction: column; align-items: flex-end; gap: 10px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" id="settingCrosshairPrev" class="cyber-toggle-btn" style="min-width:36px;">◀</button>
+                    <span class="setting-val-badge" id="settingCrosshairVal" style="min-width:120px;display:inline-block;text-align:center;">
+                      ${(CROSSHAIR_STYLES.find(s => s.id === gameSettings.crosshairStyle) || CROSSHAIR_STYLES[0]).label}
+                    </span>
+                    <button type="button" id="settingCrosshairNext" class="cyber-toggle-btn" style="min-width:36px;">▶</button>
+                  </div>
+                  <div style="position: relative; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 18px rgba(0,0,0,0.85);">
+                    <canvas id="crosshairPreviewCanvas" width="100" height="100" style="width: 100px; height: 100px;"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Размер прицела</span>
+                  <span class="setting-desc">Масштаб формы прицела относительно стандартного</span>
+                </div>
+                <div class="setting-control">
+                  <input type="range" id="settingCrosshairSize" min="50" max="200" value="${Math.round((gameSettings.crosshairSize ?? 1.0) * 100)}" class="cyber-range">
+                  <span class="setting-val-badge" id="settingCrosshairSizeVal">${Math.round((gameSettings.crosshairSize ?? 1.0) * 100)}%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-name">Прозрачность прицела</span>
+                  <span class="setting-desc">Насколько заметен прицел поверх арены</span>
+                </div>
+                <div class="setting-control">
+                  <input type="range" id="settingCrosshairOpacity" min="20" max="100" value="${Math.round((gameSettings.crosshairOpacity ?? 1.0) * 100)}" class="cyber-range">
+                  <span class="setting-val-badge" id="settingCrosshairOpacityVal">${Math.round((gameSettings.crosshairOpacity ?? 1.0) * 100)}%</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -11281,9 +11700,47 @@ osc.stop(now + 0.05);
       const sensVal = panel.querySelector("#settingSensVal");
       const shakeBtn = panel.querySelector("#settingShakeToggle");
       const exactBtn = panel.querySelector("#settingExactToggle");
+      const crosshairPrevBtn = panel.querySelector("#settingCrosshairPrev");
+      const crosshairNextBtn = panel.querySelector("#settingCrosshairNext");
+      const crosshairValSpan = panel.querySelector("#settingCrosshairVal");
+      const crosshairSizeRange = panel.querySelector("#settingCrosshairSize");
+      const crosshairSizeVal = panel.querySelector("#settingCrosshairSizeVal");
+      const crosshairOpacityRange = panel.querySelector("#settingCrosshairOpacity");
+      const crosshairOpacityVal = panel.querySelector("#settingCrosshairOpacityVal");
+      const crosshairPreviewCanvas = panel.querySelector("#crosshairPreviewCanvas");
       const backBtn = panel.querySelector("#settingsBackBtn");
       const resetBtn = panel.querySelector("#settingsResetBtn");
       const saveBtn = panel.querySelector("#settingsSaveBtn");
+
+      /*
+       * Живое превью прицела в настройках — рисует ту же форму
+       * (drawCrosshairShape), что и в реальном бою, с текущими
+       * размером/прозрачностью, чтобы игрок сразу видел результат.
+       */
+      const renderCrosshairPreview = () => {
+        if (!crosshairPreviewCanvas) return;
+        const pctx = crosshairPreviewCanvas.getContext("2d");
+        const w = crosshairPreviewCanvas.width;
+        const h = crosshairPreviewCanvas.height;
+        pctx.clearRect(0, 0, w, h);
+
+        const sizeMul = gameSettings.crosshairSize ?? 1.0;
+        const opacity = gameSettings.crosshairOpacity ?? 1.0;
+        const radius = 10 * sizeMul;
+        const lineWidth = 1.5 * sizeMul;
+        const extension = 6 * sizeMul;
+        const innerOffset = 2 * sizeMul;
+
+        pctx.save();
+        pctx.translate(w / 2, h / 2);
+        pctx.globalAlpha = opacity;
+        pctx.strokeStyle = "rgba(56, 189, 248, 0.95)";
+        pctx.lineWidth = lineWidth;
+        drawCrosshairShape(gameSettings.crosshairStyle, radius, extension, innerOffset, pctx);
+        pctx.restore();
+      };
+
+      renderCrosshairPreview();
 
       volRange.oninput = () => {
         const val = Number(volRange.value);
@@ -11347,6 +11804,40 @@ osc.stop(now + 0.05);
           exactBtn.classList.toggle("active", gameSettings.showExactValues);
           saveGameSettings();
           soundManager.playUiClick();
+        };
+      }
+
+      if (crosshairPrevBtn && crosshairNextBtn && crosshairValSpan) {
+        const cycleCrosshair = (dir) => {
+          const idx = CROSSHAIR_STYLES.findIndex(s => s.id === gameSettings.crosshairStyle);
+          const nextIdx = (idx + dir + CROSSHAIR_STYLES.length) % CROSSHAIR_STYLES.length;
+          gameSettings.crosshairStyle = CROSSHAIR_STYLES[nextIdx].id;
+          crosshairValSpan.textContent = CROSSHAIR_STYLES[nextIdx].label;
+          saveGameSettings();
+          soundManager.playUiClick();
+          renderCrosshairPreview();
+        };
+        crosshairPrevBtn.onclick = () => cycleCrosshair(-1);
+        crosshairNextBtn.onclick = () => cycleCrosshair(1);
+      }
+
+      if (crosshairSizeRange && crosshairSizeVal) {
+        crosshairSizeRange.oninput = () => {
+          const val = Number(crosshairSizeRange.value) / 100;
+          crosshairSizeVal.textContent = Math.round(val * 100) + "%";
+          gameSettings.crosshairSize = val;
+          saveGameSettings();
+          renderCrosshairPreview();
+        };
+      }
+
+      if (crosshairOpacityRange && crosshairOpacityVal) {
+        crosshairOpacityRange.oninput = () => {
+          const val = Number(crosshairOpacityRange.value) / 100;
+          crosshairOpacityVal.textContent = Math.round(val * 100) + "%";
+          gameSettings.crosshairOpacity = val;
+          saveGameSettings();
+          renderCrosshairPreview();
         };
       }
 
@@ -11445,7 +11936,7 @@ osc.stop(now + 0.05);
       renderKeybinds();
 
       resetBtn.onclick = () => {
-        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon", playerSkin: "cyan" };
+        gameSettings = { volume: 0.8, musicVolume: 0.7, sfxVolume: 0.85, mute: false, sensitivity: 1.0, screenShake: true, bulletSkin: "neon", playerSkin: "cyan", crosshairStyle: "classic", crosshairSize: 1.0, crosshairOpacity: 1.0, showExactValues: false };
         keybinds = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
         saveGameSettings();
         saveKeybinds();
@@ -11966,7 +12457,7 @@ osc.stop(now + 0.05);
       {
         id: "mirage",
         name: "Мираж",
-        icon: "🌫️",
+        icon: "🫥",
         color: "#a78bfa",
         tag: "ПРИЗРАЧНЫЙ",
         tagColor: "#a78bfa",
@@ -11974,13 +12465,13 @@ osc.stop(now + 0.05);
         speed: "70 px/s (+2.0/волна)",
         wave: "Волна 7+",
         xp: "140 XP",
-        desc: "Сиреневый морок (#a78bfa): 6 секунд полностью невидим, затем на 1 секунду проявляется — и снова прячется.",
+        desc: "Сиреневый морок (#a78bfa): 4 секунды полностью невидим, затем на 2 секунды проявляется — и снова прячется.",
         abilities: [
-          "Невидим 6с, виден 1с — цикл повторяется, пока жив",
+          "Невидим 4с, виден 2с — цикл повторяется, пока жив",
           "Прямому урону невидимость не мешает — попадает и стреляет по силуэту вслепую",
           "Умные пули не наводятся на него, пока он невидим — цель ловят только в окне видимости"
         ],
-        tactics: "Стреляйте по последней известной позиции вслепую или ждите секундного окна видимости, чтобы умные пули захватили цель."
+        tactics: "Стреляйте по последней известной позиции вслепую или ждите двухсекундного окна видимости, чтобы умные пули захватили цель."
       },
       {
         id: "sentinel",
@@ -12237,7 +12728,7 @@ osc.stop(now + 0.05);
         rarity: "COMMON",
         category: "weapon",
         color: "#38bdf8",
-        desc: "Добавляет +1 отскок от стен арены. Каждый рикошет сбрасывает таймер урона по врагам.",
+        desc: "Добавляет +1 отскок от стен арены (максимум 6 рикошетов). Каждый рикошет сбрасывает таймер урона по врагам.",
         tree: ["Позволяет пуле дольше оставаться в полете и наносить урон."],
         synergy: "Синергирует с Осколочным Рикошетом и зачисткой толпы."
       },
@@ -12267,12 +12758,12 @@ osc.stop(now + 0.05);
         id: "homing",
         title: "Умная пуля",
         icon: "🔮",
-        rarity: "EPIC",
+        rarity: "LEGENDARY",
         category: "weapon",
         color: "#c084fc",
-        desc: "Снаряд плавно доворачивает и наводится на ближайшие уязвимые цели во время свободного полета.",
-        tree: ["Значительно увеличивает точность стрельбы и попадания."],
-        synergy: "Гарантирует попадания при сложных рикошетах."
+        desc: "Снаряд слегка доворачивает в сторону ближайшей уязвимой цели. Ограничено 3 уровнями: на 3 ур. радиус захвата 400px, скорость доворота 90°/с.",
+        tree: ["Уровень 1: радиус 275px, доворот 60°/с.", "Уровень 2: радиус 337px, доворот 75°/с.", "Уровень 3 (макс.): радиус 400px, доворот 90°/с."],
+        synergy: "Слегка подправляет промахи, не превращая пулю во всесокрушающую самонаводящуюся ракету."
       },
       {
         id: "extra-bullet",
@@ -12300,7 +12791,7 @@ osc.stop(now + 0.05);
       },
       {
         id: "max-hp",
-        title: "Усиленная броня",
+        title: "Живучесть",
         icon: "🛡️",
         rarity: "COMMON",
         category: "survival",
@@ -12329,17 +12820,17 @@ osc.stop(now + 0.05);
         color: "#38bdf8",
         desc: "Снижает получаемый урон на +6% за уровень (максимум 42%).",
         tree: ["Пассивное сопротивление урону, суммируется до потолка 42%."],
-        synergy: "Отлично сочетается с «Усиленной бронёй» — больше урона выдержит запас HP."
+        synergy: "Отлично сочетается с «Живучестью» — больше урона выдержит запас HP."
       },
       {
         id: "resurrection",
         title: "Воскрешение",
         icon: "💀",
-        rarity: "LEGENDARY",
+        rarity: "UNIQUE",
         category: "survival",
-        color: "#ffd36b",
-        desc: "Одноразовое за матч. При смерти — QTE: 5 нажатий Пробела за 5 секунд, иначе — окончательная смерть.",
-        tree: ["Успех — возрождение со 100 HP (без неуязвимости)."],
+        color: "#ff3b3b",
+        desc: "Одноразовое за матч. При смерти — QTE: 3 нажатия Пробела за 5 секунд.",
+        tree: ["Успех — возрождение с 10% от максимального HP и 2с неуязвимости.", "Провал QTE не тратит бонус — сработает при следующей смерти."],
         synergy: "Страховка от фатальной ошибки на поздних волнах и в бою с боссом."
       }
     ];
@@ -13297,16 +13788,79 @@ osc.stop(now + 0.05);
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
 
-            <!-- v2.11 -->
+            <!-- v2.14 -->
             <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(168, 85, 247, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(168, 85, 247, 0.16);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(168, 85, 247, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.11</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Оружейная: 6 новых скинов пули и облики бойца с узорами брони</span>
+                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.14</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Урон врагов масштабируется по волнам и новый телеграф снайпера босса</span>
                 </div>
                 <span style="font-size: 11px; color: #c084fc; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>⚔️ <strong>Урон врагов теперь масштабируется по волнам</strong> — контактный урон и снаряды (дробь, радиальный залп, ударная волна, снайперская пуля) растут на 2% за уровень волны, максимум +100% на волне 51. Раньше со временем росло только HP врагов, а урон оставался неизменным.</li>
+                <li>❤️ <strong>Полоса HP скрывается у врагов, которых игрок убивает с одного попадания</strong> (без учёта бонусов вроде яда/паразита) — меньше визуального шума от полосок здоровья на слабых противниках.</li>
+                <li>🎯 <strong>Новый телеграф «снайперского выстрела» босса:</strong> вместо одной линии теперь два луча расходятся до ±30°, сходятся в единую траекторию точно к моменту выстрела — нагляднее показывает, куда полетит пуля.</li>
+              </ul>
+            </div>
+
+            <!-- v2.13 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(168, 85, 247, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.13</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Баланс апгрейдов, фикс краша коопа и предупреждение перед выстрелом босса</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>🐛 <strong>Фикс краша кооп-сессии:</strong> устранена ошибка <code>Cannot access 'experienceRatio' before initialization</code>, возникавшая при получении снапшота и валившая интерфейс патронов в коопе.</li>
+                <li>⚕️ <strong>«Аварийный ремонт» и «Ремонтный комплект»</strong> больше не предлагаются как улучшение, если игрок в этот момент мёртв (частый баг в коопе).</li>
+                <li>🏷️ <strong>«Усиленная броня» переименована в «Живучесть»</strong> — чтобы не путаться с отдельным улучшением «Стойкость» (сопротивление урону).</li>
+                <li>🎯 <strong>Крупный калибр:</strong> потолок увеличен с 15px до 21px, прирост за уровень — с +1.5px до +3px радиуса пули.</li>
+                <li>🔄 <strong>Рикошет теперь ограничен потолком в 6 отскоков</strong> — раньше улучшение можно было брать бесконечно.</li>
+                <li>💨 <strong>Рывок получил +0.3 сек неуязвимости</strong> к уже существующему окну — суммарно 0.48 сек «фреймов неуязвимости» на рывок.</li>
+                <li>🧲 <strong>Магнетизатор (враг) ослаблен:</strong> радиус притяжения патрона 400px → 300px, сила притяжения 150–500px/с → 100–300px/с.</li>
+                <li>👻 <strong>Мираж стал агрессивнее:</strong> невидимая фаза сокращена с 6 до 4 секунд, видимая — увеличена с 1 до 2 секунд.</li>
+                <li>🎯 <strong>Босс: предупреждение перед «снайперским выстрелом»</strong> — за 0.35 сек до выстрела появляется пульсирующая вспышка и лазерный прицел по направлению будущей пули, чтобы дать игроку время среагировать (работает и в коопе).</li>
+                <li>📉 <strong>Все проджектайлы босса уменьшены на 20%</strong> (дробь, радиальный залп, ударная волна, снайперская пуля) — стало проще уворачиваться.</li>
+                <li>🎯 <strong>Прицел получил стили формы:</strong> классический, точка, крест или скобки — на выбор в настройках, применяется и в соло, и в коопе (дополняет ползунки размера/прозрачности).</li>
+                <li>🔮 <strong>Реворк «Умной пули»:</strong> теперь легендарное улучшение — выпадает только как «ЛЕГЕНДАРНОЕ» на всех уровнях, с жёстким потолком в 3 уровня (раньше можно было качать бесконечно, и пуля улетала через всю карту). Ур.1: радиус 275px / доворот 60°/с, Ур.2: 337px / 75°/с, Ур.3 (макс.): 400px / 90°/с — пуля лишь слегка подправляет траекторию, как и задумывалось изначально.</li>
+                <li>🛡️ <strong>Уникальная редкость больше не выпадает случайно:</strong> ранее 2% шанс мог превратить любое улучшение (включая «Лёгкие ботинки») в уникальное. Теперь уникальный грейд — исключительно для «Разящего рывка» и «Воскрешения» (через fixedRarity).</li>
+              </ul>
+            </div>
+
+            <!-- v2.12 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(45, 212, 191, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(45, 212, 191, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: linear-gradient(135deg, #2dd4bf, #38bdf8); color: #020617; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.12</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Уникальная редкость, живучесть в бою и кастомизация прицела</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
+                <li>🟥 <strong>Новая редкость улучшений — «Уникальное»</strong> (шанс выпадения 2%, за счёт -1% у легендарных и -1% у редких): красная обводка и метка «УНИКАЛЬНОЕ». В неё перенесены «Воскрешение» и «Разящий рывок».</li>
+                <li>🛡️ <strong>2 секунды неуязвимости после респауна/возрождения</strong> — теперь после появления на арене есть окно, чтобы убежать от врагов, не получая урон.</li>
+                <li>🩸 <strong>Фикс: пропадала возможность встать после падения</strong> — если игрок умирал и не использовал воскрешение, при следующем падении окно «встать (QTE)» иногда не появлялось. Теперь оно доступно каждый раз.</li>
+                <li>⌨️ <strong>QTE воскрешения сокращено с 5 до 3 нажатий пробела</strong> — успеть встать стало проще.</li>
+                <li>👹 <strong>Смерть игрока сбрасывает агро врагов</strong> — после гибели противники теряют цель, давая шанс отбежать/восстановиться, а не мгновенно получать урон снова.</li>
+                <li>🔢 <strong>HP всегда целое число</strong> — устранены значения вида «300.00000000000003» из-за накопления погрешности float; здоровье округляется на каждом шаге.</li>
+                <li>🎯 <strong>Дальность рывка видна только с патроном в руках</strong> — если патрон лежит на земле, линия дальности рывка скрыта (раньше отображалась всегда).</li>
+                <li>💉 <strong>Воскрешение лечит на 10% от максимального HP</strong> вместо фиксированных 100 HP — масштабируется вместе с прокачкой живучести.</li>
+                <li>👻 <strong>Обновлена иконка Миража</strong> в базе знаний, а также поправлено описание фаз невидимости (4 сек невидим / 2 сек виден) — раньше текст в бестиарии не совпадал с реальным поведением.</li>
+                <li>🐛 <strong>Фикс пропавших иконок улучшений в ESC-меню</strong> (соло-режим) — карточки истории улучшений показывали placeholder «◆» вместо настоящей иконки.</li>
+                <li>🎯 <strong>Кастомизация прицела:</strong> в настройках добавлены живое превью прицела и ползунки размера (50–200%) и прозрачности (20–100%), работают в соло и в коопе.</li>
+              </ul>
+            </div>
+
+            <!-- v2.11 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(168, 85, 247, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.11</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Оружейная: 6 новых скинов пули и облики бойца с узорами брони</span>
+                </div>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 5px;">
                 <li>🔫 <strong>6 новых скинов пули:</strong> Ледяной Шип (Frost), Теневой Клинок (Shadow), Мидас (Gold), Кибер-Схема (Circuit), Грозовой Фронт (Storm) и Леденец (Candy) — каждый с уникальной геометрией, орбиталями и цветным шлейфом. Всего в арсенале 18 скинов пули.</li>
                 <li>🛡️ <strong>Новая система «Скины бойца»:</strong> 11 обликов персонажа (Кибер-Страж, Багровый Мститель, Янтарный Страж, Изумрудный Страж, Пурпурный Чародей, Золотой Чемпион, Ледяной Страж, Кислотный Разведчик, Пламенный Страж, Теневой Агент, Священный Паладин) — впервые доступны для выбора и экипировки.</li>
                 <li>🎨 <strong>Узоры брони вместо плоской заливки:</strong> каждый скин бойца рисуется собственным анимированным узором (технологичные швы, боевые полосы, чешуя, рунные метки, трещины мороза/тьмы, языки пламени, лучи света и т.д.) — скины больше не сводятся к смене одного цвета.</li>
@@ -13315,6 +13869,18 @@ osc.stop(now + 0.05);
                 <li>📖 <strong>База знаний дополнена:</strong> в каталог улучшений добавлены недостающие карточки «Воскрешение» и «Стойкость», описания сокращены и уточнены (не выезжают за экран).</li>
                 <li>🤖 <strong>Фоновый демо-бой на главном меню стал разнообразнее:</strong> расширен пул противников (танк, бегун, заряжающийся, разделитель, стрелок, фантом, мираж, страж, магнетизатор, инкубатор и пары близнецов), добавлены случайные бонусы прямо на арене (лечение, скорость, урон, щит, магнит) со свечением и подбором.</li>
                 <li>🧲 <strong>Демо-бот теперь целенаправленно бежит за бонусами</strong>, а не просто мимо них, а бонус «магнит» реально притягивает патрон с земли к боту (раньше эффект был только визуальным).</li>
+                <li>🐛 <strong>Фикс краша кооп-сессии:</strong> устранена ошибка <code>Cannot access 'experienceRatio' before initialization</code>, возникавшая при получении снапшота и валившая интерфейс патронов в коопе.</li>
+                <li>⚕️ <strong>«Аварийный ремонт» и «Ремонтный комплект»</strong> больше не предлагаются как улучшение, если игрок в этот момент мёртв (частый баг в коопе).</li>
+                <li>🏷️ <strong>«Усиленная броня» переименована в «Живучесть»</strong> — чтобы не путаться с отдельным улучшением «Стойкость» (сопротивление урону).</li>
+                <li>🎯 <strong>Крупный калибр:</strong> потолок увеличен с 15px до 21px, прирост за уровень — с +1.5px до +3px радиуса пули.</li>
+                <li>🔄 <strong>Рикошет теперь ограничен потолком в 6 отскоков</strong> — раньше улучшение можно было брать бесконечно.</li>
+                <li>💨 <strong>Рывок получил +0.3 сек неуязвимости</strong> к уже существующему окну — суммарно 0.48 сек «фреймов неуязвимости» на рывок.</li>
+                <li>🧲 <strong>Магнетизатор (враг) ослаблен:</strong> радиус притяжения патрона 400px → 300px, сила притяжения 150–500px/с → 100–300px/с.</li>
+                <li>👻 <strong>Мираж стал агрессивнее:</strong> невидимая фаза сокращена с 6 до 4 секунд, видимая — увеличена с 1 до 2 секунд.</li>
+                <li>🎯 <strong>Босс: предупреждение перед «снайперским выстрелом»</strong> — за 0.35 сек до выстрела появляется пульсирующая вспышка и лазерный прицел по направлению будущей пули, чтобы дать игроку время среагировать (работает и в коопе).</li>
+                <li>📉 <strong>Все проджектайлы босса уменьшены на 20%</strong> (дробь, радиальный залп, ударная волна, снайперская пуля) — стало проще уворачиваться.</li>
+                <li>🎯 <strong>Новая настройка «Стиль прицела»</strong> в меню настроек: классический, точка, крест или скобки — на выбор, применяется и в соло, и в коопе.</li>
+                <li>🔮 <strong>Реворк «Умной пули»:</strong> теперь легендарное улучшение с жёстким потолком в 3 уровня (раньше можно было качать бесконечно, и пуля улетала через всю карту). Ур.1: радиус 275px / доворот 60°/с, Ур.2: 337px / 75°/с, Ур.3 (макс.): 400px / 90°/с — пуля лишь слегка подправляет траекторию, как и задумывалось изначально.</li>
               </ul>
             </div>
 
@@ -15650,6 +16216,47 @@ osc.stop(now + 0.05);
         }
       }
 
+      // Gaster blasters from server
+      if (Array.isArray(snapshot.gasterBlasters)) {
+        if (!coopSession.gasterBlasters) coopSession.gasterBlasters = new Map();
+        const receivedIds = new Set();
+        for (const snap of snapshot.gasterBlasters) {
+          receivedIds.add(snap.id);
+          let b = coopSession.gasterBlasters.get(snap.id);
+          if (!b) {
+            b = { id: snap.id, x: snap.x, y: snap.y, aimAngle: snap.aimAngle, state: snap.state, stateTimer: snap.stateTimer };
+            coopSession.gasterBlasters.set(b.id, b);
+          }
+          b.x = snap.x; b.y = snap.y;
+          b.aimAngle = snap.aimAngle;
+          b.state = snap.state;
+          b.stateTimer = snap.stateTimer;
+        }
+        for (const bid of [...coopSession.gasterBlasters.keys()]) {
+          if (!receivedIds.has(bid)) coopSession.gasterBlasters.delete(bid);
+        }
+      }
+
+      // Damage zones from server
+      if (Array.isArray(snapshot.damageZones)) {
+        if (!coopSession.damageZones) coopSession.damageZones = new Map();
+        const receivedIds = new Set();
+        for (const snap of snapshot.damageZones) {
+          receivedIds.add(snap.id);
+          let z = coopSession.damageZones.get(snap.id);
+          if (!z) {
+            z = { id: snap.id, x: snap.x, y: snap.y, r: snap.r, timer: snap.timer, maxTimer: snap.maxTimer };
+            coopSession.damageZones.set(z.id, z);
+          }
+          z.x = snap.x; z.y = snap.y;
+          z.timer = snap.timer;
+          z.maxTimer = snap.maxTimer;
+        }
+        for (const zid of [...coopSession.damageZones.keys()]) {
+          if (!receivedIds.has(zid)) coopSession.damageZones.delete(zid);
+        }
+      }
+
       coopSession.upgradeWaitingPlayers =
         Array.isArray(
           snapshot.upgradeWaitingPlayers
@@ -16577,6 +17184,24 @@ osc.stop(now + 0.05);
           coopEnemy.shieldActive = Boolean(snapshotEnemy.shieldActive);
         }
 
+        if (snapshotEnemy.turretMode !== undefined) {
+          coopEnemy.turretMode = Boolean(snapshotEnemy.turretMode);
+        }
+
+        /*
+         * Состояние снайперского выстрела босса — всегда присылается
+         * сервером для типа boss, поэтому безопасно перезаписываем
+         * каждый снапшот (см. комментарий в server.js).
+         */
+        if (snapshotEnemy.sniperState !== undefined) {
+          coopEnemy.sniperState = snapshotEnemy.sniperState;
+          if (snapshotEnemy.sniperState === "locked") {
+            coopEnemy.sniperTimer = snapshotEnemy.sniperTimer;
+            coopEnemy.sniperTargetX = snapshotEnemy.sniperTargetX;
+            coopEnemy.sniperTargetY = snapshotEnemy.sniperTargetY;
+          }
+        }
+
         if (snapshotEnemy.bossId) {
           coopEnemy.bossId = snapshotEnemy.bossId;
         }
@@ -17501,6 +18126,64 @@ osc.stop(now + 0.05);
         ctx.beginPath();
         ctx.arc(shard.displayX, shard.displayY, shard.r || 4, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawCoopGasterBlasters() {
+      if (!coopSession.gasterBlasters || coopSession.gasterBlasters.size === 0) return;
+      const now = performance.now();
+      for (const blaster of coopSession.gasterBlasters.values()) {
+        ctx.save();
+        ctx.translate(blaster.x, blaster.y);
+        ctx.rotate(blaster.aimAngle);
+        if (blaster.state === "telegraph") {
+          const pulse = 0.3 + Math.sin(now * 0.015) * 0.2;
+          ctx.strokeStyle = `rgba(255, 50, 50, ${pulse})`;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([12, 8]);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(3500, 0);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else if (blaster.state === "firing") {
+          ctx.fillStyle = "rgba(255, 60, 60, 0.7)";
+          ctx.shadowColor = "#ff3333";
+          ctx.shadowBlur = 20;
+          ctx.fillRect(0, -28, 3500, 56);
+          ctx.fillStyle = "rgba(255, 200, 200, 0.9)";
+          ctx.fillRect(0, -10, 3500, 20);
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fillStyle = blaster.state === "firing" ? "#ff4444" : "#884444";
+        ctx.shadowColor = "#ff0000";
+        ctx.shadowBlur = blaster.state === "firing" ? 16 : 6;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawCoopDamageZones() {
+      if (!coopSession.damageZones || coopSession.damageZones.size === 0) return;
+      const now = performance.now();
+      for (const zone of coopSession.damageZones.values()) {
+        const progress = 1 - zone.timer / zone.maxTimer;
+        const pulse = 0.15 + progress * 0.4 + Math.sin(now * 0.01) * 0.05;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(zone.x, zone.y, zone.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 60, 30, ${pulse * 0.3})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255, 80, 40, ${pulse})`;
+        ctx.lineWidth = 2 + progress * 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(zone.x, zone.y, zone.r * progress, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 120, 60, ${pulse * 0.6})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
         ctx.restore();
       }
     }
@@ -18614,41 +19297,16 @@ osc.stop(now + 0.05);
     }
 
     function drawCoopAimLine() {
-      const localPlayerId =
-        window.net?.playerId;
-    
-      const localPlayer =
-        coopSession.players.get(
-          localPlayerId
-        );
-    
-      if (!localPlayer) {
-        return;
-      }
-    
-      const hasReadyBullet = [
-        ...coopSession.bullets.values()
-      ].some(
-        bullet =>
-          bullet.ownerId === localPlayerId &&
-          bullet.state === "held"
-      );
-    
-      if (!hasReadyBullet) {
-        return;
-      }
-    
-      let dx =
-        coopPointer.x -
-        localPlayer.displayX;
-    
-      let dy =
-        coopPointer.y -
-        localPlayer.displayY;
-    
-      const length =
-        Math.hypot(dx, dy);
-    
+      const localPlayerId = window.net?.playerId;
+      const localPlayer = coopSession.players.get(localPlayerId);
+      if (!localPlayer) return;
+
+      const hasDash = !!localPlayer.stats?.dash;
+
+      let dx = coopPointer.x - localPlayer.displayX;
+      let dy = coopPointer.y - localPlayer.displayY;
+      const length = Math.hypot(dx, dy);
+
       if (length < 0.001) {
         dx = 1;
         dy = 0;
@@ -18656,24 +19314,22 @@ osc.stop(now + 0.05);
         dx /= length;
         dy /= length;
       }
-    
+
+      const distance = hasDash
+        ? (localPlayer.stats?.dashDistance || 160)
+        : 160;
+
       ctx.save();
       ctx.beginPath();
       ctx.setLineDash([7, 10]);
-    
-      ctx.moveTo(
-        localPlayer.displayX,
-        localPlayer.displayY
-      );
-    
+      ctx.moveTo(localPlayer.displayX, localPlayer.displayY);
       ctx.lineTo(
-        localPlayer.displayX + dx * (localPlayer.stats?.dashDistance || 160),
-        localPlayer.displayY + dy * (localPlayer.stats?.dashDistance || 160)
+        localPlayer.displayX + dx * distance,
+        localPlayer.displayY + dy * distance
       );
-    
-      ctx.strokeStyle =
-        "rgba(126, 231, 255, 0.28)";
-    
+      ctx.strokeStyle = hasDash
+        ? "rgba(126, 231, 255, 0.28)"
+        : "rgba(126, 231, 255, 0.16)";
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
@@ -18757,6 +19413,64 @@ osc.stop(now + 0.05);
       ctx.restore();
     }
 
+    /*
+     * Функция рисует только внутреннюю форму прицела (см. CROSSHAIR_STYLES) —
+     * кольцо зарядки рывка остаётся общим для всех стилей.
+     */
+    function drawCrosshairShape(style, radius, extension, innerOffset, targetCtx = ctx) {
+      if (style === "dot") {
+        targetCtx.fillStyle = targetCtx.strokeStyle;
+        targetCtx.beginPath();
+        targetCtx.arc(0, 0, Math.max(1.5, radius * 0.22), 0, Math.PI * 2);
+        targetCtx.fill();
+        return;
+      }
+
+      if (style === "cross") {
+        targetCtx.beginPath();
+        targetCtx.moveTo(-radius - extension, 0);
+        targetCtx.lineTo(radius + extension, 0);
+        targetCtx.moveTo(0, -radius - extension);
+        targetCtx.lineTo(0, radius + extension);
+        targetCtx.stroke();
+        return;
+      }
+
+      if (style === "bracket") {
+        const armLen = radius * 0.6;
+        targetCtx.beginPath();
+        for (const sx of [-1, 1]) {
+          for (const sy of [-1, 1]) {
+            const cx = sx * radius;
+            const cy = sy * radius;
+            targetCtx.moveTo(cx, cy);
+            targetCtx.lineTo(cx - sx * armLen, cy);
+            targetCtx.moveTo(cx, cy);
+            targetCtx.lineTo(cx, cy - sy * armLen);
+          }
+        }
+        targetCtx.stroke();
+        return;
+      }
+
+      // "classic" (по умолчанию) — кольцо с четырьмя разомкнутыми штрихами.
+      targetCtx.beginPath();
+      targetCtx.arc(0, 0, radius, 0, Math.PI * 2);
+
+      targetCtx.moveTo(-radius - extension, 0);
+      targetCtx.lineTo(-radius + innerOffset, 0);
+
+      targetCtx.moveTo(radius - innerOffset, 0);
+      targetCtx.lineTo(radius + extension, 0);
+
+      targetCtx.moveTo(0, -radius - extension);
+      targetCtx.lineTo(0, -radius + innerOffset);
+
+      targetCtx.moveTo(0, radius - innerOffset);
+      targetCtx.lineTo(0, radius + extension);
+      targetCtx.stroke();
+    }
+
     function drawCoopCrosshair() {
       if (
         !coopSession.active ||
@@ -18765,10 +19479,11 @@ osc.stop(now + 0.05);
         return;
       }
     
-      const radius = 10 / coopView.scale;
-      const lineWidth = 1.5 / coopView.scale;
-      const extension = 6 / coopView.scale;
-      const innerOffset = 2 / coopView.scale;
+      const sizeMul = gameSettings.crosshairSize || 1.0;
+      const radius = (10 / coopView.scale) * sizeMul;
+      const lineWidth = (1.5 / coopView.scale) * sizeMul;
+      const extension = (6 / coopView.scale) * sizeMul;
+      const innerOffset = (2 / coopView.scale) * sizeMul;
       const ringRadius = radius + 6 / coopView.scale;
     
       const myPlayer = coopSession.players.get(window.net?.playerId);
@@ -18783,22 +19498,12 @@ osc.stop(now + 0.05);
     
       ctx.strokeStyle = isReady ? "rgba(56, 189, 248, 0.95)" : "rgba(200, 247, 255, 0.6)";
       ctx.lineWidth = lineWidth;
-    
-      ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    
-      ctx.moveTo(-radius - extension, 0);
-      ctx.lineTo(-radius + innerOffset, 0);
-    
-      ctx.moveTo(radius - innerOffset, 0);
-      ctx.lineTo(radius + extension, 0);
-    
-      ctx.moveTo(0, -radius - extension);
-      ctx.lineTo(0, -radius + innerOffset);
-    
-      ctx.moveTo(0, radius - innerOffset);
-      ctx.lineTo(0, radius + extension);
-      ctx.stroke();
+
+      const crosshairOpacity = gameSettings.crosshairOpacity ?? 1.0;
+      ctx.save();
+      ctx.globalAlpha = crosshairOpacity;
+      drawCrosshairShape(gameSettings.crosshairStyle, radius, extension, innerOffset);
+      ctx.restore();
 
       // Круговой индикатор зарядки рывка вокруг сетевого прицела
       if (dashUnlocked && !isReady) {
@@ -19033,7 +19738,7 @@ osc.stop(now + 0.05);
       }
 
       /*
-       * Мираж невидим 6 секунд, затем появляется на 1 секунду и снова прячется.
+       * Мираж невидим 4 секунды, затем появляется на 2 секунды и снова прячется.
        * Пока невидим — умные пули его не видят (см. applySmartHoming).
        */
       if (enemy.type === "mirage") {
@@ -19147,6 +19852,7 @@ osc.stop(now + 0.05);
           now: performance.now(),
           id: enemy.id,
           shieldActive: Boolean(enemy.shieldActive),
+          turretMode: Boolean(enemy.turretMode),
           sporesCount: enemy.sporesCount,
           chargeState: enemy.chargeState,
           chargeDx: enemy.chargeDx,
@@ -19158,7 +19864,12 @@ osc.stop(now + 0.05);
         });
       }
 
-      if (enemy.maxHp > 1 || enemy.hp < enemy.maxHp) {
+      // Полоса здоровья. Скрываем только если враг на полном HP и умирает
+      // от одного попадания (базовый урон, без яда/паразитов).
+      const coopMyPlayer = coopSession.players.get(window.net?.playerId);
+      const canOneShotCoop = enemy.maxHp <= (coopMyPlayer?.stats?.damage || 100);
+      const fullHpCoop = enemy.hp >= enemy.maxHp;
+      if ((!canOneShotCoop || !fullHpCoop) && (enemy.maxHp > 1 || enemy.hp < enemy.maxHp)) {
         const barWidth = enemy.r * 2;
         const healthRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
 
@@ -19175,6 +19886,7 @@ osc.stop(now + 0.05);
       }
 
       drawEnemyStatusEffects(enemy);
+      drawBossSniperTelegraph(enemy);
 
       ctx.restore();
     }
@@ -19456,6 +20168,8 @@ osc.stop(now + 0.05);
       drawCoopEnemyProjectiles();
       drawCoopParasiteSpores();
       drawCoopSplinters();
+      drawCoopGasterBlasters();
+      drawCoopDamageZones();
       drawMedkits();
       /*
        * Сетевые патроны.
@@ -19960,33 +20674,25 @@ osc.stop(now + 0.05);
     }
 
     function drawAimLine() {
-      const hasReadyBullet = bullets.some(
-        bullet => bullet.state === "held"
-      );
-    
-      if (
-        !hasReadyBullet ||
-        gameState !== "playing"
-      ) {
-        return;
-      }
-    
+      if (gameState !== "playing") return;
+
+      const hasDash = !!stats?.dash;
       const direction = aimDirection();
-    
+      const distance = hasDash
+        ? (stats.dashDistance || 160)
+        : 160; // длина = базовая дальность рывка
+
       ctx.save();
       ctx.beginPath();
       ctx.setLineDash([7, 10]);
-    
       ctx.moveTo(player.x, player.y);
-    
       ctx.lineTo(
-        player.x + direction.x * (stats.dashDistance || 160),
-        player.y + direction.y * (stats.dashDistance || 160)
+        player.x + direction.x * distance,
+        player.y + direction.y * distance
       );
-    
-      ctx.strokeStyle =
-        "rgba(126, 231, 255, 0.28)";
-    
+      ctx.strokeStyle = hasDash
+        ? "rgba(126, 231, 255, 0.28)"
+        : "rgba(126, 231, 255, 0.16)";
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
@@ -20108,7 +20814,7 @@ osc.stop(now + 0.05);
           ctx.lineTo(player.x, player.y);
         
           ctx.strokeStyle =
-            "rgba(126, 231, 255, 0.12)";
+            "rgba(126, 231, 255, 0.06)";
         
           ctx.lineWidth = 1;
           ctx.stroke();
@@ -20244,6 +20950,68 @@ osc.stop(now + 0.05);
       ctx.restore();
     }
 
+    /*
+     * Телеграф "снайперского выстрела" босса: за 0.35с до выстрела на теле босса
+     * появляется пульсирующая вспышка, а два лазерных луча (± до 30° от истинной
+     * траектории) сходятся в одну линию прицеливания ровно к моменту выстрела —
+     * даёт игроку чёткий визуальный отсчёт и время среагировать и увернуться.
+     */
+    function drawBossSniperTelegraph(enemy) {
+      if (enemy.type !== "boss" || enemy.sniperState !== "locked") return;
+
+      const targetX = enemy.sniperTargetX ?? enemy.x;
+      const targetY = enemy.sniperTargetY ?? enemy.y;
+      const angle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
+      const progress = 1 - clamp((enemy.sniperTimer || 0) / 0.35, 0, 1);
+
+      const maxSpread = Math.PI / 6; // 30° — максимальное расхождение лучей в начале телеграфа
+      const spread = maxSpread * (1 - progress);
+
+      // Лучи — прозрачность 70%, glow усиливается при схождении
+      for (const sign of [-1, 1]) {
+        ctx.save();
+        ctx.rotate(angle + sign * spread);
+        const beamAlpha = (0.25 + progress * 0.35) * 0.7;
+        ctx.strokeStyle = `rgba(255, 23, 68, ${beamAlpha})`;
+        ctx.lineWidth = 1.5 + progress * 2.5;
+        ctx.shadowColor = "rgba(255, 23, 68, 0.8)";
+        ctx.shadowBlur = 14 + progress * 16;
+        ctx.setLineDash([16, 10]);
+        ctx.beginPath();
+        ctx.moveTo(enemy.r + 6, 0);
+        ctx.lineTo(1600, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      // Красная вспышка при схлопывании лучей (progress > 0.85)
+      if (progress > 0.85) {
+        const flashIntensity = (progress - 0.85) / 0.15; // 0..1 в последние 15%
+        const flashRadius = 18 + flashIntensity * 30;
+        ctx.save();
+        ctx.translate(Math.cos(angle) * (enemy.r + 6), Math.sin(angle) * (enemy.r + 6));
+        const flashGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, flashRadius);
+        flashGrad.addColorStop(0, `rgba(255, 60, 60, ${0.7 * flashIntensity})`);
+        flashGrad.addColorStop(0.4, `rgba(255, 23, 68, ${0.4 * flashIntensity})`);
+        flashGrad.addColorStop(1, `rgba(255, 23, 68, 0)`);
+        ctx.fillStyle = flashGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, flashRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      const flashPulse = 0.5 + Math.sin(performance.now() * 0.045) * 0.5;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, enemy.r + 8 + flashPulse * 5, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + flashPulse * 0.4})`;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
     function drawEnemies() {
       /*
        * Энергетические лучи от угловых пилонов к щиту Босса (соло).
@@ -20314,7 +21082,7 @@ osc.stop(now + 0.05);
         }
 
         /*
-         * Мираж невидим 6 секунд, затем появляется на 1 секунду и снова прячется.
+         * Мираж невидим 4 секунды, затем появляется на 2 секунды и снова прячется.
          * Пока невидим — умные пули его не видят (см. applySmartHoming).
          */
         if (enemy.type === "mirage") {
@@ -20421,6 +21189,7 @@ osc.stop(now + 0.05);
             now: performance.now(),
             id: enemy.id,
             shieldActive: Boolean(enemy.shieldActive),
+            turretMode: Boolean(enemy.turretMode),
             sporesCount: enemy.sporesCount,
             chargeState: enemy.chargeState,
             chargeDx: enemy.chargeDx,
@@ -20432,8 +21201,11 @@ osc.stop(now + 0.05);
           });
         }
 
-        // Полоса здоровья.
-        if (enemy.maxHp > 1 || enemy.hp < enemy.maxHp) {
+        // Полоса здоровья. Скрываем только если враг на полном HP и умирает
+        // от одного попадания (базовый урон, без яда/паразитов).
+        const canOneShotSolo = enemy.maxHp <= (stats.damage || 100);
+        const fullHp = enemy.hp >= enemy.maxHp;
+        if ((!canOneShotSolo || !fullHp) && (enemy.maxHp > 1 || enemy.hp < enemy.maxHp)) {
           const barWidth = enemy.r * 2;
           const barHeight = 4;
           const healthRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
@@ -20456,6 +21228,7 @@ osc.stop(now + 0.05);
         }
 
         drawEnemyStatusEffects(enemy);
+        drawBossSniperTelegraph(enemy);
 
         ctx.restore();
       }
@@ -20493,6 +21266,74 @@ osc.stop(now + 0.05);
         ctx.shadowBlur = 17;
         ctx.fill();
       
+        ctx.restore();
+      }
+    }
+
+    function drawSoloGasterBlasters() {
+      const now = performance.now();
+      for (const blaster of soloGasterBlasters) {
+        ctx.save();
+        ctx.translate(blaster.x, blaster.y);
+        ctx.rotate(blaster.aimAngle);
+
+        if (blaster.state === "telegraph") {
+          // Warning line
+          const pulse = 0.3 + Math.sin(now * 0.015) * 0.2;
+          ctx.strokeStyle = `rgba(255, 50, 50, ${pulse})`;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([12, 8]);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(3500, 0);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else if (blaster.state === "firing") {
+          // Beam
+          ctx.fillStyle = "rgba(255, 60, 60, 0.7)";
+          ctx.shadowColor = "#ff3333";
+          ctx.shadowBlur = 20;
+          ctx.fillRect(0, -28, 3500, 56);
+          // Inner bright core
+          ctx.fillStyle = "rgba(255, 200, 200, 0.9)";
+          ctx.fillRect(0, -10, 3500, 20);
+        }
+
+        // Blaster skull/turret at origin
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fillStyle = blaster.state === "firing" ? "#ff4444" : "#884444";
+        ctx.shadowColor = "#ff0000";
+        ctx.shadowBlur = blaster.state === "firing" ? 16 : 6;
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    function drawSoloDamageZones() {
+      const now = performance.now();
+      for (const zone of soloDamageZones) {
+        const progress = 1 - zone.timer / zone.maxTimer;
+        const pulse = 0.15 + progress * 0.4 + Math.sin(now * 0.01) * 0.05;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(zone.x, zone.y, zone.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 60, 30, ${pulse * 0.3})`;
+        ctx.fill();
+
+        // Warning ring
+        ctx.strokeStyle = `rgba(255, 80, 40, ${pulse})`;
+        ctx.lineWidth = 2 + progress * 2;
+        ctx.stroke();
+
+        // Inner warning ring growing
+        ctx.beginPath();
+        ctx.arc(zone.x, zone.y, zone.r * progress, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 120, 60, ${pulse * 0.6})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
         ctx.restore();
       }
     }
@@ -20744,11 +21585,11 @@ osc.stop(now + 0.05);
       const boss = enemies.find(
         enemy => enemy.type === "boss"
       );
-    
+
       if (!boss) {
         return;
       }
-    
+
       const barWidth = Math.min(680, SOLO_WORLD_WIDTH - 60);
       const barHeight = 36;
       const x = (SOLO_WORLD_WIDTH - barWidth) / 2;
@@ -20756,7 +21597,18 @@ osc.stop(now + 0.05);
 
       const healthRatio = clamp(boss.hp / (boss.maxHp || 1), 0, 1);
 
+      // Прозрачность 50% если игрок близко к бару
+      const barBottom = y + barHeight + 6;
+      const proximityZone = 100;
+      let barAlpha = 1.0;
+      if (player && player.hp > 0) {
+        if (player.y < barBottom + proximityZone) {
+          barAlpha = 0.5;
+        }
+      }
+
       ctx.save();
+      ctx.globalAlpha = barAlpha;
 
       // Outer glow and panel background
       ctx.fillStyle = "rgba(4, 8, 16, 0.88)";
@@ -21064,10 +21916,11 @@ osc.stop(now + 0.05);
         return;
       }
     
-      const radius = 10 / soloView.scale;
-      const lineWidth = 1.5 / soloView.scale;
-      const extension = 6 / soloView.scale;
-      const innerOffset = 2 / soloView.scale;
+      const sizeMul = gameSettings.crosshairSize || 1.0;
+      const radius = (10 / soloView.scale) * sizeMul;
+      const lineWidth = (1.5 / soloView.scale) * sizeMul;
+      const extension = (6 / soloView.scale) * sizeMul;
+      const innerOffset = (2 / soloView.scale) * sizeMul;
       const ringRadius = radius + 6 / soloView.scale;
     
       const dashUnlocked = stats.dash;
@@ -21081,22 +21934,12 @@ osc.stop(now + 0.05);
     
       ctx.strokeStyle = isReady ? "rgba(56, 189, 248, 0.95)" : "rgba(200, 247, 255, 0.6)";
       ctx.lineWidth = lineWidth;
-    
-      ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    
-      ctx.moveTo(-radius - extension, 0);
-      ctx.lineTo(-radius + innerOffset, 0);
-    
-      ctx.moveTo(radius - innerOffset, 0);
-      ctx.lineTo(radius + extension, 0);
-    
-      ctx.moveTo(0, -radius - extension);
-      ctx.lineTo(0, -radius + innerOffset);
-    
-      ctx.moveTo(0, radius - innerOffset);
-      ctx.lineTo(0, radius + extension);
-      ctx.stroke();
+
+      const crosshairOpacity = gameSettings.crosshairOpacity ?? 1.0;
+      ctx.save();
+      ctx.globalAlpha = crosshairOpacity;
+      drawCrosshairShape(gameSettings.crosshairStyle, radius, extension, innerOffset);
+      ctx.restore();
 
       // Круговой индикатор зарядки рывка вокруг прицела
       if (dashUnlocked && !isReady) {
@@ -21301,6 +22144,8 @@ osc.stop(now + 0.05);
       drawAimLine();
       drawEnemies();
       drawEnemyProjectiles();
+      drawSoloGasterBlasters();
+      drawSoloDamageZones();
       drawSplinterShards();
       drawParasiteSpores();
       drawPlayer();
@@ -21608,7 +22453,7 @@ osc.stop(now + 0.05);
               id: rawKey,
               title: item.title,
               description: item.description,
-              icon: getUpgradeIcon(item.upgradeId || item.id || item.title),
+              icon: item.icon || getUpgradeIcon(item.upgradeId || item.id || item.title),
               rarityKey: item.rarityKey || item.rarity?.key || "common",
               rarityLabel: item.rarityLabel || item.rarity?.label || "ОБЫЧНОЕ",
               bonusText: item.bonusText,
@@ -21619,7 +22464,10 @@ osc.stop(now + 0.05);
             const ex = nonFamilyMap.get(rawKey);
             ex.totalPower += (item.power || 1);
             ex.count += 1;
-            if (item.rarityKey === "legendary" || (item.rarityKey === "rare" && ex.rarityKey === "common")) {
+            const rarityRank = { common: 0, rare: 1, legendary: 2, unique: 3 };
+            const newRank = rarityRank[item.rarityKey] ?? 0;
+            const curRank = rarityRank[ex.rarityKey] ?? 0;
+            if (newRank > curRank) {
               ex.rarityKey = item.rarityKey;
               ex.rarityLabel = item.rarityLabel;
             }
@@ -22697,7 +23545,7 @@ osc.stop(now + 0.05);
     const UPGRADE_TITLES = {
       damage: "Тяжёлая пуля", bounce: "Доп. рикошет", pierce: "Пробитие",
       "bullet-speed": "Разогнанный ствол", "move-speed": "Лёгкие ботинки",
-      armor: "Усиленная броня", repair: "Ремонтный комплект",
+      armor: "Живучесть", repair: "Ремонтный комплект",
       critical: "Крит. механизм", caliber: "Крупный калибр",
       resilience: "Стойкость",
       "second-bullet": "Запасной патрон",
@@ -23141,7 +23989,7 @@ osc.stop(now + 0.05);
           } else {
             player = coopSession.players.get(window.net?.playerId);
           }
-          return player ? { hp: player.hp, maxHp: player.maxHp, alive: player.alive } : { hp: 0, maxHp: 0, alive: false };
+          return player ? { hp: player.hp, maxHp: player.maxHp, alive: player.hp > 0 } : { hp: 0, maxHp: 0, alive: false };
         }
         return player ? { hp: player.hp, maxHp: player.maxHp, alive: player.hp > 0 } : { hp: 0, maxHp: 0, alive: false };
       },
@@ -23246,12 +24094,13 @@ osc.stop(now + 0.05);
         if (!window._soloUpgradeHistory) window._soloUpgradeHistory = [];
         for (let i = 0; i < cnt; i++) {
           const entry = {
+            upgradeId: targetUp.id,
             title: targetUp.title,
             description: targetUp.description || "",
             bonusText: typeof targetUp.bonus === "function" ? targetUp.bonus(player, p) : "",
             icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(targetUp.id) : "◆",
             rarityKey: targetUp.fixedRarity || (p >= 3 ? "legendary" : p >= 2 ? "rare" : "common"),
-            rarityLabel: targetUp.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : targetUp.fixedRarity === "rare" ? "РЕДКОЕ" : (p >= 3 ? "ЛЕГЕНДАРНОЕ" : p >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
+            rarityLabel: targetUp.fixedRarity === "unique" ? "УНИКАЛЬНОЕ" : targetUp.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : targetUp.fixedRarity === "rare" ? "РЕДКОЕ" : (p >= 3 ? "ЛЕГЕНДАРНОЕ" : p >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
             power: p
           };
           window._soloUpgradeHistory.push({ upgrade: targetUp, power: p });
@@ -23304,12 +24153,13 @@ osc.stop(now + 0.05);
             applyUpgradeByRarity(item.upgrade, item.power);
             window._soloUpgradeHistory.push(item);
             selectedUpgradeHistory.push({
+              upgradeId: item.upgrade.id,
               title: item.upgrade.title,
               description: item.upgrade.description || "",
               bonusText: typeof item.upgrade.bonus === "function" ? item.upgrade.bonus(player, item.power) : "",
               icon: typeof getUpgradeIcon === "function" ? getUpgradeIcon(item.upgrade.id) : "◆",
               rarityKey: item.upgrade.fixedRarity || (item.power >= 3 ? "legendary" : item.power >= 2 ? "rare" : "common"),
-              rarityLabel: item.upgrade.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : item.upgrade.fixedRarity === "rare" ? "РЕДКОЕ" : (item.power >= 3 ? "ЛЕГЕНДАРНОЕ" : item.power >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
+              rarityLabel: item.upgrade.fixedRarity === "unique" ? "УНИКАЛЬНОЕ" : item.upgrade.fixedRarity === "legendary" ? "ЛЕГЕНДАРНОЕ" : item.upgrade.fixedRarity === "rare" ? "РЕДКОЕ" : (item.power >= 3 ? "ЛЕГЕНДАРНОЕ" : item.power >= 2 ? "РЕДКОЕ" : "ОБЫЧНОЕ"),
               power: item.power
             });
           }
