@@ -4093,6 +4093,10 @@
       lastTime = performance.now();
     }
 
+    function isBossLike(enemy) {
+      return enemy.type === "boss" || enemy.type === "mini_boss";
+    }
+
     function createEnemy(type, x, y) {
       const base = GameShared.createEnemyBase(type, wave);
       const result = {
@@ -4116,6 +4120,7 @@
         // Boss AI from shared:
         Object.assign(result, {
           bossTier: base.bossTier,
+          isMini: !!base.isMini,
           progressionMultiplier: 1.3,
           shootCooldown: base.shootCooldown,
           radialCooldown: base.radialCooldown,
@@ -4706,6 +4711,15 @@
     
       waveToast = 2.6;
       updateHud();
+
+      // Mini Cyber-Titan: spawns on non-boss waves after wave 25
+      // Chance starts at 0.5% (wave 26), +0.1% per wave, 0% on boss waves
+      if (!isBossWave && wave > 25) {
+        const miniChance = 0.005 + (wave - 26) * 0.001;
+        if (Math.random() < miniChance) {
+          spawnEnemyFromEdge("mini_boss");
+        }
+      }
     }
 
 
@@ -4896,6 +4910,9 @@
 
         return 1050 + bossTier * 275;
       }
+      if (enemy.type === "mini_boss") {
+        return 550;
+      }
 
       switch (enemy.type) {
         case "tank":       return 275;
@@ -4989,7 +5006,7 @@
         createParticles(enemy.x, enemy.y, "#ffd700", 4, 100);
         return;
       }
-      if (enemy.type === "boss" && enemy.shieldActive) {
+      if (isBossLike(enemy) && enemy.shieldActive) {
         damage = Math.max(1, Math.floor(damage * 0.2));
         createParticles(enemy.x, enemy.y, "#00f2fe", 8, 140);
         createRing(enemy.x, enemy.y, 50, "#00f2fe");
@@ -5112,21 +5129,23 @@
     
       const shouldSplit = enemy.type === "splitter";
       const isBoss = enemy.type === "boss";
+      const isMini = enemy.type === "mini_boss";
+      const isBossOrMini = isBoss || isMini;
 
       if (isBoss) {
         soloRerolls += 1;
       }
-    
+
       const deathX = enemy.x;
       const deathY = enemy.y;
       const deathColor = enemy.color;
-    
+
       createParticles(
         deathX,
         deathY,
         deathColor,
-        isBoss ? 55 : 16,
-        isBoss ? 360 : 230
+        isBoss ? 55 : isMini ? 30 : 16,
+        isBoss ? 360 : isMini ? 300 : 230
       );
     
       dropExperienceCrystals(enemy);
@@ -5217,11 +5236,11 @@
       createRing(
         deathX,
         deathY,
-        isBoss ? 55 : 40,
+        isBoss ? 55 : isMini ? 48 : 40,
         deathColor || "#7ee7ff"
       );
 
-      if (isBoss) {
+      if (isBossOrMini) {
         triggerBossCelebration(
           deathX,
           deathY,
@@ -5246,6 +5265,8 @@
     
       const baseScore = isBoss
         ? 250 * wave
+        : isMini
+        ? 80 * wave
         : 10 * wave;
 
       score += Math.round(
@@ -5255,7 +5276,7 @@
 
       screenShake = Math.max(
         screenShake,
-        isBoss ? 22 : 5
+        isBoss ? 22 : isMini ? 12 : 5
       );
 
     
@@ -6891,13 +6912,19 @@
     }
 
     // --- Solo Gaster Blaster & Damage Zone subsystem ---
-    const SOLO_GASTER_PATTERNS = [
-      { start: 0,                     step: Math.PI / 16,  count: 30 },
-      { start: Math.PI,               step: -Math.PI / 16, count: 30 },
-      { start: Math.PI / 4,           step: Math.PI / 14,  count: 25 },
-      { start: Math.PI * 1.25,        step: -Math.PI / 14, count: 25 },
-      { start: -Math.PI / 6,          step: Math.PI / 10,  count: 20 },
-      { start: Math.PI + Math.PI / 6, step: -Math.PI / 10, count: 20 },
+
+    /**
+     * Blaster pattern types — each creates a different geometric threat.
+     * "horizontal"  – beams sweep left-to-right across the arena
+     * "vertical"    – beams sweep top-to-bottom
+     * "box"         – beams form a shrinking box; one side has a gap
+     * "corridor"    – parallel beams leave a narrow safe lane that shifts
+     * "cross"       – beams from all 4 borders aimed inward
+     * "sweep"       – rotating arc of beams from boss, player must orbit
+     */
+    const SOLO_BLASTER_PATTERN_TYPES = [
+      "horizontal", "vertical", "box", "corridor", "cross", "sweep",
+      "sans-dual-sweep", "sans-cage", "sans-slam", "sans-gatling"
     ];
 
     function getSoloBorderPoint(cx, cy, W, H, angle) {
@@ -6911,34 +6938,249 @@
       return { x: cx + cosA * t, y: cy + sinA * t };
     }
 
-    function spawnSoloGasterBlasterPair(boss, patternAngle) {
+    function spawnSoloBlasterPattern(boss, patternType) {
       const px = player.x || SOLO_WORLD_WIDTH / 2;
       const py = player.y || SOLO_WORLD_HEIGHT / 2;
+      const W = SOLO_WORLD_WIDTH;
+      const H = SOLO_WORLD_HEIGHT;
+      const spread = (Math.random() - 0.5) * 0.35; // slight random spread per blaster
+      const posSpread = () => (Math.random() - 0.5) * 250; // +/-125px effective spread
 
-      // Blaster 1: from boss, aimed at player with angular offset
-      const aimToPLayer = Math.atan2(py - boss.y, px - boss.x) + patternAngle;
-      soloGasterBlasters.push({
-        id: nextSoloGasterBlasterId++,
-        x: boss.x, y: boss.y,
-        aimAngle: aimToPLayer,
-        state: "telegraph",
-        stateTimer: 1.3,
-        bossId: boss.id
-      });
-
-      // Blaster 2: from border, aimed toward player
-      const borderAngle = Math.atan2(py - SOLO_WORLD_HEIGHT / 2, px - SOLO_WORLD_WIDTH / 2) + patternAngle;
-      const borderPos = getSoloBorderPoint(SOLO_WORLD_WIDTH / 2, SOLO_WORLD_HEIGHT / 2, SOLO_WORLD_WIDTH, SOLO_WORLD_HEIGHT, borderAngle + Math.PI);
-      const aimFromBorder = Math.atan2(py - borderPos.y, px - borderPos.x);
-      soloGasterBlasters.push({
-        id: nextSoloGasterBlasterId++,
-        x: borderPos.x, y: borderPos.y,
-        aimAngle: aimFromBorder,
-        state: "telegraph",
-        stateTimer: 1.3,
-        bossId: boss.id
-      });
+      if (patternType === "horizontal") {
+        // Beams from left/right borders aimed horizontally; one row above, one below, one at player Y
+        const rows = [py - 180, py, py + 180];
+        for (const ry of rows) {
+          const y = Math.max(60, Math.min(H - 60, ry));
+          // From left border aimed right
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++, x: 0, y: y + posSpread(),
+            aimAngle: 0 + spread, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            moveVy: (Math.random() - 0.5) * 80 // slowly drifts up/down
+          });
+          // From right border aimed left
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++, x: W, y: y + posSpread(),
+            aimAngle: Math.PI + spread, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            moveVy: (Math.random() - 0.5) * 80
+          });
+        }
+      } else if (patternType === "vertical") {
+        // Beams from top/bottom aimed vertically
+        const cols = [px - 200, px, px + 200];
+        for (const cx of cols) {
+          const x = Math.max(60, Math.min(W - 60, cx));
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++, x: x + posSpread(), y: 0,
+            aimAngle: Math.PI / 2 + spread, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            moveVx: (Math.random() - 0.5) * 80
+          });
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++, x: x + posSpread(), y: H,
+            aimAngle: -Math.PI / 2 + spread, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            moveVx: (Math.random() - 0.5) * 80
+          });
+        }
+      } else if (patternType === "box") {
+        // 4 walls of beams closing in — one wall has a gap
+        const gapSide = Math.floor(Math.random() * 4); // 0=top,1=right,2=bottom,3=left
+        const COUNT = 5;
+        // Top wall
+        if (gapSide !== 0) {
+          for (let i = 0; i < COUNT; i++) {
+            const x = W * (i + 0.5) / COUNT;
+            soloGasterBlasters.push({
+              id: nextSoloGasterBlasterId++, x: x + posSpread(), y: 0,
+              aimAngle: Math.PI / 2, state: "telegraph", stateTimer: 1.3, bossId: boss.id
+            });
+          }
+        }
+        // Bottom wall
+        if (gapSide !== 2) {
+          for (let i = 0; i < COUNT; i++) {
+            const x = W * (i + 0.5) / COUNT;
+            soloGasterBlasters.push({
+              id: nextSoloGasterBlasterId++, x: x + posSpread(), y: H,
+              aimAngle: -Math.PI / 2, state: "telegraph", stateTimer: 1.3, bossId: boss.id
+            });
+          }
+        }
+        // Left wall
+        if (gapSide !== 3) {
+          for (let i = 0; i < COUNT; i++) {
+            const y = H * (i + 0.5) / COUNT;
+            soloGasterBlasters.push({
+              id: nextSoloGasterBlasterId++, x: 0, y: y + posSpread(),
+              aimAngle: 0, state: "telegraph", stateTimer: 1.3, bossId: boss.id
+            });
+          }
+        }
+        // Right wall
+        if (gapSide !== 1) {
+          for (let i = 0; i < COUNT; i++) {
+            const y = H * (i + 0.5) / COUNT;
+            soloGasterBlasters.push({
+              id: nextSoloGasterBlasterId++, x: W, y: y + posSpread(),
+              aimAngle: Math.PI, state: "telegraph", stateTimer: 1.3, bossId: boss.id
+            });
+          }
+        }
+      } else if (patternType === "corridor") {
+        // Two parallel beam walls leaving a narrow corridor; blasters drift
+        const corridorAngle = Math.random() * Math.PI; // random orientation
+        const offset = 120; // half-width of safe corridor
+        const cosC = Math.cos(corridorAngle);
+        const sinC = Math.sin(corridorAngle);
+        for (let side = -1; side <= 1; side += 2) {
+          for (let i = 0; i < 4; i++) {
+            const along = (i - 1.5) * 400;
+            const bx = px + cosC * along + sinC * offset * side;
+            const by = py + sinC * along - cosC * offset * side;
+            const clampedX = Math.max(0, Math.min(W, bx));
+            const clampedY = Math.max(0, Math.min(H, by));
+            soloGasterBlasters.push({
+              id: nextSoloGasterBlasterId++,
+              x: clampedX + posSpread(), y: clampedY + posSpread(),
+              aimAngle: corridorAngle + Math.PI / 2 * side,
+              state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+              moveVx: cosC * 60 * side,
+              moveVy: sinC * 60 * side
+            });
+          }
+        }
+      } else if (patternType === "cross") {
+        // Beams from all 4 borders aimed at player with angular spread
+        const angles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+        for (const baseAngle of angles) {
+          for (let j = -1; j <= 1; j++) {
+            const spawnAngle = baseAngle + j * 0.25;
+            const bpos = getSoloBorderPoint(px, py, W, H, spawnAngle + Math.PI);
+            const aim = Math.atan2(py - bpos.y, px - bpos.x) + j * 0.15;
+            soloGasterBlasters.push({
+              id: nextSoloGasterBlasterId++,
+              x: bpos.x + posSpread(), y: bpos.y + posSpread(),
+              aimAngle: aim, state: "telegraph", stateTimer: 1.3, bossId: boss.id
+            });
+          }
+        }
+      } else if (patternType === "sweep") {
+        // Arc of beams from boss rotating around; player must orbit around boss
+        const baseAngle = Math.atan2(py - boss.y, px - boss.x);
+        const arcCount = 7;
+        for (let i = 0; i < arcCount; i++) {
+          const a = baseAngle + (i - 3) * 0.2;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: boss.x + posSpread(), y: boss.y + posSpread(),
+            aimAngle: a, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            rotateSpeed: 0.4 * (Math.random() > 0.5 ? 1 : -1)
+          });
+          // Mirror from border
+          const bpos = getSoloBorderPoint(W / 2, H / 2, W, H, a + Math.PI);
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: bpos.x + posSpread(), y: bpos.y + posSpread(),
+            aimAngle: a + Math.PI,
+            state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            rotateSpeed: -0.3
+          });
+        }
+      } else if (patternType === "sans-dual-sweep") {
+        // Two blaster arcs from opposite sides sweeping toward each other
+        // Player must find the gap between the two rotating walls
+        const dir = Math.random() > 0.5 ? 1 : -1;
+        for (let i = 0; i < 5; i++) {
+          const a1 = -Math.PI / 3 + i * 0.18 * dir;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: 0 , y: H * 0.3 + posSpread(),
+            aimAngle: a1, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            rotateSpeed: 0.5 * dir
+          });
+          const a2 = Math.PI + Math.PI / 3 - i * 0.18 * dir;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: W, y: H * 0.7 + posSpread(),
+            aimAngle: a2, state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+            rotateSpeed: -0.5 * dir
+          });
+        }
+      } else if (patternType === "sans-cage") {
+        // Ring of blasters around player aiming inward — shrinking cage
+        // Must dash out through a gap before they fire
+        const gapAngle = Math.random() * Math.PI * 2;
+        const ringR = 500;
+        for (let i = 0; i < 12; i++) {
+          const a = (Math.PI * 2 / 12) * i;
+          // Skip 2 adjacent blasters to create escape gap
+          if (Math.abs(((a - gapAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.6) continue;
+          const bx = px + Math.cos(a) * ringR + posSpread() * 0.4;
+          const by = py + Math.sin(a) * ringR + posSpread() * 0.4;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: bx, y: by,
+            aimAngle: a + Math.PI, // aim inward
+            state: "telegraph", stateTimer: 1.6, bossId: boss.id
+          });
+        }
+      } else if (patternType === "sans-slam") {
+        // Alternating horizontal slams — top fires, then bottom fires
+        // Like Sans' bone slam: must dodge up/down in rhythm
+        for (let i = 0; i < 6; i++) {
+          const x = W * (i + 0.5) / 6;
+          // Top slam — fires first
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: x + posSpread(), y: 0,
+            aimAngle: Math.PI / 2, state: "telegraph",
+            stateTimer: 1.0, bossId: boss.id
+          });
+          // Bottom slam — fires 0.5s later
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: x + posSpread() * 0.7, y: H,
+            aimAngle: -Math.PI / 2, state: "telegraph",
+            stateTimer: 1.5, bossId: boss.id
+          });
+        }
+        // Side slams staggered
+        for (let i = 0; i < 4; i++) {
+          const y = H * (i + 0.5) / 4;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: 0, y: y + posSpread(),
+            aimAngle: 0, state: "telegraph",
+            stateTimer: 1.25, bossId: boss.id
+          });
+        }
+      } else if (patternType === "sans-gatling") {
+        // Rapid burst from boss — 8 blasters in tight fan aimed at player
+        // Like Sans' rapid-fire skull barrage
+        const baseAim = Math.atan2(py - boss.y, px - boss.x);
+        for (let i = 0; i < 8; i++) {
+          const fanAngle = baseAim + (i - 3.5) * 0.12 + (Math.random() - 0.5) * 0.08;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: boss.x + posSpread() * 0.5, y: boss.y + posSpread() * 0.5,
+            aimAngle: fanAngle, state: "telegraph",
+            stateTimer: 0.8 + i * 0.1, bossId: boss.id,
+            rotateSpeed: (Math.random() - 0.5) * 0.3
+          });
+        }
+        // Counter-fire from border behind player
+        const behindAngle = baseAim + Math.PI;
+        const bpos = getSoloBorderPoint(px, py, W, H, behindAngle);
+        for (let i = 0; i < 4; i++) {
+          const a = behindAngle + Math.PI + (i - 1.5) * 0.2;
+          soloGasterBlasters.push({
+            id: nextSoloGasterBlasterId++,
+            x: bpos.x + posSpread(), y: bpos.y + posSpread(),
+            aimAngle: a, state: "telegraph",
+            stateTimer: 1.3 + i * 0.08, bossId: boss.id
+          });
+        }
+      }
     }
+
     function isSoloHitByBeam(px, py, pr, bx, by, aimAngle) {
       const cosA = Math.cos(aimAngle);
       const sinA = Math.sin(aimAngle);
@@ -6962,11 +7204,159 @@
             continue;
           }
         }
-        // Continuous damage during firing
+        // Movement — blasters can drift across arena
+        if (blaster.moveVx) blaster.x += blaster.moveVx * dt;
+        if (blaster.moveVy) blaster.y += blaster.moveVy * dt;
+        // Rotation — beams can sweep
+        if (blaster.rotateSpeed) blaster.aimAngle += blaster.rotateSpeed * dt;
+        // Tracking — during first 25% of telegraph, slowly rotate toward player (75% player speed)
+        if (blaster.state === "telegraph" && player.hp > 0 && !blaster.rotateSpeed) {
+          if (!blaster.telegraphDuration) blaster.telegraphDuration = blaster.stateTimer + dt;
+          const elapsed = blaster.telegraphDuration - blaster.stateTimer;
+          if (elapsed < blaster.telegraphDuration * 0.25) {
+            const dx = player.x - blaster.x;
+            const dy = player.y - blaster.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 10) {
+              const targetAngle = Math.atan2(dy, dx);
+              let diff = targetAngle - blaster.aimAngle;
+              // Normalize to [-PI, PI]
+              while (diff > Math.PI) diff -= 2 * Math.PI;
+              while (diff < -Math.PI) diff += 2 * Math.PI;
+              const trackSpeed = Math.min(1.5, 0.75 * BASE_PLAYER_SPEED / dist);
+              const maxRot = trackSpeed * dt;
+              if (Math.abs(diff) > maxRot) {
+                blaster.aimAngle += Math.sign(diff) * maxRot;
+              } else {
+                blaster.aimAngle = targetAngle;
+              }
+            }
+          }
+        }
+        // Continuous damage during firing (+75% = 157.5 base)
         if (blaster.state === "firing" && player.hp > 0) {
           if (isSoloHitByBeam(player.x, player.y, player.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
-            damagePlayer(90 * dt / 0.25);
+            damagePlayer(157.5 * dt / 0.25);
           }
+        }
+      }
+    }
+
+    const SOLO_ZONE_PATTERNS = ["cluster", "line", "circle", "cross", "grid", "chase"];
+
+    function spawnSoloZonePattern(boss, patternType) {
+      const px = player.x || SOLO_WORLD_WIDTH / 2;
+      const py = player.y || SOLO_WORLD_HEIGHT / 2;
+      const spread = () => (Math.random() - 0.5) * 250;
+
+      // Offset zones to BLOCK escape routes — placement depends on context
+      const vx = player.vx || 0, vy = player.vy || 0;
+      const vLen = Math.sqrt(vx * vx + vy * vy);
+      const offsetDist = 200 + Math.random() * 100; // 200-300px
+      let ox, oy;
+
+      if (vLen > 30) {
+        // Player moving (dodging blasters) — cut off their escape
+        const roll = Math.random();
+        if (roll < 0.65) {
+          // 65% ahead of movement
+          ox = (vx / vLen) * offsetDist;
+          oy = (vy / vLen) * offsetDist;
+        } else {
+          // 35% perpendicular flank (sidestep trap)
+          const side = Math.random() > 0.5 ? 1 : -1;
+          ox = (-vy / vLen) * offsetDist * side;
+          oy = (vx / vLen) * offsetDist * side;
+        }
+      } else if (soloGasterBlasters.length > 0) {
+        // Player stationary but blasters active — block safest beam escape.
+        // Average beam direction → perpendicular is the natural dodge direction → block it.
+        const aims = soloGasterBlasters;
+        const avgSin = aims.reduce((s, b) => s + Math.sin(b.aimAngle), 0) / aims.length;
+        const avgCos = aims.reduce((s, b) => s + Math.cos(b.aimAngle), 0) / aims.length;
+        const avgAim = Math.atan2(avgSin, avgCos);
+        const blockAngle = avgAim + (Math.random() > 0.5 ? 1 : -1) * Math.PI / 2;
+        ox = Math.cos(blockAngle) * offsetDist;
+        oy = Math.sin(blockAngle) * offsetDist;
+      } else {
+        const rAngle = Math.random() * Math.PI * 2;
+        ox = Math.cos(rAngle) * offsetDist;
+        oy = Math.sin(rAngle) * offsetDist;
+      }
+      // Clamp anchor inside arena
+      const ax = Math.max(240, Math.min(SOLO_WORLD_WIDTH - 240, px + ox));
+      const ay = Math.max(240, Math.min(SOLO_WORLD_HEIGHT - 240, py + oy));
+
+      if (patternType === "cluster") {
+        for (let i = 0; i < 5; i++) {
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: ax + spread(), y: ay + spread(), r: 240,
+            timer: 1.2 + i * 0.15, maxTimer: 1.2 + i * 0.15, bossId: boss.id
+          });
+        }
+      } else if (patternType === "line") {
+        const angle = Math.random() * Math.PI;
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        for (let i = -2; i <= 2; i++) {
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: ax + cos * i * 200 + spread() * 0.5,
+            y: ay + sin * i * 200 + spread() * 0.5,
+            r: 240, timer: 1.3 + Math.abs(i) * 0.15,
+            maxTimer: 1.3 + Math.abs(i) * 0.15, bossId: boss.id
+          });
+        }
+      } else if (patternType === "circle") {
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI * 2 / 6) * i + Math.random() * 0.3;
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: ax + Math.cos(a) * 280 + spread() * 0.4,
+            y: ay + Math.sin(a) * 280 + spread() * 0.4,
+            r: 240, timer: 1.3, maxTimer: 1.3, bossId: boss.id
+          });
+        }
+      } else if (patternType === "cross") {
+        for (let i = -1; i <= 1; i++) {
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: ax + i * 260 + spread() * 0.4, y: ay + spread() * 0.3,
+            r: 240, timer: 1.2 + Math.abs(i) * 0.2,
+            maxTimer: 1.2 + Math.abs(i) * 0.2, bossId: boss.id
+          });
+          if (i !== 0) {
+            soloDamageZones.push({
+              id: nextSoloDamageZoneId++,
+              x: ax + spread() * 0.3, y: ay + i * 260 + spread() * 0.4,
+              r: 240, timer: 1.2 + Math.abs(i) * 0.2,
+              maxTimer: 1.2 + Math.abs(i) * 0.2, bossId: boss.id
+            });
+          }
+        }
+      } else if (patternType === "grid") {
+        for (let gx = -1; gx <= 1; gx++) {
+          for (let gy = -1; gy <= 1; gy++) {
+            soloDamageZones.push({
+              id: nextSoloDamageZoneId++,
+              x: ax + gx * 240 + spread() * 0.4,
+              y: ay + gy * 240 + spread() * 0.4,
+              r: 240, timer: 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1,
+              maxTimer: 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1,
+              bossId: boss.id
+            });
+          }
+        }
+      } else if (patternType === "chase") {
+        // Chase still uses player velocity for prediction but offset
+        for (let i = 0; i < 5; i++) {
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: px + vx * 0.4 * (i + 1) + spread() * 0.5,
+            y: py + vy * 0.4 * (i + 1) + spread() * 0.5,
+            r: 240, timer: 1.0 + i * 0.25,
+            maxTimer: 1.0 + i * 0.25, bossId: boss.id
+          });
         }
       }
     }
@@ -6989,49 +7379,40 @@
     }
 
     function updateSoloBossTurretAttacks(boss, dt) {
-      const pattern = SOLO_GASTER_PATTERNS[boss.turretBlasterPatternIdx % 6];
-      const BATCH = 5;
-
+      // Blaster pattern attack (2x intensity)
       if (boss.turretBlasterState === "idle") {
         boss.turretBlasterCooldown -= dt;
-        if (boss.turretBlasterCooldown <= 0 && boss.turretBlasterShotIdx < pattern.count) {
-          for (let b = 0; b < BATCH && boss.turretBlasterShotIdx + b < pattern.count; b++) {
-            const angle = pattern.start + pattern.step * (boss.turretBlasterShotIdx + b);
-            spawnSoloGasterBlasterPair(boss, angle);
-          }
+        if (boss.turretBlasterCooldown <= 0) {
+          const patType = SOLO_BLASTER_PATTERN_TYPES[boss.turretBlasterPatternIdx % SOLO_BLASTER_PATTERN_TYPES.length];
+          spawnSoloBlasterPattern(boss, patType);
           boss.turretBlasterState = "waiting";
-          boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.45;
+          boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.3;
+          // Schedule zone spawn 0.6-1.0s after blasters (player will be moving by then)
+          if (!boss.turretZonePending) {
+            boss.turretZonePending = true;
+            boss.turretZoneDelay = 0.6 + Math.random() * 0.4;
+          }
         }
       } else if (boss.turretBlasterState === "waiting") {
         boss.turretBlasterWaitTimer -= dt;
         if (boss.turretBlasterWaitTimer <= 0) {
-          boss.turretBlasterShotIdx += BATCH;
-          if (boss.turretBlasterShotIdx >= pattern.count) {
-            boss.turretBlasterState = "idle";
-            boss.turretBlasterCooldown = 2.5;
-            boss.turretBlasterShotIdx = 0;
-            boss.turretBlasterPatternIdx = (boss.turretBlasterPatternIdx + 1) % 6;
-          } else {
-            boss.turretBlasterState = "idle";
-            boss.turretBlasterCooldown = 0;
-          }
+          boss.turretBlasterPatternIdx = (boss.turretBlasterPatternIdx + 1) % SOLO_BLASTER_PATTERN_TYPES.length;
+          boss.turretBlasterState = "idle";
+          boss.turretBlasterCooldown = 0.9;
         }
       }
 
-      boss.turretZoneCooldown -= dt;
-      if (boss.turretZoneCooldown <= 0 && player.hp > 0) {
-        for (let z = 0; z < 2; z++) {
-          soloDamageZones.push({
-            id: nextSoloDamageZoneId++,
-            x: player.x + (z === 0 ? 0 : random(-60, 60)),
-            y: player.y + (z === 0 ? 0 : random(-60, 60)),
-            r: 240,
-            timer: 1.5 + z * 0.7,
-            maxTimer: 1.5 + z * 0.7,
-            bossId: boss.id
-          });
+      // Delayed zone spawn — tied to blaster cycle, not independent timer.
+      // Zones appear 0.6-1.0s AFTER blasters so player is already moving.
+      if (boss.turretZonePending) {
+        boss.turretZoneDelay -= dt;
+        if (boss.turretZoneDelay <= 0 && player.hp > 0) {
+          boss.turretZonePatternIdx = boss.turretZonePatternIdx || 0;
+          const zoneType = SOLO_ZONE_PATTERNS[boss.turretZonePatternIdx % SOLO_ZONE_PATTERNS.length];
+          spawnSoloZonePattern(boss, zoneType);
+          boss.turretZonePatternIdx = (boss.turretZonePatternIdx + 1) % SOLO_ZONE_PATTERNS.length;
+          boss.turretZonePending = false;
         }
-        boss.turretZoneCooldown = 6;
       }
     }
 
@@ -7535,6 +7916,56 @@
           }
           ctx.restore();
         }
+      } else if (type === "mini_boss") {
+        // Scaled-down boss model — 8-tooth crown, single ring, orange theme
+        const rotation = now * 0.0008;
+        ctx.save();
+        ctx.rotate(rotation);
+        const teethCount = 8;
+        const innerR = r * 0.82;
+        const outerR = r * 1.12;
+        ctx.beginPath();
+        for (let t = 0; t < teethCount; t++) {
+          const a1 = (t / teethCount) * Math.PI * 2;
+          const a2 = ((t + 0.5) / teethCount) * Math.PI * 2;
+          ctx.lineTo(Math.cos(a1) * outerR, Math.sin(a1) * outerR);
+          ctx.lineTo(Math.cos(a2) * innerR, Math.sin(a2) * innerR);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "rgba(255, 111, 63, 0.35)";
+        ctx.strokeStyle = "#ff6f3f";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "#ff6f3f";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        // Counter-rotating inner ring
+        ctx.save();
+        ctx.rotate(-rotation * 1.5);
+        ctx.beginPath();
+        const ringR = r * 0.55;
+        for (let s = 0; s < 6; s++) {
+          const sa = (s / 6) * Math.PI * 2;
+          if (s === 0) ctx.moveTo(Math.cos(sa) * ringR, Math.sin(sa) * ringR);
+          else ctx.lineTo(Math.cos(sa) * ringR, Math.sin(sa) * ringR);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "#ffaa55";
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = "#ff8833";
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
+        // Core pulse
+        const corePulse = 1 + Math.sin(now * 0.006) * 0.15;
+        const coreR = r * 0.2 * corePulse;
+        ctx.beginPath();
+        ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffdd88";
+        ctx.shadowColor = "#ff6f3f";
+        ctx.shadowBlur = 15;
+        ctx.fill();
       } else if (type === "magnetizer") {
         const rot = now * 0.0025;
         ctx.save();
@@ -8086,9 +8517,13 @@
             if (first.type === "boss") {
               if (first.turretMode) { firstWeight = 0; secondWeight = 1; }
               else { firstWeight = 0.08; secondWeight = 0.92; }
+            } else if (first.type === "mini_boss") {
+              firstWeight = 0.2; secondWeight = 0.8;
             } else if (second.type === "boss") {
               if (second.turretMode) { firstWeight = 1; secondWeight = 0; }
               else { firstWeight = 0.92; secondWeight = 0.08; }
+            } else if (second.type === "mini_boss") {
+              firstWeight = 0.8; secondWeight = 0.2;
             } else if (first.type === "tank") {
               firstWeight = 0.28;
               secondWeight = 0.72;
@@ -8323,7 +8758,7 @@
             enemy.hp = 0;
           }
           continue;
-        } else if (enemy.type === "boss") {
+        } else if (isBossLike(enemy)) {
           const healthRatio = enemy.hp / (enemy.maxHp || 1);
           let phase = 0;
           if (healthRatio <= 0.33) {
@@ -8334,7 +8769,7 @@
           enemy.phase = phase;
 
           // Щит и 4 угловых генератора при 50% HP (Tier >= 2)
-          if (!enemy.shieldTriggered && healthRatio <= 0.5 && (enemy.bossTier || 1) >= 2) {
+          if (!enemy.shieldTriggered && healthRatio <= 0.5 && (enemy.bossTier || 1) >= 2 && !enemy.turretMode) {
             spawnBossDrones(enemy);
           }
 
@@ -8370,14 +8805,15 @@
             continue;
           }
 
-          // Turret mode cooldown
-          enemy.turretCooldown = typeof enemy.turretCooldown === "number" ? enemy.turretCooldown : 28;
-          if (enemy.turretCooldown > 0) {
+          // Turret mode cooldown (wave >= 10 only — first boss has no specials, mini_boss excluded)
+          if (wave >= 10 && !enemy.isMini) {
+          enemy.turretCooldown = typeof enemy.turretCooldown === "number" ? enemy.turretCooldown : 10;
+          if (enemy.turretCooldown > 0 && !enemy.shieldActive) {
             enemy.turretCooldown -= dt;
           }
 
           // Enter turret mode
-          if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena) {
+          if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive) {
             enemy.x = SOLO_WORLD_WIDTH / 2;
             enemy.y = SOLO_WORLD_HEIGHT / 2;
             enemy.turretMode = true;
@@ -8389,7 +8825,8 @@
             enemy.turretBlasterCooldown = 1.5;
             enemy.turretBlasterShotIdx = 0;
             enemy.turretBlasterPatternIdx = enemy.turretBlasterPatternIdx || 0;
-            enemy.turretZoneCooldown = 4;
+            enemy.turretZonePending = false;
+            enemy.turretZoneDelay = 0;
             createRing(enemy.x, enemy.y, 90, "#ffd700");
             screenShake = Math.max(screenShake, 8);
           }
@@ -8399,12 +8836,13 @@
             enemy.turretTimer -= dt;
             if (enemy.turretTimer <= 0) {
               enemy.turretMode = false;
-              enemy.turretCooldown = 35;
+              enemy.turretCooldown = random(10, 30);
             } else {
               updateSoloBossTurretAttacks(enemy, dt);
               continue;
             }
           }
+          } // end wave >= 10 turret gate
 
           enemy.dashState = enemy.dashState || "none";
           enemy.dashCooldown = typeof enemy.dashCooldown === "number" ? enemy.dashCooldown : 3.5;
@@ -8498,40 +8936,26 @@
             }
           }
 
-          // 4. Phase 3: Gaster blasters + damage zones even in normal mode
-          if (phase === 2 && enemyCanAttack && !enemy.turretMode) {
-            enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 5;
+          // 4. Phase 3: Gaster blasters + damage zones even in normal mode (wave >= 10 only, not mini_boss)
+          if (phase === 2 && enemyCanAttack && !enemy.turretMode && wave >= 10 && !enemy.isMini) {
+            enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 2.5;
             enemy.normalBlasterCooldown -= dt;
             if (enemy.normalBlasterCooldown <= 0) {
               enemy.normalBlasterPatternIdx = enemy.normalBlasterPatternIdx || 0;
-              const pattern = SOLO_GASTER_PATTERNS[enemy.normalBlasterPatternIdx % 6];
-              // Spawn 3 pairs (6 blasters) from current pattern position
-              for (let b = 0; b < 3; b++) {
-                const angle = pattern.start + pattern.step * ((enemy.normalBlasterShotCounter || 0) + b);
-                spawnSoloGasterBlasterPair(enemy, angle);
-              }
-              enemy.normalBlasterShotCounter = ((enemy.normalBlasterShotCounter || 0) + 3) % pattern.count;
-              if (enemy.normalBlasterShotCounter === 0) {
-                enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % 6;
-              }
-              enemy.normalBlasterCooldown = 4;
+              const patType = SOLO_BLASTER_PATTERN_TYPES[enemy.normalBlasterPatternIdx % SOLO_BLASTER_PATTERN_TYPES.length];
+              spawnSoloBlasterPattern(enemy, patType);
+              enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % SOLO_BLASTER_PATTERN_TYPES.length;
+              enemy.normalBlasterCooldown = 2;
             }
 
-            enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 6;
+            enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 1;
             enemy.normalZoneCooldown -= dt;
             if (enemy.normalZoneCooldown <= 0 && player.hp > 0) {
-              for (let z = 0; z < 2; z++) {
-                soloDamageZones.push({
-                  id: nextSoloDamageZoneId++,
-                  x: player.x + (z === 0 ? 0 : random(-80, 80)),
-                  y: player.y + (z === 0 ? 0 : random(-80, 80)),
-                  r: 240,
-                  timer: 1.5 + z * 0.7,
-                  maxTimer: 1.5 + z * 0.7,
-                  bossId: enemy.id
-                });
-              }
-              enemy.normalZoneCooldown = 6;
+              enemy.normalZonePatternIdx = enemy.normalZonePatternIdx || 0;
+              const zoneType = SOLO_ZONE_PATTERNS[enemy.normalZonePatternIdx % SOLO_ZONE_PATTERNS.length];
+              spawnSoloZonePattern(enemy, zoneType);
+              enemy.normalZonePatternIdx = (enemy.normalZonePatternIdx + 1) % SOLO_ZONE_PATTERNS.length;
+              enemy.normalZoneCooldown = 2;
             }
           }
 
@@ -8732,9 +9156,11 @@
             ? 0
             : enemy.type === "boss"
               ? 25
-              : enemy.type === "tank"
-                ? 17
-                : 12;
+              : enemy.type === "mini_boss"
+                ? 20
+                : enemy.type === "tank"
+                  ? 17
+                  : 12;
       
         enemy.x -=
           dx * pushStrength;
@@ -16231,6 +16657,9 @@ osc.stop(now + 0.05);
           b.aimAngle = snap.aimAngle;
           b.state = snap.state;
           b.stateTimer = snap.stateTimer;
+          b.moveVx = snap.moveVx || 0;
+          b.moveVy = snap.moveVy || 0;
+          b.rotateSpeed = snap.rotateSpeed || 0;
         }
         for (const bid of [...coopSession.gasterBlasters.keys()]) {
           if (!receivedIds.has(bid)) coopSession.gasterBlasters.delete(bid);
@@ -23621,7 +24050,9 @@ osc.stop(now + 0.05);
       dash: { stat: "dash", boolean: true },
       "dash-damage": { stat: "dashDamage", boolean: true },
       "second-bullet": { stat: "magazineSize", max: 2 },
-      resurrection: { stat: "resurrection", boolean: true }
+      resurrection: { stat: "resurrection", boolean: true },
+      homing: { stat: "homing", max: 3 },
+      armor: { maxCount: 10 }
     };
 
     const debug = {
@@ -23997,6 +24428,7 @@ osc.stop(now + 0.05);
       isUpgradeMaxed(upgradeId, targetStats) {
         const maxDef = UPGRADE_MAX[upgradeId];
         if (!maxDef || !targetStats) return false;
+        if (maxDef.maxCount != null) return this.getUpgradeCount(upgradeId) >= maxDef.maxCount;
         if (maxDef.boolean) return Boolean(targetStats[maxDef.stat]);
         const val = targetStats[maxDef.stat];
         if (val == null) return false;
@@ -24020,7 +24452,7 @@ osc.stop(now + 0.05);
           pierce: "pierce", "пробитие": "pierce",
           speed: "bullet-speed", "bullet-speed": "bullet-speed", "разогнанный ствол": "bullet-speed",
           boots: "move-speed", movespeed: "move-speed", "move-speed": "move-speed", "лёгкие ботинки": "move-speed",
-          armor: "armor", "усиленная броня": "armor", "броня": "armor",
+          armor: "armor", "усиленная броня": "armor", "броня": "armor", "живучесть": "armor",
           repair: "repair", heal: "repair", "ремонтный комплект": "repair", "ремонт": "repair",
           crit: "critical", critical: "critical", "критический механизм": "critical", "крит": "critical",
           resilience: "resilience", "стойкость": "resilience", "сопротивление": "resilience",

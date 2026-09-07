@@ -47,6 +47,24 @@ function createEnemyBase(type, wave) {
     case "boss_pylon":
       return { type: "boss_drone", r: 24, speed: 0, hp: 2500, color: "#00f2fe" };
 
+    case "mini_boss": {
+      return {
+        type, r: 30,
+        speed: 55 + Math.floor(wave / 10) * 3,
+        hp: 2000 + wave * 80,
+        color: "#ff6f3f",
+        bossTier: 1,
+        isMini: true,
+        // Simplified boss AI — shoot, radial, dash only:
+        shootCooldown: 1.6,
+        radialCooldown: 4.0,
+        dashState: "none", dashCooldown: 4.0, dashTimer: 0, dashDx: 0, dashDy: 0,
+        sniperState: "none", sniperCooldown: 999, sniperTimer: 0, sniperTargetX: 0, sniperTargetY: 0,
+        spiralActive: false, spiralCooldown: 999, spiralTimer: 0, spiralTicks: 0, spiralBaseAngle: 0,
+        shieldActive: false, shieldTriggered: false, stunTimer: 0
+      };
+    }
+
     case "boss": {
       const bossTier = Math.max(1, Math.floor(wave / 5));
       const progressionTier = bossTier - 1;

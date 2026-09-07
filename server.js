@@ -1834,6 +1834,10 @@ function updateServerCoopWorld(
   );
 }
 
+function isBossLike(enemy) {
+  return enemy.type === "boss" || enemy.type === "mini_boss";
+}
+
 function createServerEnemy(
   world,
   type,
@@ -1844,7 +1848,7 @@ function createServerEnemy(
   const base = createEnemyBase(type, world.wave);
 
   const hpMultiplier =
-    type === "boss"
+    (type === "boss" || type === "mini_boss")
       ? COOP_BOSS_HP_MULTIPLIER
       : COOP_ENEMY_HP_MULTIPLIER;
 
@@ -1874,6 +1878,7 @@ function createServerEnemy(
     maxHp: hp,
     color: base.color,
     bossTier: base.bossTier,
+    isMini: !!base.isMini,
 
     spawnEdge: null,
     spawnWarningX: x,
@@ -1918,13 +1923,14 @@ function createServerEnemy(
     stunTimer: base.stunTimer || 0,
 
     turretMode: false,
-    turretCooldown: 28,
+    turretCooldown: 10,
     turretTimer: 0,
     turretBlasterState: "idle",
     turretBlasterCooldown: 1.5,
     turretBlasterShotIdx: 0,
     turretBlasterPatternIdx: 0,
-    turretZoneCooldown: 4,
+    turretZonePending: false,
+    turretZoneDelay: 0,
     armorRespawnCooldown: 0,
 
     // Type-specific fields:
@@ -2190,6 +2196,15 @@ function spawnServerWave(world) {
         world,
         type
       );
+    }
+  }
+
+  // Mini Cyber-Titan: spawns on non-boss waves after wave 25
+  // Chance starts at 0.5% (wave 26), +0.1% per wave, 0% on boss waves
+  if (!isBossWave && world.wave > 25) {
+    const miniChance = 0.00 + (world.wave - 26) * 0.000;
+    if (Math.random() < miniChance) {
+      spawnServerEnemyFromEdge(world, "mini_boss");
     }
   }
 }
@@ -2839,7 +2854,9 @@ function killServerEnemy(
   world.score +=
     enemy.type === "boss"
       ? 250 * world.wave
-      : 10 * world.wave;
+      : enemy.type === "mini_boss"
+        ? 80 * world.wave
+        : 10 * world.wave;
 
   if (enemy.type === "splitter") {
     for (
@@ -2940,7 +2957,7 @@ function damageServerEnemy(
     return false;
   }
 
-  if (enemy.type === "boss" && enemy.shieldActive) {
+  if (isBossLike(enemy) && enemy.shieldActive) {
     amount = Math.max(1, Math.floor(amount * 0.2));
   }
 
@@ -3232,21 +3249,9 @@ function shootServerBossSniperBolt(world, enemy, targetX, targetY) {
   );
 }
 
-// Circular sweep patterns — beams rotate around arena, player must dodge in circle.
-// Dense patterns (~5x blasters): small angular steps = tight sweep, always a safe trailing gap.
-const GASTER_BLASTER_PATTERNS = [
-  // 1. Full CW sweep — 30 beams
-  { start: 0,                     step: Math.PI / 16,  count: 30 },
-  // 2. Full CCW sweep
-  { start: Math.PI,               step: -Math.PI / 16, count: 30 },
-  // 3. CW from top-right, tight arc — 25 beams
-  { start: Math.PI / 4,           step: Math.PI / 14,  count: 25 },
-  // 4. CCW from bottom-left
-  { start: Math.PI * 1.25,        step: -Math.PI / 14, count: 25 },
-  // 5. Fast half-circle CW — 20 beams
-  { start: -Math.PI / 6,          step: Math.PI / 10,  count: 20 },
-  // 6. Fast half-circle CCW mirror
-  { start: Math.PI + Math.PI / 6, step: -Math.PI / 10, count: 20 },
+const SERVER_BLASTER_PATTERN_TYPES = [
+  "horizontal", "vertical", "box", "corridor", "cross", "sweep",
+  "sans-dual-sweep", "sans-cage", "sans-slam", "sans-gatling"
 ];
 
 function getBorderPoint(cx, cy, W, H, angle) {
@@ -3260,41 +3265,135 @@ function getBorderPoint(cx, cy, W, H, angle) {
   return { x: cx + cosA * t, y: cy + sinA * t };
 }
 
-function spawnServerGasterBlasterPair(world, boss, patternAngle) {
+function spawnServerBlasterPattern(world, boss) {
   // Find nearest alive player as aim target
-  let tx = COOP_WORLD_WIDTH / 2, ty = COOP_WORLD_HEIGHT / 2;
+  let px = COOP_WORLD_WIDTH / 2, py = COOP_WORLD_HEIGHT / 2;
   let minDist = Infinity;
   for (const p of world.players.values()) {
     if (!p.alive) continue;
     const d = Math.hypot(p.x - boss.x, p.y - boss.y);
-    if (d < minDist) { minDist = d; tx = p.x; ty = p.y; }
+    if (d < minDist) { minDist = d; px = p.x; py = p.y; }
   }
 
-  // Blaster 1: from boss, aimed at target with angular offset
-  const aimToTarget = Math.atan2(ty - boss.y, tx - boss.x) + patternAngle;
-  const b1 = {
-    id: world.nextGasterBlasterId++,
-    x: boss.x, y: boss.y,
-    aimAngle: aimToTarget,
-    state: "telegraph",
-    stateTimer: 1.3,
-    bossId: boss.id
-  };
-  world.gasterBlasters.set(b1.id, b1);
+  const W = COOP_WORLD_WIDTH;
+  const H = COOP_WORLD_HEIGHT;
+  const patType = SERVER_BLASTER_PATTERN_TYPES[boss.turretBlasterPatternIdx % SERVER_BLASTER_PATTERN_TYPES.length];
+  const spread = (Math.random() - 0.5) * 0.35;
+  const posSpread = () => (Math.random() - 0.5) * 250; // ±125px
 
-  // Blaster 2: from border, aimed toward target
-  const borderAngle = Math.atan2(ty - COOP_WORLD_HEIGHT / 2, tx - COOP_WORLD_WIDTH / 2) + patternAngle + Math.PI;
-  const borderPos = getBorderPoint(COOP_WORLD_WIDTH / 2, COOP_WORLD_HEIGHT / 2, COOP_WORLD_WIDTH, COOP_WORLD_HEIGHT, borderAngle);
-  const aimFromBorder = Math.atan2(ty - borderPos.y, tx - borderPos.x);
-  const b2 = {
-    id: world.nextGasterBlasterId++,
-    x: borderPos.x, y: borderPos.y,
-    aimAngle: aimFromBorder,
-    state: "telegraph",
-    stateTimer: 1.3,
-    bossId: boss.id
-  };
-  world.gasterBlasters.set(b2.id, b2);
+  function pushBlaster(x, y, aimAngle, opts) {
+    const b = {
+      id: world.nextGasterBlasterId++,
+      x, y, aimAngle,
+      state: "telegraph", stateTimer: 1.3, bossId: boss.id,
+      ...(opts || {})
+    };
+    world.gasterBlasters.set(b.id, b);
+  }
+
+  if (patType === "horizontal") {
+    const rows = [py - 180, py, py + 180];
+    for (const ry of rows) {
+      const y = Math.max(60, Math.min(H - 60, ry));
+      pushBlaster(0, y + posSpread(), 0 + spread, { moveVy: (Math.random() - 0.5) * 80 });
+      pushBlaster(W, y + posSpread(), Math.PI + spread, { moveVy: (Math.random() - 0.5) * 80 });
+    }
+  } else if (patType === "vertical") {
+    const cols = [px - 200, px, px + 200];
+    for (const cx of cols) {
+      const x = Math.max(60, Math.min(W - 60, cx));
+      pushBlaster(x + posSpread(), 0, Math.PI / 2 + spread, { moveVx: (Math.random() - 0.5) * 80 });
+      pushBlaster(x + posSpread(), H, -Math.PI / 2 + spread, { moveVx: (Math.random() - 0.5) * 80 });
+    }
+  } else if (patType === "box") {
+    const gapSide = Math.floor(Math.random() * 4);
+    const COUNT = 5;
+    if (gapSide !== 0) {
+      for (let i = 0; i < COUNT; i++) pushBlaster(W * (i + 0.5) / COUNT + posSpread(), 0, Math.PI / 2);
+    }
+    if (gapSide !== 2) {
+      for (let i = 0; i < COUNT; i++) pushBlaster(W * (i + 0.5) / COUNT + posSpread(), H, -Math.PI / 2);
+    }
+    if (gapSide !== 3) {
+      for (let i = 0; i < COUNT; i++) pushBlaster(0, H * (i + 0.5) / COUNT + posSpread(), 0);
+    }
+    if (gapSide !== 1) {
+      for (let i = 0; i < COUNT; i++) pushBlaster(W, H * (i + 0.5) / COUNT + posSpread(), Math.PI);
+    }
+  } else if (patType === "corridor") {
+    const corridorAngle = Math.random() * Math.PI;
+    const offset = 120;
+    const cosC = Math.cos(corridorAngle);
+    const sinC = Math.sin(corridorAngle);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 4; i++) {
+        const along = (i - 1.5) * 400;
+        const bx = Math.max(0, Math.min(W, px + cosC * along + sinC * offset * side + posSpread()));
+        const by = Math.max(0, Math.min(H, py + sinC * along - cosC * offset * side + posSpread()));
+        pushBlaster(bx, by, corridorAngle + Math.PI / 2 * side, {
+          moveVx: cosC * 60 * side, moveVy: sinC * 60 * side
+        });
+      }
+    }
+  } else if (patType === "cross") {
+    const angles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+    for (const baseAngle of angles) {
+      for (let j = -1; j <= 1; j++) {
+        const spawnAngle = baseAngle + j * 0.25;
+        const bpos = getBorderPoint(px + posSpread(), py + posSpread(), W, H, spawnAngle + Math.PI);
+        const aim = Math.atan2(py - bpos.y, px - bpos.x) + j * 0.15;
+        pushBlaster(bpos.x, bpos.y, aim);
+      }
+    }
+  } else if (patType === "sweep") {
+    const baseAngle = Math.atan2(py - boss.y, px - boss.x);
+    for (let i = 0; i < 7; i++) {
+      const a = baseAngle + (i - 3) * 0.2;
+      pushBlaster(boss.x + posSpread(), boss.y + posSpread(), a, { rotateSpeed: 0.4 * (Math.random() > 0.5 ? 1 : -1) });
+      const bpos = getBorderPoint(W / 2 + posSpread(), H / 2 + posSpread(), W, H, a + Math.PI);
+      pushBlaster(bpos.x, bpos.y, a + Math.PI, { rotateSpeed: -0.3 });
+    }
+  } else if (patType === "sans-dual-sweep") {
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    for (let i = 0; i < 5; i++) {
+      const a1 = -Math.PI / 3 + i * 0.18 * dir;
+      pushBlaster(0, H * 0.3 + posSpread(), a1, { rotateSpeed: 0.5 * dir });
+      const a2 = Math.PI + Math.PI / 3 - i * 0.18 * dir;
+      pushBlaster(W, H * 0.7 + posSpread(), a2, { rotateSpeed: -0.5 * dir });
+    }
+  } else if (patType === "sans-cage") {
+    const gapAngle = Math.random() * Math.PI * 2;
+    const ringR = 500;
+    for (let i = 0; i < 12; i++) {
+      const a = (Math.PI * 2 / 12) * i;
+      if (Math.abs(((a - gapAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.6) continue;
+      pushBlaster(px + Math.cos(a) * ringR + posSpread() * 0.4, py + Math.sin(a) * ringR + posSpread() * 0.4, a + Math.PI);
+    }
+  } else if (patType === "sans-slam") {
+    for (let i = 0; i < 6; i++) {
+      const x = W * (i + 0.5) / 6;
+      pushBlaster(x + posSpread(), 0, Math.PI / 2);
+      pushBlaster(x + posSpread() * 0.7, H, -Math.PI / 2);
+    }
+    for (let i = 0; i < 4; i++) {
+      const y = H * (i + 0.5) / 4;
+      pushBlaster(0, y + posSpread(), 0);
+    }
+  } else if (patType === "sans-gatling") {
+    const baseAim = Math.atan2(py - boss.y, px - boss.x);
+    for (let i = 0; i < 8; i++) {
+      const fanAngle = baseAim + (i - 3.5) * 0.12 + (Math.random() - 0.5) * 0.08;
+      pushBlaster(boss.x + posSpread() * 0.5, boss.y + posSpread() * 0.5, fanAngle, {
+        rotateSpeed: (Math.random() - 0.5) * 0.3
+      });
+    }
+    const behindAngle = baseAim + Math.PI;
+    const bpos2 = getBorderPoint(px, py, W, H, behindAngle);
+    for (let i = 0; i < 4; i++) {
+      const a = behindAngle + Math.PI + (i - 1.5) * 0.2;
+      pushBlaster(bpos2.x + posSpread(), bpos2.y + posSpread(), a);
+    }
+  }
 }
 
 function isHitByBeam(px, py, pr, bx, by, aimAngle) {
@@ -3319,12 +3418,46 @@ function updateServerGasterBlasters(world, dt) {
         continue;
       }
     }
-    // Continuous damage during firing
+    // Movement
+    if (blaster.moveVx) blaster.x += blaster.moveVx * dt;
+    if (blaster.moveVy) blaster.y += blaster.moveVy * dt;
+    // Rotation
+    if (blaster.rotateSpeed) blaster.aimAngle += blaster.rotateSpeed * dt;
+    // Tracking — during first 25% of telegraph, slowly rotate toward nearest alive player (75% player speed)
+    if (blaster.state === "telegraph" && !blaster.rotateSpeed) {
+      if (!blaster.telegraphDuration) blaster.telegraphDuration = blaster.stateTimer + dt;
+      const elapsed = blaster.telegraphDuration - blaster.stateTimer;
+      if (elapsed < blaster.telegraphDuration * 0.25) {
+        let closest = null;
+        let closestDist = Infinity;
+        for (const p of world.players.values()) {
+          if (!p.alive) continue;
+          const ddx = p.x - blaster.x;
+          const ddy = p.y - blaster.y;
+          const d = Math.sqrt(ddx * ddx + ddy * ddy);
+          if (d < closestDist) { closestDist = d; closest = p; }
+        }
+        if (closest && closestDist > 10) {
+          const targetAngle = Math.atan2(closest.y - blaster.y, closest.x - blaster.x);
+          let diff = targetAngle - blaster.aimAngle;
+          while (diff > Math.PI) diff -= 2 * Math.PI;
+          while (diff < -Math.PI) diff += 2 * Math.PI;
+          const trackSpeed = Math.min(1.5, 0.75 * PLAYER_SPEED / closestDist);
+          const maxRot = trackSpeed * dt;
+          if (Math.abs(diff) > maxRot) {
+            blaster.aimAngle += Math.sign(diff) * maxRot;
+          } else {
+            blaster.aimAngle = targetAngle;
+          }
+        }
+      }
+    }
+    // Continuous damage during firing (+75% = 157.5 base)
     if (blaster.state === "firing") {
       for (const p of world.players.values()) {
         if (!p.alive) continue;
         if (isHitByBeam(p.x, p.y, p.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
-          damageServerPlayer(world, p, 90 * dt / 0.25);
+          damageServerPlayer(world, p, 157.5 * dt / 0.25);
         }
       }
     }
@@ -3348,53 +3481,137 @@ function updateServerDamageZones(world, dt) {
   }
 }
 
-function updateServerBossTurretAttacks(world, boss, target, dt) {
-  const pattern = GASTER_BLASTER_PATTERNS[boss.turretBlasterPatternIdx % 6];
-  const BATCH = 5; // spawn 5 pairs (10 blasters) per step
+const SERVER_ZONE_PATTERNS = ["cluster", "line", "circle", "cross", "grid", "chase"];
 
-  // Gaster blaster attack
+function spawnServerZonePattern(world, boss, targetPlayer) {
+  const px = targetPlayer.x, py = targetPlayer.y;
+  const vx = targetPlayer.vx || 0, vy = targetPlayer.vy || 0;
+  const spread = () => (Math.random() - 0.5) * 250;
+
+  // Offset zones to block escape routes — placement depends on context
+  const vLen = Math.sqrt(vx * vx + vy * vy);
+  const offsetDist = 200 + Math.random() * 100; // 200-300px
+  let ox, oy;
+
+  if (vLen > 30) {
+    // Player moving (dodging blasters) — cut off their escape
+    const roll = Math.random();
+    if (roll < 0.65) {
+      ox = (vx / vLen) * offsetDist;
+      oy = (vy / vLen) * offsetDist;
+    } else {
+      const side = Math.random() > 0.5 ? 1 : -1;
+      ox = (-vy / vLen) * offsetDist * side;
+      oy = (vx / vLen) * offsetDist * side;
+    }
+  } else if (world.gasterBlasters && world.gasterBlasters.size > 0) {
+    // Player stationary but blasters active — block safest beam escape
+    const blasters = [...world.gasterBlasters.values()];
+    const avgSin = blasters.reduce((s, b) => s + Math.sin(b.aimAngle), 0) / blasters.length;
+    const avgCos = blasters.reduce((s, b) => s + Math.cos(b.aimAngle), 0) / blasters.length;
+    const avgAim = Math.atan2(avgSin, avgCos);
+    const blockAngle = avgAim + (Math.random() > 0.5 ? 1 : -1) * Math.PI / 2;
+    ox = Math.cos(blockAngle) * offsetDist;
+    oy = Math.sin(blockAngle) * offsetDist;
+  } else {
+    const rAngle = Math.random() * Math.PI * 2;
+    ox = Math.cos(rAngle) * offsetDist;
+    oy = Math.sin(rAngle) * offsetDist;
+  }
+  const ax = Math.max(240, Math.min(COOP_WORLD_WIDTH - 240, px + ox));
+  const ay = Math.max(240, Math.min(COOP_WORLD_HEIGHT - 240, py + oy));
+
+  const patIdx = boss.serverZonePatternIdx || 0;
+  const patternType = SERVER_ZONE_PATTERNS[patIdx % SERVER_ZONE_PATTERNS.length];
+  boss.serverZonePatternIdx = (patIdx + 1) % SERVER_ZONE_PATTERNS.length;
+
+  function pushZone(x, y, timer) {
+    const zone = {
+      id: world.nextDamageZoneId++,
+      x, y, r: 240, timer, maxTimer: timer, bossId: boss.id
+    };
+    world.damageZones.set(zone.id, zone);
+  }
+
+  if (patternType === "cluster") {
+    for (let i = 0; i < 5; i++) {
+      pushZone(ax + spread(), ay + spread(), 1.2 + i * 0.15);
+    }
+  } else if (patternType === "line") {
+    const angle = Math.random() * Math.PI;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    for (let i = -2; i <= 2; i++) {
+      pushZone(ax + cos * i * 200 + spread() * 0.5, ay + sin * i * 200 + spread() * 0.5, 1.3 + Math.abs(i) * 0.15);
+    }
+  } else if (patternType === "circle") {
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI * 2 / 6) * i + Math.random() * 0.3;
+      pushZone(ax + Math.cos(a) * 280 + spread() * 0.4, ay + Math.sin(a) * 280 + spread() * 0.4, 1.3);
+    }
+  } else if (patternType === "cross") {
+    for (let i = -1; i <= 1; i++) {
+      pushZone(ax + i * 260 + spread() * 0.4, ay + spread() * 0.3, 1.2 + Math.abs(i) * 0.2);
+      if (i !== 0) {
+        pushZone(ax + spread() * 0.3, ay + i * 260 + spread() * 0.4, 1.2 + Math.abs(i) * 0.2);
+      }
+    }
+  } else if (patternType === "grid") {
+    for (let gx = -1; gx <= 1; gx++) {
+      for (let gy = -1; gy <= 1; gy++) {
+        pushZone(ax + gx * 240 + spread() * 0.4, ay + gy * 240 + spread() * 0.4, 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1);
+      }
+    }
+  } else if (patternType === "chase") {
+    for (let i = 0; i < 5; i++) {
+      pushZone(px + vx * 0.4 * (i + 1) + spread() * 0.5, py + vy * 0.4 * (i + 1) + spread() * 0.5, 1.0 + i * 0.25);
+    }
+  }
+}
+
+function updateServerBossTurretAttacks(world, boss, target, dt) {
+  // Blaster pattern attack — each player gets own pattern (2x intensity)
   if (boss.turretBlasterState === "idle") {
     boss.turretBlasterCooldown -= dt;
-    if (boss.turretBlasterCooldown <= 0 && boss.turretBlasterShotIdx < pattern.count) {
-      for (let b = 0; b < BATCH && boss.turretBlasterShotIdx + b < pattern.count; b++) {
-        const angle = pattern.start + pattern.step * (boss.turretBlasterShotIdx + b);
-        spawnServerGasterBlasterPair(world, boss, angle);
+    if (boss.turretBlasterCooldown <= 0) {
+      // Each alive player gets their own blaster pattern
+      let playerIdx = 0;
+      for (const p of world.players.values()) {
+        if (!p.alive) continue;
+        // Offset pattern index per player so they get different patterns
+        const patIdx = (boss.turretBlasterPatternIdx + playerIdx) % SERVER_BLASTER_PATTERN_TYPES.length;
+        const savedIdx = boss.turretBlasterPatternIdx;
+        boss.turretBlasterPatternIdx = patIdx;
+        spawnServerBlasterPattern(world, boss);
+        boss.turretBlasterPatternIdx = savedIdx;
+        playerIdx++;
       }
       boss.turretBlasterState = "waiting";
-      boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.45;
+      boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.3;
+      // Schedule zone spawn 0.6-1.0s after blasters (player will be moving by then)
+      if (!boss.turretZonePending) {
+        boss.turretZonePending = true;
+        boss.turretZoneDelay = 0.6 + Math.random() * 0.4;
+      }
     }
   } else if (boss.turretBlasterState === "waiting") {
     boss.turretBlasterWaitTimer -= dt;
     if (boss.turretBlasterWaitTimer <= 0) {
-      boss.turretBlasterShotIdx += BATCH;
-      if (boss.turretBlasterShotIdx >= pattern.count) {
-        boss.turretBlasterState = "idle";
-        boss.turretBlasterCooldown = 2.5;
-        boss.turretBlasterShotIdx = 0;
-        boss.turretBlasterPatternIdx = (boss.turretBlasterPatternIdx + 1) % 6;
-      } else {
-        boss.turretBlasterState = "idle";
-        boss.turretBlasterCooldown = 0;
-      }
+      boss.turretBlasterPatternIdx = (boss.turretBlasterPatternIdx + 1) % SERVER_BLASTER_PATTERN_TYPES.length;
+      boss.turretBlasterState = "idle";
+      boss.turretBlasterCooldown = 0.9;
     }
   }
 
-  // Damage zone attack
-  boss.turretZoneCooldown -= dt;
-  if (boss.turretZoneCooldown <= 0 && target) {
-    for (let i = 0; i < 2; i++) {
-      const zone = {
-        id: world.nextDamageZoneId++,
-        x: target.x + (i === 0 ? 0 : random(-60, 60)),
-        y: target.y + (i === 0 ? 0 : random(-60, 60)),
-        r: 240,
-        timer: 1.5 + i * 0.7,
-        maxTimer: 1.5 + i * 0.7,
-        bossId: boss.id
-      };
-      world.damageZones.set(zone.id, zone);
+  // Delayed zone spawn — tied to blaster cycle, not independent timer
+  if (boss.turretZonePending) {
+    boss.turretZoneDelay -= dt;
+    if (boss.turretZoneDelay <= 0) {
+      for (const p of world.players.values()) {
+        if (!p.alive) continue;
+        spawnServerZonePattern(world, boss, p);
+      }
+      boss.turretZonePending = false;
     }
-    boss.turretZoneCooldown = 6;
   }
 }
 
@@ -3673,12 +3890,12 @@ function updateServerEnemies(
         damageServerEnemy(world, enemy.id, 9999);
       }
       continue;
-    } else if (enemy.type === "boss") {
+    } else if (isBossLike(enemy)) {
       const hpRatio = enemy.hp / (enemy.maxHp || 1);
       const phase = hpRatio < 0.33 ? 2 : hpRatio < 0.66 ? 1 : 0;
       enemy.phase = phase;
 
-      if (!enemy.shieldTriggered && hpRatio <= 0.5 && (enemy.bossTier || 1) >= 2) {
+      if (!enemy.shieldTriggered && hpRatio <= 0.5 && (enemy.bossTier || 1) >= 2 && !enemy.turretMode) {
         spawnServerBossDrones(world, enemy);
       }
 
@@ -3709,13 +3926,15 @@ function updateServerEnemies(
         continue;
       }
 
+      // Turret mode (wave >= 10 only — first boss has no specials, mini_boss excluded)
+      if (world.wave >= 10 && !enemy.isMini) {
       // Turret mode cooldown tick
-      if (enemy.turretCooldown > 0) {
+      if (enemy.turretCooldown > 0 && !enemy.shieldActive) {
         enemy.turretCooldown -= dt;
       }
 
       // Enter turret mode
-      if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena) {
+      if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive) {
         enemy.x = COOP_WORLD_WIDTH / 2;
         enemy.y = COOP_WORLD_HEIGHT / 2;
         enemy.turretMode = true;
@@ -3726,7 +3945,8 @@ function updateServerEnemies(
         enemy.turretBlasterState = "idle";
         enemy.turretBlasterCooldown = 1.5;
         enemy.turretBlasterShotIdx = 0;
-        enemy.turretZoneCooldown = 4;
+        enemy.turretZonePending = false;
+        enemy.turretZoneDelay = 0;
       }
 
       // Turret mode active: run turret attacks, skip normal AI
@@ -3734,12 +3954,13 @@ function updateServerEnemies(
         enemy.turretTimer -= dt;
         if (enemy.turretTimer <= 0) {
           enemy.turretMode = false;
-          enemy.turretCooldown = 35;
+          enemy.turretCooldown = 10 + Math.random() * 20;
         } else {
           updateServerBossTurretAttacks(world, enemy, target, dt);
           continue;
         }
       }
+      } // end wave >= 10 turret gate
 
       // 1. Dash
       if (phase >= 1 && enemy.hasEnteredArena) {
@@ -3827,40 +4048,32 @@ function updateServerEnemies(
         }
       }
 
-      // 4. Phase 3: Gaster blasters + damage zones in normal mode
-      if (phase === 2 && enemy.hasEnteredArena && !enemy.turretMode) {
-        enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 5;
+      // 4. Phase 3: Gaster blasters + damage zones in normal mode (wave >= 10 only, not mini_boss)
+      if (phase === 2 && enemy.hasEnteredArena && !enemy.turretMode && world.wave >= 10 && !enemy.isMini) {
+        enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 2.5;
         enemy.normalBlasterCooldown -= dt;
         if (enemy.normalBlasterCooldown <= 0) {
           enemy.normalBlasterPatternIdx = enemy.normalBlasterPatternIdx || 0;
-          const pat = GASTER_BLASTER_PATTERNS[enemy.normalBlasterPatternIdx % 6];
-          for (let b = 0; b < 3; b++) {
-            const angle = pat.start + pat.step * ((enemy.normalBlasterShotCounter || 0) + b);
-            spawnServerGasterBlasterPair(world, enemy, angle);
+          let playerIdx = 0;
+          for (const p of world.players.values()) {
+            if (!p.alive) continue;
+            const patIdx = (enemy.normalBlasterPatternIdx + playerIdx) % SERVER_BLASTER_PATTERN_TYPES.length;
+            enemy.turretBlasterPatternIdx = patIdx;
+            spawnServerBlasterPattern(world, enemy);
+            playerIdx++;
           }
-          enemy.normalBlasterShotCounter = ((enemy.normalBlasterShotCounter || 0) + 3) % pat.count;
-          if (enemy.normalBlasterShotCounter === 0) {
-            enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % 6;
-          }
-          enemy.normalBlasterCooldown = 4;
+          enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % SERVER_BLASTER_PATTERN_TYPES.length;
+          enemy.normalBlasterCooldown = 2;
         }
 
-        enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 6;
+        enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 1;
         enemy.normalZoneCooldown -= dt;
-        if (enemy.normalZoneCooldown <= 0 && target) {
-          for (let i = 0; i < 2; i++) {
-            const zone = {
-              id: world.nextDamageZoneId++,
-              x: target.x + (i === 0 ? 0 : random(-80, 80)),
-              y: target.y + (i === 0 ? 0 : random(-80, 80)),
-              r: 240,
-              timer: 1.5 + i * 0.7,
-              maxTimer: 1.5 + i * 0.7,
-              bossId: enemy.id
-            };
-            world.damageZones.set(zone.id, zone);
+        if (enemy.normalZoneCooldown <= 0) {
+          for (const p of world.players.values()) {
+            if (!p.alive) continue;
+            spawnServerZonePattern(world, enemy, p);
           }
-          enemy.normalZoneCooldown = 6;
+          enemy.normalZoneCooldown = 2;
         }
       }
 
@@ -4034,9 +4247,11 @@ function updateServerEnemies(
           ? 0
           : enemy.type === "boss"
             ? 25
-            : enemy.type === "tank"
-              ? 17
-              : 12;
+            : enemy.type === "mini_boss"
+              ? 20
+              : enemy.type === "tank"
+                ? 17
+                : 12;
 
       enemy.x -=
         dx * pushStrength;
@@ -4955,12 +5170,16 @@ function createServerCoopSnapshot(room, options) {
         serialized.sporesCount = enemy.sporesCount !== undefined ? enemy.sporesCount : 5;
       }
 
-      if (enemy.type === "boss" && enemy.shieldActive) {
+      if (isBossLike(enemy) && enemy.shieldActive) {
         serialized.shieldActive = 1;
       }
 
       if (enemy.type === "boss" && enemy.turretMode) {
         serialized.turretMode = 1;
+      }
+
+      if (enemy.isMini) {
+        serialized.isMini = 1;
       }
 
       /*
@@ -5046,7 +5265,10 @@ function createServerCoopSnapshot(room, options) {
       y: Math.round(b.y),
       aimAngle: Number(b.aimAngle.toFixed(3)),
       state: b.state,
-      stateTimer: Number(b.stateTimer.toFixed(2))
+      stateTimer: Number(b.stateTimer.toFixed(2)),
+      ...(b.moveVx ? { moveVx: Math.round(b.moveVx) } : {}),
+      ...(b.moveVy ? { moveVy: Math.round(b.moveVy) } : {}),
+      ...(b.rotateSpeed ? { rotateSpeed: Number(b.rotateSpeed.toFixed(3)) } : {})
     })),
 
     damageZones: [...world.damageZones.values()].map(z => ({

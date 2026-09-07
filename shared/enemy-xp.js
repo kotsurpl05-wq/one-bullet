@@ -5,6 +5,9 @@ function getEnemyExperience(enemy) {
     const bossTier = Math.max(1, enemy.bossTier || 1);
     return 1050 + bossTier * 275;
   }
+  if (enemy.type === "mini_boss") {
+    return 550;
+  }
 
   switch (enemy.type) {
     case "tank":       return 275;
@@ -37,6 +40,7 @@ function getEnemyDamageMultiplier(wave) {
 function getContactDamage(wave, enemy) {
   const mult = getEnemyDamageMultiplier(wave);
   if (enemy.type === "boss") return Math.round((wave >= 15 ? 227 : 118) * mult);
+  if (enemy.type === "mini_boss") return Math.round(95 * mult);
 
   let base;
   switch (enemy.type) {
