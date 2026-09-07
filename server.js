@@ -3574,42 +3574,42 @@ function spawnServerZonePattern(world, boss, targetPlayer) {
     world.damageZones.set(zone.id, zone);
   }
 
-  const isTurret = Boolean(boss && boss.turretMode);
+  const isReducedZones = Boolean(boss && (boss.turretMode || boss.phase === 2));
 
   if (patternType === "cluster") {
-    const count = isTurret ? 4 : 5;
+    const count = isReducedZones ? 4 : 5;
     for (let i = 0; i < count; i++) {
       pushZone(ax + spread(), ay + spread(), 1.2 + i * 0.15);
     }
   } else if (patternType === "line") {
     const angle = Math.random() * Math.PI;
     const cos = Math.cos(angle), sin = Math.sin(angle);
-    const lineRange = isTurret ? 1 : 2;
+    const lineRange = isReducedZones ? 1 : 2;
     for (let i = -lineRange; i <= lineRange; i++) {
       pushZone(ax + cos * i * 200 + spread() * 0.5, ay + sin * i * 200 + spread() * 0.5, 1.3 + Math.abs(i) * 0.15);
     }
   } else if (patternType === "circle") {
-    const count = isTurret ? 4 : 6;
+    const count = isReducedZones ? 4 : 6;
     for (let i = 0; i < count; i++) {
       const a = (Math.PI * 2 / count) * i + Math.random() * 0.3;
       pushZone(ax + Math.cos(a) * 280 + spread() * 0.4, ay + Math.sin(a) * 280 + spread() * 0.4, 1.3);
     }
   } else if (patternType === "cross") {
-    const crossOffsets = isTurret
+    const crossOffsets = isReducedZones
       ? [[0, 0], [260, 0], [-260, 0], [0, 260]]
       : [[0, 0], [260, 0], [-260, 0], [0, 260], [0, -260]];
     for (const [ox, oy] of crossOffsets) {
       pushZone(ax + ox + spread() * 0.3, ay + oy + spread() * 0.3, 1.2 + (Math.abs(ox) + Math.abs(oy)) / 260 * 0.2);
     }
   } else if (patternType === "grid") {
-    const gridCoords = isTurret
+    const gridCoords = isReducedZones
       ? [[-1, -1], [-1, 1], [0, 0], [1, -1], [1, 1], [0, -1]]
       : [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
     for (const [gx, gy] of gridCoords) {
       pushZone(ax + gx * 240 + spread() * 0.4, ay + gy * 240 + spread() * 0.4, 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1);
     }
   } else if (patternType === "chase") {
-    const count = isTurret ? 4 : 5;
+    const count = isReducedZones ? 4 : 5;
     for (let i = 0; i < count; i++) {
       pushZone(px + vx * 0.4 * (i + 1) + spread() * 0.5, py + vy * 0.4 * (i + 1) + spread() * 0.5, 1.0 + i * 0.25);
     }
@@ -4046,7 +4046,7 @@ function updateServerEnemies(
 
           if (enemy.dashTimer <= 0) {
             enemy.dashState = "none";
-            enemy.dashCooldown = random(6.5, 8.5);
+            enemy.dashCooldown = phase === 2 ? random(8.5, 11.0) : random(6.5, 8.5);
             shootServerBossShockwave(world, enemy);
           }
           continue;
@@ -4081,7 +4081,7 @@ function updateServerEnemies(
         }
       }
 
-      // 3. Spiral Bullet Hell
+      // 3. Spiral Bullet Hell (Phase 3: intensity reduced by 30%)
       if (phase === 2 && enemy.hasEnteredArena) {
         if (!enemy.spiralActive) {
           enemy.spiralCooldown -= dt;
@@ -4095,21 +4095,21 @@ function updateServerEnemies(
           enemy.spiralTimer -= dt;
           enemy.spiralBaseAngle += dt * 3.5;
           enemy.spiralTicks += dt;
-          if (enemy.spiralTicks >= 0.14) {
+          if (enemy.spiralTicks >= 0.18) {
             enemy.spiralTicks = 0;
-            createServerEnemyProjectile(world, enemy.x + Math.cos(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.spiralBaseAngle, 175, 6, "#ff0077", 1);
-            createServerEnemyProjectile(world, enemy.x + Math.cos(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.spiralBaseAngle + Math.PI, 175, 6, "#ff0077", 1);
+            createServerEnemyProjectile(world, enemy.x + Math.cos(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.spiralBaseAngle, 140, 6, "#ff0077", 1);
+            createServerEnemyProjectile(world, enemy.x + Math.cos(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.spiralBaseAngle + Math.PI, 140, 6, "#ff0077", 1);
           }
           if (enemy.spiralTimer <= 0) {
             enemy.spiralActive = false;
-            enemy.spiralCooldown = random(6.0, 8.5);
+            enemy.spiralCooldown = random(8.0, 11.0);
           }
         }
       }
 
-      // 4. Phase 3: Gaster blasters + damage zones in normal mode (wave >= 10 only, not mini_boss)
+      // 4. Phase 3: Gaster blasters + damage zones in normal mode (wave >= 10 only, not mini_boss) (intensity reduced by 30%)
       if (phase === 2 && enemy.hasEnteredArena && !enemy.turretMode && world.wave >= 10 && !enemy.isMini) {
-        enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 2.5;
+        enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 3.5;
         enemy.normalBlasterCooldown -= dt;
         if (enemy.normalBlasterCooldown <= 0) {
           enemy.normalBlasterPatternIdx = enemy.normalBlasterPatternIdx || 0;
@@ -4122,22 +4122,22 @@ function updateServerEnemies(
             playerIdx++;
           }
           enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % SERVER_BLASTER_PATTERN_TYPES.length;
-          enemy.normalBlasterCooldown = 2;
+          enemy.normalBlasterCooldown = 2.85;
         }
 
-        enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 1;
+        enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 1.4;
         enemy.normalZoneCooldown -= dt;
         if (enemy.normalZoneCooldown <= 0) {
           for (const p of world.players.values()) {
             if (!p.alive) continue;
             spawnServerZonePattern(world, enemy, p);
           }
-          enemy.normalZoneCooldown = 2;
+          enemy.normalZoneCooldown = 2.85;
         }
       }
 
-      const forwardMovement = targetDistance > 320 ? 0.95 : targetDistance < 220 ? -0.4 : 0.25;
-      const strafeStrength = 0.5 + phase * 0.12;
+      const forwardMovement = targetDistance > 320 ? (phase === 2 ? 0.75 : 0.95) : targetDistance < 220 ? -0.4 : 0.25;
+      const strafeStrength = phase === 2 ? 0.55 : (0.5 + phase * 0.12);
 
       enemy.x +=
         (dx * forwardMovement - dy * (enemy.strafeDirection || 1) * strafeStrength) *
@@ -4157,12 +4157,12 @@ function updateServerEnemies(
 
         if (enemy.shootCooldown <= 0) {
           shootServerBossSpread(world, enemy, target, phase);
-          enemy.shootCooldown = Math.max(0.85, 1.35 - phase * 0.16);
+          enemy.shootCooldown = phase === 2 ? 1.35 : Math.max(0.85, 1.35 - phase * 0.16);
         }
 
         if (enemy.radialCooldown <= 0) {
           shootServerBossRadial(world, enemy, phase);
-          enemy.radialCooldown = Math.max(2.6, 3.8 - phase * 0.4);
+          enemy.radialCooldown = phase === 2 ? 3.9 : Math.max(2.6, 3.8 - phase * 0.4);
         }
       }
     } else if (enemy.type === "shooter") {

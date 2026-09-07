@@ -272,4 +272,51 @@ test("Boss Turret Mode, Boost Level Rarity & Indicator Suite", async (t) => {
     const bonusText = boomerangDef.bonus(player1, 1);
     assert.ok(bonusText.includes("115"), `Bonus text should mention 115 px/s: ${bonusText}`);
   });
+
+  // =========================================================================
+  // 6. PHASE 3 BOSS INTENSITY REDUCTION (~30%)
+  // =========================================================================
+  await t.test("6.1 Phase 3 (phase === 2) spawns reduced zone counts (~30% less zones)", () => {
+    const patterns = ["cluster", "line", "circle", "cross", "grid", "chase"];
+
+    let totalPhase3Zones = 0;
+    for (let i = 0; i < patterns.length; i++) {
+      const { world, player1 } = createTestWorld(ctx);
+      const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
+      boss.turretMode = false;
+      boss.phase = 2;
+      boss.serverZonePatternIdx = i;
+      ctx.spawnServerZonePattern(world, boss, player1);
+      totalPhase3Zones += world.damageZones.size;
+    }
+
+    assert.equal(totalPhase3Zones, 25, "Phase 3 total zones across 6 patterns should be 25 (30% reduction from 35)");
+  });
+
+  await t.test("6.2 Phase 3 boss attack cooldowns are 30% less intense", () => {
+    const { world, player1 } = createTestWorld(ctx);
+    world.wave = 10;
+    const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
+    boss.maxHp = 1000;
+    boss.hp = 250; // 25% -> phase 2
+    boss.phase = 2;
+    boss.hasEnteredArena = true;
+    boss.shieldTriggered = true;
+    boss.shieldActive = false;
+    boss.turretMode = false;
+    boss.turretCooldown = 999;
+    boss.shootCooldown = 0;
+    boss.radialCooldown = 0;
+    boss.normalBlasterCooldown = 0;
+    boss.normalZoneCooldown = 0;
+    world.enemies.set(boss.id, boss);
+
+    ctx.updateServerEnemies(world, 0.05);
+
+    assert.equal(boss.shootCooldown, 1.35, "Phase 3 shootCooldown should reset to 1.35s (~30% longer than 1.03s)");
+    assert.equal(boss.radialCooldown, 3.9, "Phase 3 radialCooldown should reset to 3.9s (~30% longer than 3.0s)");
+    assert.equal(boss.normalBlasterCooldown, 2.85, "Phase 3 normalBlasterCooldown should reset to 2.85s (30% less frequent than 2.0s)");
+    assert.equal(boss.normalZoneCooldown, 2.85, "Phase 3 normalZoneCooldown should reset to 2.85s (30% less frequent than 2.0s)");
+  });
 });
+

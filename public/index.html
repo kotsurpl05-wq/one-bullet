@@ -7322,10 +7322,10 @@
       const ax = Math.max(240, Math.min(SOLO_WORLD_WIDTH - 240, px + ox));
       const ay = Math.max(240, Math.min(SOLO_WORLD_HEIGHT - 240, py + oy));
 
-      const isTurret = Boolean(boss && boss.turretMode);
+      const isReducedZones = Boolean(boss && (boss.turretMode || boss.phase === 2));
 
       if (patternType === "cluster") {
-        const count = isTurret ? 4 : 5;
+        const count = isReducedZones ? 4 : 5;
         for (let i = 0; i < count; i++) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
@@ -7336,7 +7336,7 @@
       } else if (patternType === "line") {
         const angle = Math.random() * Math.PI;
         const cos = Math.cos(angle), sin = Math.sin(angle);
-        const lineRange = isTurret ? 1 : 2;
+        const lineRange = isReducedZones ? 1 : 2;
         for (let i = -lineRange; i <= lineRange; i++) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
@@ -7347,7 +7347,7 @@
           });
         }
       } else if (patternType === "circle") {
-        const count = isTurret ? 4 : 6;
+        const count = isReducedZones ? 4 : 6;
         for (let i = 0; i < count; i++) {
           const a = (Math.PI * 2 / count) * i + Math.random() * 0.3;
           soloDamageZones.push({
@@ -7358,7 +7358,7 @@
           });
         }
       } else if (patternType === "cross") {
-        const crossOffsets = isTurret
+        const crossOffsets = isReducedZones
           ? [[0, 0], [260, 0], [-260, 0], [0, 260]]
           : [[0, 0], [260, 0], [-260, 0], [0, 260], [0, -260]];
         for (const [ox, oy] of crossOffsets) {
@@ -7370,7 +7370,7 @@
           });
         }
       } else if (patternType === "grid") {
-        const gridCoords = isTurret
+        const gridCoords = isReducedZones
           ? [[-1, -1], [-1, 1], [0, 0], [1, -1], [1, 1], [0, -1]]
           : [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
         for (const [gx, gy] of gridCoords) {
@@ -7384,7 +7384,7 @@
           });
         }
       } else if (patternType === "chase") {
-        const count = isTurret ? 4 : 5;
+        const count = isReducedZones ? 4 : 5;
         for (let i = 0; i < count; i++) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
@@ -8926,7 +8926,7 @@
 
               if (enemy.dashTimer <= 0) {
                 enemy.dashState = "none";
-                enemy.dashCooldown = random(6.5, 8.5);
+                enemy.dashCooldown = phase === 2 ? random(8.5, 11.0) : random(6.5, 8.5);
                 shootBossShockwave(enemy);
               }
               continue;
@@ -8961,7 +8961,7 @@
             }
           }
 
-          // 3. Спиральный шторм в Phase 3 (<33% HP)
+          // 3. Спиральный шторм в Phase 3 (<33% HP) (интенсивность снижена на 30%)
           if (phase === 2 && enemyCanAttack) {
             if (!enemy.spiralActive) {
               enemy.spiralCooldown -= dt;
@@ -8975,49 +8975,49 @@
               enemy.spiralTimer -= dt;
               enemy.spiralBaseAngle += dt * 3.5;
               enemy.spiralTicks += dt;
-              if (enemy.spiralTicks >= 0.14) {
+              if (enemy.spiralTicks >= 0.18) {
                 enemy.spiralTicks = 0;
-                createEnemyProjectile(enemy.x + Math.cos(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.spiralBaseAngle, 175, 6, "#ff0077", 1);
-                createEnemyProjectile(enemy.x + Math.cos(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.spiralBaseAngle + Math.PI, 175, 6, "#ff0077", 1);
+                createEnemyProjectile(enemy.x + Math.cos(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle) * (enemy.r + 6), enemy.spiralBaseAngle, 140, 6, "#ff0077", 1);
+                createEnemyProjectile(enemy.x + Math.cos(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.y + Math.sin(enemy.spiralBaseAngle + Math.PI) * (enemy.r + 6), enemy.spiralBaseAngle + Math.PI, 140, 6, "#ff0077", 1);
               }
               if (enemy.spiralTimer <= 0) {
                 enemy.spiralActive = false;
-                enemy.spiralCooldown = random(6.0, 8.5);
+                enemy.spiralCooldown = random(8.0, 11.0);
               }
             }
           }
 
-          // 4. Phase 3: Gaster blasters + damage zones even in normal mode (wave >= 10 only, not mini_boss)
+          // 4. Phase 3: Gaster blasters + damage zones even in normal mode (wave >= 10 only, not mini_boss) (интенсивность снижена на 30%)
           if (phase === 2 && enemyCanAttack && !enemy.turretMode && wave >= 10 && !enemy.isMini) {
-            enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 2.5;
+            enemy.normalBlasterCooldown = typeof enemy.normalBlasterCooldown === "number" ? enemy.normalBlasterCooldown : 3.5;
             enemy.normalBlasterCooldown -= dt;
             if (enemy.normalBlasterCooldown <= 0) {
               enemy.normalBlasterPatternIdx = enemy.normalBlasterPatternIdx || 0;
               const patType = SOLO_BLASTER_PATTERN_TYPES[enemy.normalBlasterPatternIdx % SOLO_BLASTER_PATTERN_TYPES.length];
               spawnSoloBlasterPattern(enemy, patType);
               enemy.normalBlasterPatternIdx = (enemy.normalBlasterPatternIdx + 1) % SOLO_BLASTER_PATTERN_TYPES.length;
-              enemy.normalBlasterCooldown = 2;
+              enemy.normalBlasterCooldown = 2.85;
             }
 
-            enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 1;
+            enemy.normalZoneCooldown = typeof enemy.normalZoneCooldown === "number" ? enemy.normalZoneCooldown : 1.4;
             enemy.normalZoneCooldown -= dt;
             if (enemy.normalZoneCooldown <= 0 && player.hp > 0) {
               enemy.normalZonePatternIdx = enemy.normalZonePatternIdx || 0;
               const zoneType = SOLO_ZONE_PATTERNS[enemy.normalZonePatternIdx % SOLO_ZONE_PATTERNS.length];
               spawnSoloZonePattern(enemy, zoneType);
               enemy.normalZonePatternIdx = (enemy.normalZonePatternIdx + 1) % SOLO_ZONE_PATTERNS.length;
-              enemy.normalZoneCooldown = 2;
+              enemy.normalZoneCooldown = 2.85;
             }
           }
 
           let forwardMovement = 0;
           if (length > enemy.preferredDistance + 45) {
-            forwardMovement = 1;
+            forwardMovement = phase === 2 ? 0.75 : 1;
           } else if (length < enemy.preferredDistance - 45) {
             forwardMovement = -0.75;
           }
         
-          const strafeStrength = 0.5 + phase * 0.12;
+          const strafeStrength = phase === 2 ? 0.55 : (0.5 + phase * 0.12);
         
           enemy.x +=
             (dx * forwardMovement - dy * enemy.strafeDirection * strafeStrength) *
@@ -9035,12 +9035,12 @@
 
             if (enemy.shootCooldown <= 0) {
               shootBossSpread(enemy, phase);
-              enemy.shootCooldown = Math.max(0.85, 1.35 - phase * 0.16);
+              enemy.shootCooldown = phase === 2 ? 1.35 : Math.max(0.85, 1.35 - phase * 0.16);
             }
           
             if (enemy.radialCooldown <= 0) {
               shootBossRadial(enemy, phase);
-              enemy.radialCooldown = Math.max(2.6, 3.8 - phase * 0.4);
+              enemy.radialCooldown = phase === 2 ? 3.9 : Math.max(2.6, 3.8 - phase * 0.4);
             }
           }
         } else if (enemy.type === "shooter") {
@@ -14303,6 +14303,7 @@ osc.stop(now + 0.05);
                 <li>🎲 <strong>Качество улучшений учитывает уровень прокачки:</strong> если до максимального уровня улучшения остался 1 шаг, редкие и легендарные варианты больше не выпадают (гарантируется обычное качество). Если осталось 2 шага — легендарный грейд исключён (максимум редкий). Исключение — улучшения с фиксированной легендарной редкостью («Умная пуля»).</li>
                 <li>🔢 <strong>Индикатор уровня x/z на карточках улучшений:</strong> на всех карточках в соло и кооп режиме добавлен бейдж вида <code>x/z</code> (например, <code>1/6</code> или <code>0/∞</code>), наглядно отображающий количество взятых уровней и максимум бонуса.</li>
                 <li>🧲 <strong>Усиление стандартного магнита:</strong> скорость притяжения пули в «Эффекте Бумеранга» повышена со 100 px/s до 115 px/s.</li>
+                <li>⚡ <strong>Интенсивность 3-й фазы босса снижена на 30%:</strong> кулдауны спавна бластеров и взрывных зон увеличены с 2.0 до 2.85 сек, количество зон снижено на 30%, скорость снарядов спирали снижена со 175 до 140 px/s, кулдауны рывка, дроби и радиальных залпов увеличены на 30%, а агрессивность погони снижена — теперь увернуться от атак на 3-й фазе реально и без быстрых ботинок.</li>
               </ul>
             </div>
 
