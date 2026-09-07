@@ -111,6 +111,8 @@ function loadServerInstance() {
   if (typeof random !== 'undefined') this.random = random;
   if (typeof COOP_PLAYER_SPEED !== 'undefined') this.COOP_PLAYER_SPEED = COOP_PLAYER_SPEED;
   if (typeof ensureServerMagazine !== 'undefined') this.ensureServerMagazine = ensureServerMagazine;
+  if (typeof spawnServerZonePattern !== 'undefined') this.spawnServerZonePattern = spawnServerZonePattern;
+  if (typeof updateServerBossTurretAttacks !== 'undefined') this.updateServerBossTurretAttacks = updateServerBossTurretAttacks;
   `;
 
   const intervals = [];
@@ -145,6 +147,7 @@ function loadServerInstance() {
       ...process,
       env: { ...process.env, PORT: "0" }
     },
+    Math: Math,
     getPlayerSpawnPosition: (index, totalPlayers) => {
       const centerX = 1280 / 2;
       const centerY = 720 / 2;

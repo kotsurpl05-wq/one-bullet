@@ -860,6 +860,20 @@
       font-weight: 900;
     }
 
+    .upgrade-level-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #9ebdd8;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      padding: 1px 8px;
+    }
+
     .rarity-label {
       font-size: 11px;
       font-weight: 900;
@@ -7308,8 +7322,11 @@
       const ax = Math.max(240, Math.min(SOLO_WORLD_WIDTH - 240, px + ox));
       const ay = Math.max(240, Math.min(SOLO_WORLD_HEIGHT - 240, py + oy));
 
+      const isTurret = Boolean(boss && boss.turretMode);
+
       if (patternType === "cluster") {
-        for (let i = 0; i < 5; i++) {
+        const count = isTurret ? 4 : 5;
+        for (let i = 0; i < count; i++) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
             x: ax + spread(), y: ay + spread(), r: 240,
@@ -7319,7 +7336,8 @@
       } else if (patternType === "line") {
         const angle = Math.random() * Math.PI;
         const cos = Math.cos(angle), sin = Math.sin(angle);
-        for (let i = -2; i <= 2; i++) {
+        const lineRange = isTurret ? 1 : 2;
+        for (let i = -lineRange; i <= lineRange; i++) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
             x: ax + cos * i * 200 + spread() * 0.5,
@@ -7329,8 +7347,9 @@
           });
         }
       } else if (patternType === "circle") {
-        for (let i = 0; i < 6; i++) {
-          const a = (Math.PI * 2 / 6) * i + Math.random() * 0.3;
+        const count = isTurret ? 4 : 6;
+        for (let i = 0; i < count; i++) {
+          const a = (Math.PI * 2 / count) * i + Math.random() * 0.3;
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
             x: ax + Math.cos(a) * 280 + spread() * 0.4,
@@ -7339,38 +7358,34 @@
           });
         }
       } else if (patternType === "cross") {
-        for (let i = -1; i <= 1; i++) {
+        const crossOffsets = isTurret
+          ? [[0, 0], [260, 0], [-260, 0], [0, 260]]
+          : [[0, 0], [260, 0], [-260, 0], [0, 260], [0, -260]];
+        for (const [ox, oy] of crossOffsets) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
-            x: ax + i * 260 + spread() * 0.4, y: ay + spread() * 0.3,
-            r: 240, timer: 1.2 + Math.abs(i) * 0.2,
-            maxTimer: 1.2 + Math.abs(i) * 0.2, bossId: boss.id
+            x: ax + ox + spread() * 0.3, y: ay + oy + spread() * 0.3,
+            r: 240, timer: 1.2 + (Math.abs(ox) + Math.abs(oy)) / 260 * 0.2,
+            maxTimer: 1.2 + (Math.abs(ox) + Math.abs(oy)) / 260 * 0.2, bossId: boss.id
           });
-          if (i !== 0) {
-            soloDamageZones.push({
-              id: nextSoloDamageZoneId++,
-              x: ax + spread() * 0.3, y: ay + i * 260 + spread() * 0.4,
-              r: 240, timer: 1.2 + Math.abs(i) * 0.2,
-              maxTimer: 1.2 + Math.abs(i) * 0.2, bossId: boss.id
-            });
-          }
         }
       } else if (patternType === "grid") {
-        for (let gx = -1; gx <= 1; gx++) {
-          for (let gy = -1; gy <= 1; gy++) {
-            soloDamageZones.push({
-              id: nextSoloDamageZoneId++,
-              x: ax + gx * 240 + spread() * 0.4,
-              y: ay + gy * 240 + spread() * 0.4,
-              r: 240, timer: 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1,
-              maxTimer: 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1,
-              bossId: boss.id
-            });
-          }
+        const gridCoords = isTurret
+          ? [[-1, -1], [-1, 1], [0, 0], [1, -1], [1, 1], [0, -1]]
+          : [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
+        for (const [gx, gy] of gridCoords) {
+          soloDamageZones.push({
+            id: nextSoloDamageZoneId++,
+            x: ax + gx * 240 + spread() * 0.4,
+            y: ay + gy * 240 + spread() * 0.4,
+            r: 240, timer: 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1,
+            maxTimer: 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1,
+            bossId: boss.id
+          });
         }
       } else if (patternType === "chase") {
-        // Chase still uses player velocity for prediction but offset
-        for (let i = 0; i < 5; i++) {
+        const count = isTurret ? 4 : 5;
+        for (let i = 0; i < count; i++) {
           soloDamageZones.push({
             id: nextSoloDamageZoneId++,
             x: px + vx * 0.4 * (i + 1) + spread() * 0.5,
@@ -7400,6 +7415,10 @@
     }
 
     function updateSoloBossTurretAttacks(boss, dt) {
+      if (boss.turretZoneCooldown > 0) {
+        boss.turretZoneCooldown -= dt;
+      }
+
       // Blaster pattern attack (2x intensity)
       if (boss.turretBlasterState === "idle") {
         boss.turretBlasterCooldown -= dt;
@@ -7408,10 +7427,11 @@
           spawnSoloBlasterPattern(boss, patType);
           boss.turretBlasterState = "waiting";
           boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.3;
-          // Schedule zone spawn 0.6-1.0s after blasters (player will be moving by then)
-          if (!boss.turretZonePending) {
+          // Schedule zone spawn 0.6-1.0s after blasters with 30% reduced intensity (cooldown ~3.9s)
+          if (!boss.turretZonePending && (boss.turretZoneCooldown || 0) <= 0) {
             boss.turretZonePending = true;
             boss.turretZoneDelay = 0.6 + Math.random() * 0.4;
+            boss.turretZoneCooldown = 3.9;
           }
         }
       } else if (boss.turretBlasterState === "waiting") {
@@ -8842,8 +8862,8 @@
             enemy.turretCooldown -= dt;
           }
 
-          // Enter turret mode
-          if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive) {
+          // Enter turret mode (only possible from boss phase 2 onwards: phase >= 1)
+          if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive && phase >= 1) {
             enemy.x = SOLO_WORLD_WIDTH / 2;
             enemy.y = SOLO_WORLD_HEIGHT / 2;
             enemy.turretMode = true;
@@ -8857,6 +8877,7 @@
             enemy.turretBlasterPatternIdx = enemy.turretBlasterPatternIdx || 0;
             enemy.turretZonePending = false;
             enemy.turretZoneDelay = 0;
+            enemy.turretZoneCooldown = 0;
             createRing(enemy.x, enemy.y, 90, "#ffd700");
             screenShake = Math.max(screenShake, 8);
           }
@@ -10156,7 +10177,7 @@
       }
     };
     
-    function rollUpgradeRarity(upgrade) {
+    function rollUpgradeRarity(upgrade, targetPlayer = typeof player !== "undefined" ? player : null) {
       if (
         upgrade.fixedRarity &&
         upgradeRarities[upgrade.fixedRarity]
@@ -10165,12 +10186,29 @@
           upgrade.fixedRarity
         ];
       }
+
+      let maxAllowedRarity = null;
+      if (targetPlayer && typeof GameShared?.getUpgradeProgress === "function") {
+        const progress = GameShared.getUpgradeProgress(targetPlayer, upgrade.id);
+        if (progress.max !== Infinity) {
+          const remaining = progress.max - progress.current;
+          if (remaining <= 1) {
+            maxAllowedRarity = "common";
+          } else if (remaining === 2) {
+            maxAllowedRarity = "rare";
+          }
+        }
+      }
+
+      if (maxAllowedRarity === "common") {
+        return upgradeRarities.common;
+      }
     
       const roll = Math.random();
     
       // unique only via fixedRarity — no random unique rolls
 
-      if (roll < 0.07) {
+      if (roll < 0.07 && maxAllowedRarity !== "rare") {
         return upgradeRarities.legendary;
       }
     
@@ -10297,12 +10335,17 @@
           .slice(0, 3)
           .map(upgrade => {
             const rarity =
-              rollUpgradeRarity(upgrade);
+              rollUpgradeRarity(upgrade, player);
+            const progress = typeof GameShared?.getUpgradeProgress === "function"
+              ? GameShared.getUpgradeProgress(player, upgrade.id)
+              : { current: 0, max: Infinity };
+            const levelText = `${progress.current}/${progress.max === Infinity ? "∞" : progress.max}`;
           
             return {
               upgrade,
               rarity,
-            
+              progress,
+              levelText,
               bonusText:
                 getUpgradeBonusText(
                   upgrade,
@@ -10346,6 +10389,7 @@
               >
                 <div class="upgrade-meta">
                   <span class="upgrade-number">0${index + 1}</span>
+                  ${offer.levelText ? `<span class="upgrade-level-badge">${escapeHtml(offer.levelText)}</span>` : ""}
                   <span class="rarity-label">${offer.rarity.label}</span>
                 </div>
                 <div class="upgrade-icon">${getUpgradeIcon(offer.upgrade.id)}</div>
@@ -13065,7 +13109,7 @@ osc.stop(now + 0.05);
         category: "trees",
         family: "boomerang",
         color: "#a78bfa",
-        desc: "Наделяет игрока возвратным магнитом (100 px/s). Пуля на пути притяжения наносит урон и борется с магнетизатором.",
+        desc: "Наделяет игрока возвратным магнитом (115 px/s). Пуля на пути притяжения наносит урон и борется с магнетизатором.",
         tree: [
           "Тяжёлый бумеранг: +50% к урону пули на обратном пути",
           "Турбо-магнит: +100 px/s к скорости притяжения (до 600)",
@@ -15397,6 +15441,7 @@ osc.stop(now + 0.05);
               <div class="upgrade-card ${escapeHtml(chosenOffer.rarityKey || 'common')} preview-only">
                 <div class="upgrade-meta">
                   <span class="upgrade-number">0${coopSelectedUpgradeIndex + 1}</span>
+                  ${chosenOffer.levelText ? `<span class="upgrade-level-badge">${escapeHtml(chosenOffer.levelText)}</span>` : ""}
                   <span class="rarity-label">${escapeHtml(chosenOffer.rarityLabel || 'ОБЫЧНОЕ')}</span>
                 </div>
                 <div class="upgrade-icon">${getUpgradeIcon(chosenOffer.upgradeId || chosenOffer.title)}</div>
@@ -15474,6 +15519,7 @@ osc.stop(now + 0.05);
               >
                 <div class="upgrade-meta">
                   <span class="upgrade-number">0${index + 1}</span>
+                  ${offer.levelText ? `<span class="upgrade-level-badge">${escapeHtml(offer.levelText)}</span>` : ""}
                   <span class="rarity-label">${escapeHtml(offer.rarityLabel || "ОБЫЧНОЕ")}</span>
                 </div>
                 <div class="upgrade-icon">${getUpgradeIcon(offer.upgradeId || offer.title)}</div>

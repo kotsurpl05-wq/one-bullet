@@ -13,7 +13,7 @@ const { getExperienceRequirement } = require("./shared/xp");
 const { getEnemyExperience, getContactDamage, getEnemyDamageMultiplier } = require("./shared/enemy-xp");
 const { createPlayerStats } = require("./shared/player-stats");
 const { createEnemyBase } = require("./shared/enemy-factory");
-const { UPGRADE_DEFS, applyUpgrade } = require("./shared/upgrades");
+const { UPGRADE_DEFS, applyUpgrade, getUpgradeProgress } = require("./shared/upgrades");
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -2294,7 +2294,7 @@ function shuffleServerArray(array) {
   return array;
 }
 
-function rollServerUpgradeRarity(upgrade) {
+function rollServerUpgradeRarity(upgrade, player) {
   if (
     upgrade.fixedRarity &&
     SERVER_UPGRADE_RARITIES[
@@ -2304,6 +2304,21 @@ function rollServerUpgradeRarity(upgrade) {
     return SERVER_UPGRADE_RARITIES[
       upgrade.fixedRarity
     ];
+  }
+
+  // Account for upgrade level: if 1 upgrade left to max, rare and legendary cannot appear
+  if (player && typeof getUpgradeProgress === "function") {
+    const progress = getUpgradeProgress(player, upgrade.id);
+    const remaining = progress.max - progress.current;
+    if (remaining <= 1) {
+      return SERVER_UPGRADE_RARITIES.common;
+    } else if (remaining === 2) {
+      const roll = Math.random();
+      if (roll < 0.33) {
+        return SERVER_UPGRADE_RARITIES.rare;
+      }
+      return SERVER_UPGRADE_RARITIES.common;
+    }
   }
 
   const roll = Math.random();
@@ -2334,7 +2349,12 @@ function createServerUpgradeOffers(player) {
     .slice(0, 3)
     .map(upgrade => {
       const rarity =
-        rollServerUpgradeRarity(upgrade);
+        rollServerUpgradeRarity(upgrade, player);
+
+      const progress = typeof getUpgradeProgress === "function"
+        ? getUpgradeProgress(player, upgrade.id)
+        : { current: 0, max: Infinity };
+      const levelText = `${progress.current}/${progress.max === Infinity ? "∞" : progress.max}`;
 
       return {
         upgradeId: upgrade.id,
@@ -2350,7 +2370,10 @@ function createServerUpgradeOffers(player) {
           upgrade.bonus(
             player,
             rarity.power
-          )
+          ),
+        levelText,
+        currentLevel: progress.current,
+        maxLevel: progress.max === Infinity ? "∞" : progress.max
       };
     });
 }
@@ -3551,42 +3574,53 @@ function spawnServerZonePattern(world, boss, targetPlayer) {
     world.damageZones.set(zone.id, zone);
   }
 
+  const isTurret = Boolean(boss && boss.turretMode);
+
   if (patternType === "cluster") {
-    for (let i = 0; i < 5; i++) {
+    const count = isTurret ? 4 : 5;
+    for (let i = 0; i < count; i++) {
       pushZone(ax + spread(), ay + spread(), 1.2 + i * 0.15);
     }
   } else if (patternType === "line") {
     const angle = Math.random() * Math.PI;
     const cos = Math.cos(angle), sin = Math.sin(angle);
-    for (let i = -2; i <= 2; i++) {
+    const lineRange = isTurret ? 1 : 2;
+    for (let i = -lineRange; i <= lineRange; i++) {
       pushZone(ax + cos * i * 200 + spread() * 0.5, ay + sin * i * 200 + spread() * 0.5, 1.3 + Math.abs(i) * 0.15);
     }
   } else if (patternType === "circle") {
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI * 2 / 6) * i + Math.random() * 0.3;
+    const count = isTurret ? 4 : 6;
+    for (let i = 0; i < count; i++) {
+      const a = (Math.PI * 2 / count) * i + Math.random() * 0.3;
       pushZone(ax + Math.cos(a) * 280 + spread() * 0.4, ay + Math.sin(a) * 280 + spread() * 0.4, 1.3);
     }
   } else if (patternType === "cross") {
-    for (let i = -1; i <= 1; i++) {
-      pushZone(ax + i * 260 + spread() * 0.4, ay + spread() * 0.3, 1.2 + Math.abs(i) * 0.2);
-      if (i !== 0) {
-        pushZone(ax + spread() * 0.3, ay + i * 260 + spread() * 0.4, 1.2 + Math.abs(i) * 0.2);
-      }
+    const crossOffsets = isTurret
+      ? [[0, 0], [260, 0], [-260, 0], [0, 260]]
+      : [[0, 0], [260, 0], [-260, 0], [0, 260], [0, -260]];
+    for (const [ox, oy] of crossOffsets) {
+      pushZone(ax + ox + spread() * 0.3, ay + oy + spread() * 0.3, 1.2 + (Math.abs(ox) + Math.abs(oy)) / 260 * 0.2);
     }
   } else if (patternType === "grid") {
-    for (let gx = -1; gx <= 1; gx++) {
-      for (let gy = -1; gy <= 1; gy++) {
-        pushZone(ax + gx * 240 + spread() * 0.4, ay + gy * 240 + spread() * 0.4, 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1);
-      }
+    const gridCoords = isTurret
+      ? [[-1, -1], [-1, 1], [0, 0], [1, -1], [1, 1], [0, -1]]
+      : [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
+    for (const [gx, gy] of gridCoords) {
+      pushZone(ax + gx * 240 + spread() * 0.4, ay + gy * 240 + spread() * 0.4, 1.3 + (Math.abs(gx) + Math.abs(gy)) * 0.1);
     }
   } else if (patternType === "chase") {
-    for (let i = 0; i < 5; i++) {
+    const count = isTurret ? 4 : 5;
+    for (let i = 0; i < count; i++) {
       pushZone(px + vx * 0.4 * (i + 1) + spread() * 0.5, py + vy * 0.4 * (i + 1) + spread() * 0.5, 1.0 + i * 0.25);
     }
   }
 }
 
 function updateServerBossTurretAttacks(world, boss, target, dt) {
+  if (boss.turretZoneCooldown > 0) {
+    boss.turretZoneCooldown -= dt;
+  }
+
   // Blaster pattern attack — each player gets own pattern (2x intensity)
   if (boss.turretBlasterState === "idle") {
     boss.turretBlasterCooldown -= dt;
@@ -3605,10 +3639,11 @@ function updateServerBossTurretAttacks(world, boss, target, dt) {
       }
       boss.turretBlasterState = "waiting";
       boss.turretBlasterWaitTimer = 1.3 + 0.25 + 0.3;
-      // Schedule zone spawn 0.6-1.0s after blasters (player will be moving by then)
-      if (!boss.turretZonePending) {
+      // Schedule zone spawn 0.6-1.0s after blasters with 30% reduced intensity (cooldown ~3.9s)
+      if (!boss.turretZonePending && (boss.turretZoneCooldown || 0) <= 0) {
         boss.turretZonePending = true;
         boss.turretZoneDelay = 0.6 + Math.random() * 0.4;
+        boss.turretZoneCooldown = 3.9;
       }
     }
   } else if (boss.turretBlasterState === "waiting") {
@@ -3956,8 +3991,8 @@ function updateServerEnemies(
         enemy.turretCooldown -= dt;
       }
 
-      // Enter turret mode
-      if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive) {
+      // Enter turret mode (only possible from boss phase 2 onwards: phase >= 1)
+      if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive && phase >= 1) {
         enemy.x = COOP_WORLD_WIDTH / 2;
         enemy.y = COOP_WORLD_HEIGHT / 2;
         enemy.turretMode = true;
@@ -3970,6 +4005,7 @@ function updateServerEnemies(
         enemy.turretBlasterShotIdx = 0;
         enemy.turretZonePending = false;
         enemy.turretZoneDelay = 0;
+        enemy.turretZoneCooldown = 0;
       }
 
       // Turret mode active: run turret attacks, skip normal AI

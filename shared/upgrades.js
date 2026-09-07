@@ -324,13 +324,13 @@ const UPGRADE_DEFS = [
   {
     id: "boomerang",
     title: "Эффект Бумеранга",
-    description: "Пуля автоматически притягивается к владельцу (100 px/с, радиус 20 кл).",
+    description: "Пуля автоматически притягивается к владельцу (115 px/с, радиус 20 кл).",
     fixedRarity: "rare",
     available(player) {
       return !player.stats?.boomerang;
     },
     bonus() {
-      return `Магнитный возврат: 100 px/с, радиус 20 клеток`;
+      return `Магнитный возврат: 115 px/с, радиус 20 клеток`;
     }
   },
 
@@ -353,10 +353,10 @@ const UPGRADE_DEFS = [
     title: "Турбо-магнит",
     description: "Увеличивает скорость притягивания пули на +100 px/с (макс. 600 px/с).",
     available(player) {
-      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 100) < 600;
+      return Boolean(player.stats?.boomerang) && (player.stats?.groundPullSpeed || 115) < 600;
     },
     bonus(player, power) {
-      const current = player.stats?.groundPullSpeed || 100;
+      const current = player.stats?.groundPullSpeed || 115;
       const result = Math.min(600, current + 100 * power);
       return `+${result - current} px/с к скорости возврата (итог: ${result} px/с)`;
     }
@@ -858,7 +858,7 @@ function applyUpgrade(player, id, power = 1) {
 
     case "boomerang": {
       player.stats.boomerang = true;
-      player.stats.groundPullSpeed = 100;
+      player.stats.groundPullSpeed = 115;
       player.stats.magnetRangeBonusCells = player.stats.magnetRangeBonusCells || 0;
       break;
     }
@@ -868,7 +868,7 @@ function applyUpgrade(player, id, power = 1) {
       break;
 
     case "boomerang-speed":
-      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 100) + 100 * power);
+      player.stats.groundPullSpeed = Math.min(600, (player.stats.groundPullSpeed || 115) + 100 * power);
       break;
 
     case "boomerang-range":
@@ -993,9 +993,256 @@ function applyUpgrade(player, id, power = 1) {
   return true;
 }
 
+function getUpgradeProgress(player, upgradeId) {
+  const stats = player?.stats || {};
+  switch (upgradeId) {
+    case "bounce": {
+      const current = Math.max(0, Math.min(5, (stats.maxBounces || 1) - 1));
+      return { current, max: 5 };
+    }
+    case "bullet-speed": {
+      const current = Math.max(0, Math.min(6, Math.round(((stats.bulletSpeed || BULLET_SPEED) - BULLET_SPEED) / (BULLET_SPEED * 0.25))));
+      return { current, max: 6 };
+    }
+    case "critical": {
+      const current = Math.max(0, Math.min(6, Math.round((stats.critChance || 0) / 0.10)));
+      return { current, max: 6 };
+    }
+    case "resilience": {
+      const current = Math.max(0, Math.min(7, Math.round((stats.damageResistance || 0) / 0.06)));
+      return { current, max: 7 };
+    }
+    case "caliber": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.bulletRadius || 7) - 7) / 3)));
+      return { current, max: 5 };
+    }
+    case "emergency-repair": {
+      const val = stats.healEvery || 0;
+      const current = val === 0 ? 0 : Math.max(1, Math.min(5, Math.round((16 - val) / 2) + 1));
+      return { current, max: 5 };
+    }
+    case "homing": {
+      const current = Math.max(0, Math.min(3, stats.homing || 0));
+      return { current, max: 3 };
+    }
+    case "second-bullet": {
+      const current = (stats.magazineSize || 1) >= 2 ? 1 : 0;
+      return { current, max: 1 };
+    }
+
+    // Catch blast tree
+    case "catch-blast": {
+      const current = (stats.catchBlast || 0) > 0 ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "catch-blast-damage": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.catchBlastDamageRatio || 0.8) - 0.8) / 0.35)));
+      return { current, max: 5 };
+    }
+    case "catch-blast-radius": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.catchBlast || 65) - 65) / 30)));
+      return { current, max: 5 };
+    }
+
+    // Explosive tree
+    case "explosive": {
+      const current = (stats.explosionRadius || 0) > 0 ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "explosion-damage": {
+      const current = Math.max(0, Math.min(4, Math.round(((stats.explosionDamageRatio || 0.6) - 0.6) / 0.25)));
+      return { current, max: 4 };
+    }
+    case "explosion-radius": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.explosionRadius || 40) - 40) / 30)));
+      return { current, max: 5 };
+    }
+
+    // Chain lightning tree
+    case "chain-lightning": {
+      const current = (stats.chainCount || 0) > 0 ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "lightning-damage": {
+      const current = Math.max(0, Math.min(6, Math.round(((stats.chainDamageRatio || 0.6) - 0.6) / 0.25)));
+      return { current, max: 6 };
+    }
+    case "lightning-targets": {
+      const current = Math.max(0, Math.min(4, Math.round(((stats.chainCount || 2) - 2) / 2)));
+      return { current, max: 4 };
+    }
+    case "lightning-range": {
+      const current = Math.max(0, Math.min(4, Math.round(((stats.chainRange || 140) - 140) / 30)));
+      return { current, max: 4 };
+    }
+
+    // Boomerang tree
+    case "boomerang": {
+      const current = stats.boomerang ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "boomerang-damage": {
+      const current = Math.max(0, Math.min(6, Math.round((stats.boomerangPercent || 0) / 0.25)));
+      return { current, max: 6 };
+    }
+    case "boomerang-speed": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.groundPullSpeed || 115) - 115) / 100)));
+      return { current, max: 5 };
+    }
+    case "boomerang-range": {
+      const current = Math.max(0, Math.min(6, Math.round((stats.magnetRangeBonusCells || 0) / 5)));
+      return { current, max: 6 };
+    }
+
+    // Splinter tree
+    case "splinter": {
+      const current = stats.splinter ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "splinter-count": {
+      const current = Math.max(0, Math.min(4, (stats.splinterCount || 1) - 1));
+      return { current, max: 4 };
+    }
+    case "splinter-damage": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.splinterDamagePercent || 0.25) - 0.25) / 0.15)));
+      return { current, max: 5 };
+    }
+
+    // Stun tree
+    case "stun": {
+      const current = stats.stun ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "stun-chance": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.stunChance || 0.10) - 0.10) / 0.08)));
+      return { current, max: 5 };
+    }
+    case "stun-duration": {
+      const current = Math.max(0, Math.min(4, Math.round(((stats.stunDuration || 0.4) - 0.4) / 0.3)));
+      return { current, max: 4 };
+    }
+
+    // Reactive armor tree
+    case "reactive-armor": {
+      const current = stats.reactiveArmor ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "reactive-armor-radius": {
+      const current = Math.max(0, Math.min(3, Math.round(((stats.reactiveArmorRadius || 120) - 120) / 30)));
+      return { current, max: 3 };
+    }
+    case "reactive-armor-cooldown": {
+      const current = Math.max(0, Math.min(3, Math.round((3.0 - (stats.reactiveArmorCooldownBase || 3.0)) / 0.5)));
+      return { current, max: 3 };
+    }
+
+    // Target mark tree
+    case "target-mark": {
+      const current = stats.targetMark ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "mark-amplification": {
+      const current = Math.max(0, Math.min(3, Math.round(((stats.markBonus || 0.40) - 0.40) / 0.15)));
+      return { current, max: 3 };
+    }
+    case "mark-duration": {
+      const current = Math.max(0, Math.min(3, Math.round(((stats.markDuration || 4.0) - 4.0) / 2.0)));
+      return { current, max: 3 };
+    }
+
+    // Poison tree
+    case "poison": {
+      const current = stats.poison ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "poison-damage": {
+      const current = Math.max(0, Math.min(9, Math.round(((stats.poisonDamageRatio || 0.5) - 0.5) / 0.5)));
+      return { current, max: 9 };
+    }
+    case "poison-duration": {
+      const current = Math.max(0, Math.min(3, Math.round(((stats.poisonDuration || 2.0) - 2.0) / 1.0)));
+      return { current, max: 3 };
+    }
+
+    // Parasite tree
+    case "parasite": {
+      const current = stats.parasite ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "parasite-chance": {
+      const current = Math.max(0, Math.min(5, Math.round(((stats.parasiteChance || 0.25) - 0.25) / 0.05)));
+      return { current, max: 5 };
+    }
+    case "parasite-count": {
+      const current = Math.max(0, Math.min(4, (stats.parasiteCount || 1) - 1));
+      return { current, max: 4 };
+    }
+    case "parasite-damage": {
+      const current = Math.max(0, Math.min(7, Math.round(((stats.parasiteDamageRatio || 0.75) - 0.75) / 0.5)));
+      return { current, max: 7 };
+    }
+
+    // Dash tree
+    case "dash": {
+      const current = stats.dash ? 1 : 0;
+      return { current, max: 1 };
+    }
+    case "dash-distance": {
+      const current = Math.max(0, Math.min(4, Math.round(((stats.dashDistance || 120) - 120) / 50)));
+      return { current, max: 4 };
+    }
+    case "dash-cooldown": {
+      const current = Math.max(0, Math.min(5, Math.round((10.0 - (stats.dashCooldownBase || 10.0)) / 1.5)));
+      return { current, max: 5 };
+    }
+    case "dash-damage": {
+      const current = stats.dashDamage ? 1 : 0;
+      return { current, max: 1 };
+    }
+
+    case "resurrection": {
+      const current = stats.resurrection ? 1 : 0;
+      return { current, max: 1 };
+    }
+
+    case "repair": {
+      return { current: 0, max: 1 };
+    }
+
+    case "damage": {
+      const current = Math.max(0, Math.round(((stats.damage || 100) - 100) / 100));
+      return { current, max: Infinity };
+    }
+    case "move-speed": {
+      const current = Math.max(0, Math.round(((stats.playerSpeed || PLAYER_SPEED) - PLAYER_SPEED) / (PLAYER_SPEED * 0.12)));
+      return { current, max: Infinity };
+    }
+    case "armor": {
+      let current = 0;
+      if (player?.selectedUpgrades) {
+        current = player.selectedUpgrades.filter(u => (u.upgradeId || u.id) === "armor").reduce((s, u) => s + (u.power || 1), 0);
+      } else if (typeof selectedUpgradeHistory !== "undefined" && Array.isArray(selectedUpgradeHistory)) {
+        current = selectedUpgradeHistory.filter(u => (u.upgradeId || u.id) === "armor").reduce((s, u) => s + (u.power || 1), 0);
+      } else if (player?.maxHp && player?.baseHp) {
+        current = Math.max(0, Math.round((player.maxHp - player.baseHp) / 100));
+      }
+      return { current, max: Infinity };
+    }
+    case "pierce": {
+      const current = stats.pierce || 0;
+      return { current, max: Infinity };
+    }
+
+    default: {
+      return { current: 0, max: Infinity };
+    }
+  }
+}
+
 module.exports = {
   UPGRADE_DEFS,
   findUpgradeDef,
   isUpgradeAvailable,
-  applyUpgrade
+  applyUpgrade,
+  getUpgradeProgress
 };

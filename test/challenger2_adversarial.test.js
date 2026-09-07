@@ -43,18 +43,18 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
       "applyServerUpgrade takes (world, player, offer); power must ride inside the offer"
     );
 
-    // Boomerang base: sets groundPullSpeed = 100
+    // Boomerang base: sets groundPullSpeed = 115
     applyUpgrade(world, player1, "boomerang", 1);
-    assert.equal(player1.stats.groundPullSpeed, 100, "Boomerang base sets groundPullSpeed to 100");
+    assert.equal(player1.stats.groundPullSpeed, 115, "Boomerang base sets groundPullSpeed to 115");
     assert.ok(player1.stats.boomerang, "Boomerang flag must be true");
 
-    // boomerang-speed power 1: +100 (total 200)
+    // boomerang-speed power 1: +100 (total 215)
     applyUpgrade(world, player1, "boomerang-speed", 1);
-    assert.equal(player1.stats.groundPullSpeed, 200, "boomerang-speed power 1 adds +100 (total 200)");
+    assert.equal(player1.stats.groundPullSpeed, 215, "boomerang-speed power 1 adds +100 (total 215)");
 
-    // boomerang-speed power 2: +200 (total 400)
+    // boomerang-speed power 2: +200 (total 415)
     applyUpgrade(world, player1, "boomerang-speed", 2);
-    assert.equal(player1.stats.groundPullSpeed, 400, "boomerang-speed power 2 adds +200 (total 400)");
+    assert.equal(player1.stats.groundPullSpeed, 415, "boomerang-speed power 2 adds +200 (total 415)");
 
     // boomerang-speed power 2: +200 (total 600, capped)
     applyUpgrade(world, player1, "boomerang-speed", 2);
