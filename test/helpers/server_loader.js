@@ -147,7 +147,7 @@ function loadServerInstance() {
       ...process,
       env: { ...process.env, PORT: "0" }
     },
-    Math: Math,
+    Math: Object.create(Math),
     getPlayerSpawnPosition: (index, totalPlayers) => {
       const centerX = 1280 / 2;
       const centerY = 720 / 2;

@@ -145,8 +145,8 @@ test("Boss Turret Mode, Boost Level Rarity & Indicator Suite", async (t) => {
     assert.equal(progress.max, 6);
 
     // Force random to 0.001 (which would normally roll legendary)
-    const origRandom = Math.random;
-    Math.random = () => 0.001;
+    const origRandom = ctx.Math.random;
+    ctx.Math.random = () => 0.001;
     try {
       const rolledRarity = ctx.rollServerUpgradeRarity(critUpgrade, player1);
       assert.equal(
@@ -155,7 +155,7 @@ test("Boss Turret Mode, Boost Level Rarity & Indicator Suite", async (t) => {
         "With 1 upgrade left to cap, rollServerUpgradeRarity must return common"
       );
     } finally {
-      Math.random = origRandom;
+      ctx.Math.random = origRandom;
     }
   });
 
@@ -169,8 +169,8 @@ test("Boss Turret Mode, Boost Level Rarity & Indicator Suite", async (t) => {
     assert.equal(progress.current, 4);
     assert.equal(progress.max, 6);
 
-    const origRandom = Math.random;
-    Math.random = () => 0.001; // normally legendary, but capped at rare
+    const origRandom = ctx.Math.random;
+    ctx.Math.random = () => 0.001; // normally legendary, but capped at rare
     try {
       const rolledRarity = ctx.rollServerUpgradeRarity(critUpgrade, player1);
       assert.equal(
@@ -179,7 +179,7 @@ test("Boss Turret Mode, Boost Level Rarity & Indicator Suite", async (t) => {
         "With 2 upgrades left to cap, legendary roll must be downgraded to rare"
       );
     } finally {
-      Math.random = origRandom;
+      ctx.Math.random = origRandom;
     }
   });
 

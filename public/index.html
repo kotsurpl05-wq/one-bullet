@@ -11971,7 +11971,7 @@ osc.stop(now + 0.05);
           <div class="main-menu-footer" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px;">
             <button type="button" class="secondary-button" data-main-action="changelog" style="padding: 10px 24px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 242, 254, 0.4); color: #e2e8f0; cursor: pointer; transition: all 180ms ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
               <span style="font-size: 15px;">📜</span>
-              <span>История обновлений (v2.14)</span>
+              <span>История обновлений (v2.16)</span>
             </button>
           </div>
         </div>
@@ -14288,14 +14288,31 @@ osc.stop(now + 0.05);
 
           <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; margin: 12px 0;">
 
-            <!-- v2.14 -->
-            <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(168, 85, 247, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(168, 85, 247, 0.16);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(168, 85, 247, 0.25); padding-bottom: 8px;">
+            <!-- v2.16 -->
+            <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(0, 242, 254, 0.7); border-radius: 14px; padding: 18px; box-shadow: 0 6px 26px rgba(0, 242, 254, 0.16);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 242, 254, 0.25); padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.14</span>
-                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Урон врагов масштабируется по волнам и новый телеграф снайпера босса</span>
+                  <span style="background: linear-gradient(135deg, #00f2fe, #4facfe); color: #020617; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.16</span>
+                  <span style="font-weight: 800; font-size: 16px; color: #f8fafc;">Баланс турели босса, редкость прокачки по уровню и индикатор x/z</span>
                 </div>
-                <span style="font-size: 11px; color: #c084fc; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
+                <span style="font-size: 11px; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Текущая версия</span>
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>🛡️ <strong>Режим турели босса доступен только со 2-й фазы:</strong> босс больше не может перейти в турель в начале боя — режим активируется только при снижении здоровья босса до 2-й фазы (HP &le; 66%).</li>
+                <li>💥 <strong>Взрывные зоны турели ослаблены на 30%:</strong> количество взрывных зон уменьшено на ~30% во всех паттернах (суммарно 25 зон вместо 35), а интервал между волнами зон увеличен до 3.9 сек (на 30% реже).</li>
+                <li>🎲 <strong>Качество улучшений учитывает уровень прокачки:</strong> если до максимального уровня улучшения остался 1 шаг, редкие и легендарные варианты больше не выпадают (гарантируется обычное качество). Если осталось 2 шага — легендарный грейд исключён (максимум редкий). Исключение — улучшения с фиксированной легендарной редкостью («Умная пуля»).</li>
+                <li>🔢 <strong>Индикатор уровня x/z на карточках улучшений:</strong> на всех карточках в соло и кооп режиме добавлен бейдж вида <code>x/z</code> (например, <code>1/6</code> или <code>0/∞</code>), наглядно отображающий количество взятых уровней и максимум бонуса.</li>
+                <li>🧲 <strong>Усиление стандартного магнита:</strong> скорость притяжения пули в «Эффекте Бумеранга» повышена со 100 px/s до 115 px/s.</li>
+              </ul>
+            </div>
+
+            <!-- v2.14 -->
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 14px; padding: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(168, 85, 247, 0.2); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #ffffff; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px;">v2.14</span>
+                  <span style="font-weight: 700; font-size: 15px; color: #f1f5f9;">Урон врагов масштабируется по волнам и новый телеграф снайпера босса</span>
+                </div>
               </div>
               <ul style="margin: 0; padding-left: 18px; color: #e2e8f0; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
                 <li>⚔️ <strong>Урон врагов теперь масштабируется по волнам</strong> — контактный урон и снаряды (дробь, радиальный залп, ударная волна, снайперская пуля) растут на 2% за уровень волны, максимум +100% на волне 51. Раньше со временем росло только HP врагов, а урон оставался неизменным.</li>
