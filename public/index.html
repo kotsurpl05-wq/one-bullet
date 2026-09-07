@@ -3035,6 +3035,20 @@
     const canvas = document.querySelector("#game");
     const ctx = canvas.getContext("2d");
 
+    // ── Performance: globally scale down all shadow blur (0=off, 0.5=half, 1=full) ──
+    const SHADOW_BLUR_SCALE = 0.4;
+    (function installShadowScale() {
+      if (typeof CanvasRenderingContext2D === "undefined") return;
+      const proto = CanvasRenderingContext2D.prototype;
+      const desc = Object.getOwnPropertyDescriptor(proto, 'shadowBlur');
+      if (!desc) return;
+      Object.defineProperty(ctx, 'shadowBlur', {
+        set(v) { desc.set.call(this, v * SHADOW_BLUR_SCALE); },
+        get()  { return desc.get.call(this); },
+        configurable: true
+      });
+    })();
+
     const waveValue = document.querySelector("#waveValue");
     const killsValue = document.querySelector("#killsValue");
     const scoreValue = document.querySelector("#scoreValue");
@@ -3867,7 +3881,7 @@
     const SOLO_WORLD_HEIGHT = ARENA_HEIGHT;
 
     const COOP_PLAYER_SPEED = 300;
-    const COOP_INPUT_INTERVAL = 1 / 30;
+    const COOP_INPUT_INTERVAL = 1 / 60;
     const COOP_SNAPSHOT_HZ = 20;
 
     const coopSession = {
@@ -5374,8 +5388,11 @@
       return true;
     }
 
+    const MAX_PARTICLES = 600;
+
     function createParticles(x, y, color, count, speed) {
       for (let i = 0; i < count; i++) {
+        if (particles.length >= MAX_PARTICLES) return;
         const angle = Math.random() * Math.PI * 2;
         const velocity = random(speed * 0.25, speed);
 
@@ -5393,6 +5410,7 @@
     }
 
     function createRing(x, y, radius, color = "#7ee7ff") {
+      if (particles.length >= MAX_PARTICLES) return;
       particles.push({
         x,
         y,
@@ -5650,6 +5668,7 @@
       color,
       radius = 7
     ) {
+      if (list.length >= MAX_PARTICLES) return;
       list.push({
         x: x + random(-1.5, 1.5),
         y: y + random(-1.5, 1.5),
@@ -5674,6 +5693,7 @@
       color = "#7ee7ff"
     ) {
       for (let index = 0; index < 2; index++) {
+        if (list.length >= MAX_PARTICLES) return;
         list.push({
           x,
           y,
@@ -6053,6 +6073,7 @@
       const segments = 12;
     
       for (let i = 0; i <= segments; i++) {
+        if (particles.length >= MAX_PARTICLES) return;
         const progress = i / segments;
       
         particles.push({
@@ -7545,8 +7566,6 @@
           const ty = spore.y - ny * tDist + nx * wave;
           const tRadius = Math.max(2, (spore.r || 7) * (1 - t * 0.26));
 
-          ctx.shadowColor = "#ffffff";
-          ctx.shadowBlur = 12;
           ctx.fillStyle = `rgba(255, 255, 255, ${0.7 - t * 0.18})`;
           ctx.beginPath();
           ctx.arc(tx, ty, tRadius, 0, Math.PI * 2);
@@ -7561,7 +7580,8 @@
         ctx.arc(spore.x, spore.y, (spore.r || 7) * 1.55 * pulse, 0, Math.PI * 2);
         ctx.fill();
 
-        // 3. Плотное белое ядро паразита
+        // 3. Плотное белое ядро паразита — no shadow needed
+        ctx.shadowBlur = 0;
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(spore.x, spore.y, (spore.r || 7) * pulse, 0, Math.PI * 2);
@@ -7585,9 +7605,15 @@
       }
     }
 
-    function drawEnemyStatusEffects(enemy) {
-      const now = performance.now();
+    const PARASITE_NODE_FACTORS = [
+      [0, 0],
+      [-0.5, -0.4],
+      [0.5, -0.45],
+      [-0.6, 0.45],
+      [0.5, 0.5]
+    ];
 
+    function drawEnemyStatusEffects(enemy, now = performance.now()) {
       // 1. 🧪 ЯД: Яркое токсично-кислотное зелёное мерцание + всплывающие пузыри
       const isPoisoned = Boolean(enemy.poisonTimer && enemy.poisonTimer > 0) || Boolean(enemy.poisoned);
       if (isPoisoned) {
@@ -7604,6 +7630,9 @@
         ctx.beginPath();
         ctx.arc(0, 0, enemy.r + 4 + 2 * pPulse, 0, Math.PI * 2);
         ctx.stroke();
+
+        // Снимаем тень перед заливкой и пузырями — аура уже нарисована
+        ctx.shadowBlur = 0;
 
         // Внутренняя токсичная заливка
         ctx.fillStyle = `rgba(57, 255, 20, ${0.32 + 0.25 * pPulse})`;
@@ -7681,19 +7710,17 @@
         ctx.quadraticCurveTo(r * 0.5, r * 0.5, r * 0.85, r * 0.75);
         ctx.stroke();
 
+        // Тень больше не нужна для точек и дымки
+        ctx.shadowBlur = 0;
+
         // Крупные белые узлы заражения
         ctx.fillStyle = "#ffffff";
-        [
-          [0, 0],
-          [-r * 0.5, -r * 0.4],
-          [r * 0.5, -r * 0.45],
-          [-r * 0.6, r * 0.45],
-          [r * 0.5, r * 0.5]
-        ].forEach(([vx, vy]) => {
+        for (let i = 0; i < PARASITE_NODE_FACTORS.length; i++) {
+          const factor = PARASITE_NODE_FACTORS[i];
           ctx.beginPath();
-          ctx.arc(vx, vy, 2.5 * vPulse, 0, Math.PI * 2);
+          ctx.arc(factor[0] * r, factor[1] * r, 2.5 * vPulse, 0, Math.PI * 2);
           ctx.fill();
-        });
+        }
 
         // Белая дымка био-спор
         ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
@@ -7732,7 +7759,8 @@
         ctx.moveTo(tickIn, 0);  ctx.lineTo(tickOut, 0);
         ctx.stroke();
 
-        // Красная точка в центре
+        // Красная точка в центре без размытия
+        ctx.shadowBlur = 0;
         ctx.fillStyle = "#ff1f4b";
         ctx.beginPath();
         ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
@@ -8351,16 +8379,18 @@
     }
 
     function drawSplinterShards() {
-      for (const shard of splinterShards) {
-        ctx.save();
-        ctx.shadowColor = "#00f2fe";
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = "#00f2fe";
+      if (splinterShards.length === 0) return;
+      ctx.save();
+      ctx.shadowColor = "#00f2fe";
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = "#00f2fe";
+      for (let i = 0; i < splinterShards.length; i++) {
+        const shard = splinterShards[i];
         ctx.beginPath();
         ctx.arc(shard.x, shard.y, shard.r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
       }
+      ctx.restore();
     }
 
     function updateEnemyProjectiles(dt) {
@@ -15725,9 +15755,15 @@ osc.stop(now + 0.05);
     if (window.net) {
       net.addEventListener("connected", () => {
         try {
+          if (coopSession.disconnectGraceTimer) {
+            clearTimeout(coopSession.disconnectGraceTimer);
+            coopSession.disconnectGraceTimer = null;
+          }
           const recData = window.net?.getReconnectData?.();
-          if (recData && recData.roomCode && recData.token && !coopSession.active) {
-            checkAndRenderFloatingReconnectWidget();
+          if (recData && recData.roomCode && recData.token) {
+            if (!coopSession.active) {
+              checkAndRenderFloatingReconnectWidget();
+            }
             window.net.reconnectRoom(recData.roomCode, recData.token, recData.playerName).then(res => {
               if (res && res.success) {
                 networkRoom = res.room;
@@ -15739,7 +15775,9 @@ osc.stop(now + 0.05);
                 }
                 overlay.classList.add("hidden");
                 overlay.setAttribute("aria-hidden", "true");
-                startCoopMovementSession();
+                if (!coopSession.active) {
+                  startCoopMovementSession();
+                }
                 if (res.snapshot) {
                   applyCoopSnapshot(res.snapshot);
                 }
@@ -15850,6 +15888,21 @@ osc.stop(now + 0.05);
           if (returningToMainMenu) {
             return;
           }
+
+          if (gameState === "coop-playing") {
+            // Даём сокету до 4 секунд на автоматический быстрый реконнект без вылета в меню
+            if (coopSession.disconnectGraceTimer) clearTimeout(coopSession.disconnectGraceTimer);
+            coopSession.disconnectGraceTimer = setTimeout(() => {
+              if (!window.net?.connected && gameState === "coop-playing") {
+                stopCoopMovementSession();
+                networkRoom = null;
+                networkStartPending = false;
+                showMainMenu();
+                checkAndRenderFloatingReconnectWidget();
+              }
+            }, 4000);
+            return;
+          }
         
           if (coopSession.active) {
             stopCoopMovementSession();
@@ -15866,9 +15919,6 @@ osc.stop(now + 0.05);
               "Соединение с сервером потеряно"
             );
             showNetworkMenu();
-          } else if (gameState === "coop-playing") {
-            showMainMenu();
-            checkAndRenderFloatingReconnectWidget();
           }
         }
       );
@@ -16127,6 +16177,58 @@ osc.stop(now + 0.05);
         x: localPlayer ? Math.round(localPlayer.displayX * 10) / 10 : null,
         y: localPlayer ? Math.round(localPlayer.displayY * 10) / 10 : null
       };
+    }
+
+    /*
+     * Мгновенная клиентская предикция выстрела в коопе.
+     * При клике ЛКМ клиент сразу переводит первый held-патрон
+     * в «flying», проигрывает звук и частицы, не дожидаясь
+     * серверного снапшота. Сервер подтвердит в следующем
+     * снимке, а расхождение скомпенсирует существующая
+     * интерполяция пуль.
+     */
+    function predictCoopShoot(aimX, aimY) {
+      const localPlayerId = window.net?.playerId;
+      if (!localPlayerId) return;
+
+      const myPlayer = coopSession.players.get(localPlayerId);
+      if (!myPlayer || !myPlayer.alive) return;
+
+      /* Ищем первый held-патрон, принадлежащий локальному игроку */
+      let heldBullet = null;
+      for (const b of coopSession.bullets.values()) {
+        if (b.ownerId === localPlayerId && b.state === "held") {
+          heldBullet = b;
+          break;
+        }
+      }
+      if (!heldBullet) return;
+
+      /* Направление прицеливания */
+      let dx = aimX - myPlayer.displayX;
+      let dy = aimY - myPlayer.displayY;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.001) { dx = 1; dy = 0; } else { dx /= len; dy /= len; }
+
+      const bulletR = heldBullet.r || 7;
+      const playerR = myPlayer.r || 18;
+
+      const muzzleX = myPlayer.displayX + dx * (playerR + bulletR + 2);
+      const muzzleY = myPlayer.displayY + dy * (playerR + bulletR + 2);
+
+      heldBullet.state = "flying";
+      heldBullet.x = muzzleX;
+      heldBullet.y = muzzleY;
+      heldBullet.targetX = muzzleX;
+      heldBullet.targetY = muzzleY;
+      heldBullet.displayX = muzzleX;
+      heldBullet.displayY = muzzleY;
+      heldBullet.vx = dx * BASE_BULLET_SPEED;
+      heldBullet.vy = dy * BASE_BULLET_SPEED;
+      heldBullet.age = 0;
+
+      soundManager.playShoot();
+      createCoopParticles(muzzleX, muzzleY, "#7ee7ff", 7, 160);
     }
 
     function moveCoopPlayer(
@@ -17195,8 +17297,11 @@ osc.stop(now + 0.05);
         const newState = snapshotBullet.state || coopBullet.state;
 
         if (previousState === "held" && newState === "flying") {
-          // Пуля выстрелена
-          soundManager.playShoot();
+          // Пуля выстрелена — звук только для чужих пуль
+          // (для своих предикция уже проиграла звук)
+          if (snapshotBullet.ownerId !== window.net?.playerId) {
+            soundManager.playShoot();
+          }
         }
 
         if (previousState === "flying" && newBounces < previousBounces) {
@@ -17442,6 +17547,12 @@ osc.stop(now + 0.05);
 
         coopEnemy.targetX = snapshotX;
         coopEnemy.targetY = snapshotY;
+
+        /*
+         * Скорость врага от сервера для экстраполяции.
+         */
+        coopEnemy.velX = Number.isFinite(snapshotEnemy.vx) ? snapshotEnemy.vx : 0;
+        coopEnemy.velY = Number.isFinite(snapshotEnemy.vy) ? snapshotEnemy.vy : 0;
 
         coopEnemy.type =
           snapshotEnemy.type ||
@@ -18353,19 +18464,33 @@ osc.stop(now + 0.05);
         const coopEnemy of
         coopSession.enemies.values()
       ) {
-        coopEnemy.displayX +=
-          (
-            coopEnemy.targetX -
-            coopEnemy.displayX
-          ) *
-          Math.min(1, dt * 15);
-      
-        coopEnemy.displayY +=
-          (
-            coopEnemy.targetY -
-            coopEnemy.displayY
-          ) *
-          Math.min(1, dt * 15);
+        /*
+         * Dead Reckoning: сначала экстраполируем позицию
+         * по серверной скорости, затем мягко подтягиваем
+         * к целевой точке из последнего снапшота. Это
+         * устраняет систематическое отставание врагов
+         * на RTT, которое вызывало «промахи» и «урон из
+         * пустоты» у гостевого игрока.
+         */
+        const evx = coopEnemy.velX || 0;
+        const evy = coopEnemy.velY || 0;
+        coopEnemy.displayX += evx * dt;
+        coopEnemy.displayY += evy * dt;
+
+        const errX = coopEnemy.targetX - coopEnemy.displayX;
+        const errY = coopEnemy.targetY - coopEnemy.displayY;
+        const errDist = Math.hypot(errX, errY);
+
+        /* Телепорт / слишком большая ошибка — мгновенно снапить */
+        if (errDist > 150) {
+          coopEnemy.displayX = coopEnemy.targetX;
+          coopEnemy.displayY = coopEnemy.targetY;
+        } else {
+          const corrRate = 15 + Math.min(40, Math.max(0, errDist - 8) * 0.5);
+          const corrFactor = Math.min(0.9, dt * corrRate);
+          coopEnemy.displayX += errX * corrFactor;
+          coopEnemy.displayY += errY * corrFactor;
+        }
       }
       for (
         const crystal of
@@ -18618,14 +18743,16 @@ osc.stop(now + 0.05);
     }
 
     function drawCoopParticles() {
-      for (const particle of coopParticles) {
+      if (coopParticles.length === 0) return;
+      ctx.save();
+      for (let i = 0; i < coopParticles.length; i++) {
+        const particle = coopParticles[i];
         const lifeRatio = clamp(
           particle.life / particle.maxLife,
           0,
           1
         );
 
-        ctx.save();
         ctx.globalAlpha = particle.isTrail
           ? lifeRatio * 0.55
           : lifeRatio;
@@ -18658,13 +18785,10 @@ osc.stop(now + 0.05);
             Math.PI * 2
           );
           ctx.fillStyle = particle.color;
-          ctx.shadowColor = particle.color;
-          ctx.shadowBlur = 8;
           ctx.fill();
         }
-
-        ctx.restore();
       }
+      ctx.restore();
     }
 
     function drawCoopPlayer(coopPlayer) {
@@ -21024,82 +21148,45 @@ osc.stop(now + 0.05);
 
     }
 
+    // ── Cached background grid (offscreen canvas, redrawn only on resize) ──
+    let _bgCache = null;
+    let _bgCacheW = 0, _bgCacheH = 0;
+    function getBackgroundCache(w, h) {
+      if (_bgCache && _bgCacheW === w && _bgCacheH === h) return _bgCache;
+      const oc = _bgCache || (typeof document !== "undefined" && document.createElement ? document.createElement('canvas') : null);
+      if (!oc || typeof oc.getContext !== "function") return oc;
+      oc.width = w; oc.height = h;
+      const g = oc.getContext('2d');
+      if (!g) return oc;
+      g.fillStyle = "#070a12";
+      g.fillRect(0, 0, w, h);
+      const gridSize = 48;
+      g.beginPath();
+      g.strokeStyle = "rgba(113, 153, 204, 0.055)";
+      g.lineWidth = 1;
+      for (let x = 0; x <= w; x += gridSize) { g.moveTo(x, 0); g.lineTo(x, h); }
+      for (let y = 0; y <= h; y += gridSize) { g.moveTo(0, y); g.lineTo(y === 0 ? 0 : 0, y); g.lineTo(w, y); }
+      g.stroke();
+      _bgCache = oc; _bgCacheW = w; _bgCacheH = h;
+      return oc;
+    }
+
     function drawBackground(customW, customH) {
       const worldW = customW || SOLO_WORLD_WIDTH;
       const worldH = customH || SOLO_WORLD_HEIGHT;
+      const bg = getBackgroundCache(worldW, worldH);
+      if (bg && ctx.drawImage) {
+        try { ctx.drawImage(bg, 0, 0); } catch {}
+      }
 
-      ctx.fillStyle = "#070a12";
-    
-      ctx.fillRect(
-        0,
-        0,
-        worldW,
-        worldH
+      // Dynamic player-centered subtle glow (kept, very cheap)
+      const gradient = ctx.createRadialGradient(
+        player.x, player.y, 20, player.x, player.y, 460
       );
-    
-      const gridSize = 48;
-    
-      ctx.beginPath();
-      ctx.strokeStyle =
-        "rgba(113, 153, 204, 0.055)";
-    
-      ctx.lineWidth = 1;
-    
-      for (
-        let x = 0;
-        x <= worldW;
-        x += gridSize
-      ) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(
-          x,
-          worldH
-        );
-      }
-    
-      for (
-        let y = 0;
-        y <= worldH;
-        y += gridSize
-      ) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(
-          worldW,
-          y
-        );
-      }
-    
-      ctx.stroke();
-    
-      const gradient =
-        ctx.createRadialGradient(
-          player.x,
-          player.y,
-          20,
-          player.x,
-          player.y,
-          460
-        );
-    
-      gradient.addColorStop(
-        0,
-        "rgba(42, 105, 155, 0.10)"
-      );
-    
-      gradient.addColorStop(
-        1,
-        "rgba(0, 0, 0, 0)"
-      );
-    
+      gradient.addColorStop(0, "rgba(42, 105, 155, 0.10)");
+      gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.fillStyle = gradient;
-    
-      ctx.fillRect(
-        0,
-        0,
-        SOLO_WORLD_WIDTH,
-        SOLO_WORLD_HEIGHT
-      );
-    
+      ctx.fillRect(0, 0, worldW, worldH);
     }
 
     function drawAimLine() {
@@ -21194,12 +21281,14 @@ osc.stop(now + 0.05);
     }
 
     function drawBullets() {
-      for (const bullet of bullets) {
+      const _now = performance.now();
+      for (let _bi = 0; _bi < bullets.length; _bi++) {
+        const bullet = bullets[_bi];
         const pulse =
           1 +
           Math.sin(
-            performance.now() * 0.01 +
-            bullets.indexOf(bullet)
+            _now * 0.01 +
+            _bi
           ) * 0.12;
       
         ctx.save();
@@ -21385,7 +21474,7 @@ osc.stop(now + 0.05);
      * траектории) сходятся в одну линию прицеливания ровно к моменту выстрела —
      * даёт игроку чёткий визуальный отсчёт и время среагировать и увернуться.
      */
-    function drawBossSniperTelegraph(enemy) {
+    function drawBossSniperTelegraph(enemy, now = performance.now()) {
       if (enemy.type !== "boss" || enemy.sniperState !== "locked") return;
 
       const targetX = enemy.sniperTargetX ?? enemy.x;
@@ -21431,7 +21520,7 @@ osc.stop(now + 0.05);
         ctx.restore();
       }
 
-      const flashPulse = 0.5 + Math.sin(performance.now() * 0.045) * 0.5;
+      const flashPulse = 0.5 + Math.sin(now * 0.045) * 0.5;
       ctx.save();
       ctx.beginPath();
       ctx.arc(0, 0, enemy.r + 8 + flashPulse * 5, 0, Math.PI * 2);
@@ -21442,6 +21531,8 @@ osc.stop(now + 0.05);
     }
 
     function drawEnemies() {
+      const _drawNow = performance.now();
+
       /*
        * Энергетические лучи от угловых пилонов к щиту Босса (соло).
        */
@@ -21468,6 +21559,8 @@ osc.stop(now + 0.05);
       /*
        * Лазерная нить между Связанными Близнецами (соло).
        */
+      const _enemyById = new Map();
+      for (const e of enemies) _enemyById.set(e.id, e);
       const twinDone = new Set();
       for (const enemy of enemies) {
         if (
@@ -21478,7 +21571,7 @@ osc.stop(now + 0.05);
           continue;
         }
 
-        const partner = enemies.find(e => e.id === enemy.twinPartnerId);
+        const partner = _enemyById.get(enemy.twinPartnerId);
         if (!partner || partner.hp <= 0) continue;
 
         twinDone.add(enemy.id);
@@ -21507,7 +21600,7 @@ osc.stop(now + 0.05);
          * Фантом мигает полупрозрачностью.
          */
         if (enemy.type === "phantom" && enemy.isPhased) {
-          ctx.globalAlpha = 0.35 + Math.sin(Date.now() * 0.01) * 0.1;
+          ctx.globalAlpha = 0.35 + Math.sin(_drawNow * 0.01) * 0.1;
         }
 
         /*
@@ -21515,7 +21608,7 @@ osc.stop(now + 0.05);
          * Пока невидим — умные пули его не видят (см. applySmartHoming).
          */
         if (enemy.type === "mirage") {
-          const cyclePos = ((performance.now() / 1000) - (enemy.spawnTime || 0)) % MIRAGE_CYCLE;
+          const cyclePos = ((_drawNow / 1000) - (enemy.spawnTime || 0)) % MIRAGE_CYCLE;
           const fade = 0.12;
           const visibleDur = MIRAGE_CYCLE - MIRAGE_HIDDEN;
           if (cyclePos < MIRAGE_HIDDEN) {
@@ -21537,7 +21630,7 @@ osc.stop(now + 0.05);
         }
 
         if (enemy.type === "boss_drone" || enemy.type === "boss_pylon") {
-          const now = performance.now();
+          const now = _drawNow;
           const pylonPulse = 1 + Math.sin(now * 0.008 + (enemy.id || 0)) * 0.15;
           ctx.save();
           ctx.rotate(now * 0.002);
@@ -21615,7 +21708,7 @@ osc.stop(now + 0.05);
           ctx.fill();
 
           drawEnemyModel(ctx, enemy.type, enemy.r, enemyColor, {
-            now: performance.now(),
+            now: _drawNow,
             id: enemy.id,
             shieldActive: Boolean(enemy.shieldActive),
             turretMode: Boolean(enemy.turretMode),
@@ -21656,25 +21749,24 @@ osc.stop(now + 0.05);
           );
         }
 
-        drawEnemyStatusEffects(enemy);
-        drawBossSniperTelegraph(enemy);
+        drawEnemyStatusEffects(enemy, _drawNow);
+        drawBossSniperTelegraph(enemy, _drawNow);
 
         ctx.restore();
       }
     }
 
     function drawEnemyProjectiles() {
-      for (const projectile of enemyProjectiles) {
-        ctx.save();
-        ctx.translate(
-          projectile.x,
-          projectile.y
-        );
+      if (enemyProjectiles.length === 0) return;
+      ctx.save();
+      for (let i = 0; i < enemyProjectiles.length; i++) {
+        const projectile = enemyProjectiles[i];
       
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.arc(
-          0,
-          0,
+          projectile.x,
+          projectile.y,
           projectile.r * 2.4,
           0,
           Math.PI * 2
@@ -21684,8 +21776,8 @@ osc.stop(now + 0.05);
       
         ctx.beginPath();
         ctx.arc(
-          0,
-          0,
+          projectile.x,
+          projectile.y,
           projectile.r,
           0,
           Math.PI * 2
@@ -21694,9 +21786,8 @@ osc.stop(now + 0.05);
         ctx.shadowColor = projectile.color;
         ctx.shadowBlur = 17;
         ctx.fill();
-      
-        ctx.restore();
       }
+      ctx.restore();
     }
 
     function drawSoloGasterBlasters() {
@@ -21724,6 +21815,7 @@ osc.stop(now + 0.05);
           ctx.shadowBlur = 20;
           ctx.fillRect(0, -28, 3500, 56);
           // Inner bright core
+          ctx.shadowBlur = 0;
           ctx.fillStyle = "rgba(255, 200, 200, 0.9)";
           ctx.fillRect(0, -10, 3500, 20);
         }
@@ -21815,6 +21907,9 @@ osc.stop(now + 0.05);
         ctx.arc(0, 0, (medkit.r || 12) * 1.6 * pulse, 0, Math.PI * 2);
         ctx.fill();
 
+        // Shadow no longer needed for capsule + cross
+        ctx.shadowBlur = 0;
+
         // 2. Кибер-капсула аптечки
         ctx.fillStyle = "#092415";
         ctx.strokeStyle = "#4ade80";
@@ -21859,7 +21954,8 @@ osc.stop(now + 0.05);
         ctx.arc(0, 0, (bonus.r || 14) * 1.7 * pulse, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ромбовидный кристалл бонуса
+        // Ромбовидный кристалл бонуса — no shadow needed
+        ctx.shadowBlur = 0;
         ctx.fillStyle = meta.color;
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 1.5;
@@ -21921,6 +22017,8 @@ osc.stop(now + 0.05);
         ctx.shadowColor = "#a85cff";
         ctx.shadowBlur = 14;
         ctx.fill();
+
+        ctx.shadowBlur = 0;
       
         ctx.beginPath();
         ctx.moveTo(0, -crystal.r);
@@ -21939,23 +22037,32 @@ osc.stop(now + 0.05);
 
     function drawBoomerangLines() {
       if (!stats.boomerang || (stats.groundPullSpeed || 0) <= 0) return;
-      for (const bullet of bullets) {
+      const magnetCells = Math.min(40, 20 + (stats.magnetRangeBonusCells || 0));
+      const maxDist = magnetCells * 48;
+      let started = false;
+
+      for (let i = 0; i < bullets.length; i++) {
+        const bullet = bullets[i];
         if (bullet.state !== "ground") continue;
         const dist = Math.hypot(bullet.x - player.x, bullet.y - player.y);
-        if (dist <= player.r + bullet.r) continue; // already at player
-        const magnetCells = Math.min(40, 20 + (stats.magnetRangeBonusCells || 0));
-        const maxDist = magnetCells * 48;
-        if (dist > maxDist) continue; // outside magnet range
+        if (dist <= player.r + bullet.r || dist > maxDist) continue;
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.setLineDash([6, 5]);
+        if (!started) {
+          started = true;
+          ctx.save();
+          ctx.setLineDash([6, 5]);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = "#38bdf8";
+          ctx.shadowBlur = 4;
+          ctx.beginPath();
+        }
+
         ctx.moveTo(bullet.x, bullet.y);
         ctx.lineTo(player.x, player.y);
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
-        ctx.lineWidth = 1.5;
-        ctx.shadowColor = "#38bdf8";
-        ctx.shadowBlur = 4;
+      }
+
+      if (started) {
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.restore();
@@ -21963,14 +22070,16 @@ osc.stop(now + 0.05);
     }
 
     function drawParticles() {
-      for (const particle of particles) {
+      if (particles.length === 0) return;
+      ctx.save();
+      for (let i = 0; i < particles.length; i++) {
+        const particle = particles[i];
         const lifeRatio = clamp(
           particle.life / particle.maxLife,
           0,
           1
         );
 
-        ctx.save();
         ctx.globalAlpha = particle.isTrail
           ? lifeRatio * 0.55
           : lifeRatio;
@@ -22005,9 +22114,8 @@ osc.stop(now + 0.05);
           ctx.fillStyle = particle.color;
           ctx.fill();
         }
-
-        ctx.restore();
       }
+      ctx.restore();
     }
 
     function drawBossHealthBar() {
@@ -23475,6 +23583,7 @@ osc.stop(now + 0.05);
       if (coopSession.active) {
         updateCoopPointer(event);
         const myPlayer = coopSession.players.get(window.net?.playerId);
+        predictCoopShoot(coopPointer.x, coopPointer.y);
         net.sendShoot(
           coopPointer.x,
           coopPointer.y,
@@ -23664,6 +23773,7 @@ osc.stop(now + 0.05);
         if (coopSession.active) {
           const myPlayer = coopSession.players.get(window.net?.playerId);
           if (myPlayer && window.net) {
+            predictCoopShoot(coopPointer.x, coopPointer.y);
             net.sendShoot(
               coopPointer.x,
               coopPointer.y,

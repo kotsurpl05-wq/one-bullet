@@ -8,3 +8,7 @@ yarn-error.log*
 public/shared-bundle.js
 public/shared-bundle.js.map
 .worktrees/
+.playwright-cli/
+context/
+123/
+nul

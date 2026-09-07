@@ -24,9 +24,30 @@ const io = new Server(server, {
   cors: { origin: "*" },
   transports: ["websocket", "polling"],
   maxHttpBufferSize: 1e6,
-  pingInterval: 3000,
-  pingTimeout: 8000,
+  pingInterval: 10000,
+  pingTimeout: 30000,
   perMessageDeflate: false
+});
+
+server.on("connection", socket => {
+  try {
+    socket.setNoDelay(true);
+  } catch {}
+});
+
+io.engine.on("connection", rawSocket => {
+  if (rawSocket.transport && rawSocket.transport.socket) {
+    try {
+      rawSocket.transport.socket.setNoDelay(true);
+    } catch {}
+  }
+  rawSocket.on("upgrade", transport => {
+    if (transport && transport.socket) {
+      try {
+        transport.socket.setNoDelay(true);
+      } catch {}
+    }
+  });
 });
 
 app.get(["/healthz", "/health", "/ping"], (req, res) => {
@@ -263,7 +284,7 @@ function leaveRoom(socket, reason = "Игрок вышел") {
   }
 
   // Если матч уже идёт и мир активен — НЕ разрушаем игру, а даём 120 секунд на реконнект!
-  if (room.started && room.world && !room.world.gameOver) {
+  if (room.started && room.world) {
     handlePlayerDisconnectDuringMatch(socket, room);
     return;
   }
@@ -320,13 +341,10 @@ const COOP_WORLD_HEIGHT = WORLD_HEIGHT;
 const COOP_PLAYER_SPEED = PLAYER_SPEED;
 const COOP_SIMULATION_RATE = 60;
 /*
- * 20 Hz давал слишком редкие обновления позиции: клиент
- * сверял себя со "старой" серверной точкой раз в 50мс, из-за
- * чего обычная сетевая задержка выглядела как рассинхрон и
- * включала рывковую коррекцию. 30 Hz почти вдвое снижает
- * устаревание опорной точки при небольшом росте трафика.
+ * 60 Hz снапшоты синхронны с симуляцией физики (60 Hz):
+ * снижает задержку буферизации снапшотов с 33мс до 16.6мс.
  */
-const COOP_SNAPSHOT_RATE = 30;
+const COOP_SNAPSHOT_RATE = 60;
 
 const COOP_INPUT_TIMEOUT = 1200;
 
@@ -3683,6 +3701,11 @@ function updateServerEnemies(
     ] ||
     COOP_DIFFICULTY.normal;
 
+  const enemyPrevPositions = new Map();
+  for (const e of world.enemies.values()) {
+    enemyPrevPositions.set(e.id, { x: e.x, y: e.y });
+  }
+
   for (
     const enemy of
     world.enemies.values()
@@ -4313,6 +4336,24 @@ function updateServerEnemies(
   }
 
   resolveServerEnemyOverlaps(world);
+
+  /*
+   * Вычисляем скорость врагов из дельты позиции за тик.
+   * Клиент использует vx/vy для экстраполяции (dead reckoning),
+   * чтобы враги не отставали от серверной позиции на RTT.
+   */
+  if (dt > 0.001) {
+    for (const enemy of world.enemies.values()) {
+      const prev = enemyPrevPositions.get(enemy.id);
+      if (prev) {
+        enemy.netVx = (enemy.x - prev.x) / dt;
+        enemy.netVy = (enemy.y - prev.y) / dt;
+      } else {
+        enemy.netVx = 0;
+        enemy.netVy = 0;
+      }
+    }
+  }
 }
 
 function updateServerCoopPlayer(
@@ -5103,6 +5144,15 @@ function createServerCoopSnapshot(room, options) {
 
         hp: enemy.hp
       };
+
+      /*
+       * Скорость врага для экстраполяции на клиенте.
+       * Отправляем только если враг реально движется.
+       */
+      if (enemy.netVx || enemy.netVy) {
+        serialized.vx = Math.round(enemy.netVx);
+        serialized.vy = Math.round(enemy.netVy);
+      }
 
       /*
        * Статика врага (тип/радиус/цвет/maxHp) не меняется
@@ -6424,7 +6474,7 @@ io.on("connection", socket => {
     const room = getRoomForSocket(socket);
     if (!room) return;
 
-    if (room.started && room.world && !room.world.gameOver) {
+    if (room.started && room.world) {
       const player = room.players.get(socket.id);
       if (player && !player.disconnected) {
         player.disconnected = true;
@@ -6489,75 +6539,81 @@ let nextCoopTickExpected =
   process.hrtime.bigint();
 
 function runCoopSimulationTick() {
-  const currentTime = Date.now();
+  try {
+    const currentTime = Date.now();
 
-  const dt = Math.min(
-    Math.max(
-      (
-        currentTime -
-        lastCoopSimulationTime
-      ) / 1000,
-      0
-    ),
-    0.05
-  );
-
-  lastCoopSimulationTime =
-    currentTime;
-
-  for (const room of rooms.values()) {
-    if (
-      !room.started ||
-      !room.world
-    ) {
-      continue;
-    }
-
-    updateServerCoopWorld(
-      room,
-      dt,
-      currentTime
+    const dt = Math.min(
+      Math.max(
+        (
+          currentTime -
+          lastCoopSimulationTime
+        ) / 1000,
+        0
+      ),
+      0.05
     );
 
-    room.world.snapshotAccumulator +=
-      dt;
+    lastCoopSimulationTime = currentTime;
 
-    if (
-      room.world.snapshotAccumulator >=
-      1 / COOP_SNAPSHOT_RATE
-    ) {
-      room.world.snapshotAccumulator = Math.min(
-        room.world.snapshotAccumulator - 1 / COOP_SNAPSHOT_RATE,
-        0.1
-      );
+    for (const room of rooms.values()) {
+      if (
+        !room.started ||
+        !room.world
+      ) {
+        continue;
+      }
 
-      const snapshot = createServerCoopSnapshot(room);
-      io.to(room.code)
-        .volatile
-        .emit(
-          "net:snapshot",
-          snapshot
+      try {
+        updateServerCoopWorld(
+          room,
+          dt,
+          currentTime
         );
-      for (const p of room.world.players.values()) {
-        p.statsDirty = false;
-        p.upgradesDirty = false;
+
+        room.world.snapshotAccumulator += dt;
+
+        if (
+          room.world.snapshotAccumulator >=
+          1 / COOP_SNAPSHOT_RATE
+        ) {
+          room.world.snapshotAccumulator = Math.min(
+            room.world.snapshotAccumulator - 1 / COOP_SNAPSHOT_RATE,
+            0.1
+          );
+
+          const snapshot = createServerCoopSnapshot(room);
+          io.to(room.code)
+            .volatile
+            .emit(
+              "net:snapshot",
+              snapshot
+            );
+          for (const p of room.world.players.values()) {
+            p.statsDirty = false;
+            p.upgradesDirty = false;
+          }
+        }
+      } catch (roomErr) {
+        console.error(`[Simulation] Error in room ${room.code}:`, roomErr);
       }
     }
+  } catch (loopErr) {
+    console.error("[Simulation] Critical error in runCoopSimulationTick:", loopErr);
+  } finally {
+    nextCoopTickExpected += COOP_TICK_INTERVAL_NS;
+    const now = process.hrtime.bigint();
+    let delayNs = nextCoopTickExpected - now;
+
+    // Слишком большое отставание (лаг event loop, GC-пауза и т.д.) — ресинк без догонки.
+    const maxLagNs = COOP_TICK_INTERVAL_NS * 4n;
+    if (delayNs < -maxLagNs) {
+      nextCoopTickExpected = now + COOP_TICK_INTERVAL_NS;
+      delayNs = COOP_TICK_INTERVAL_NS;
+    }
+
+    const delayMs = Math.max(0, Number(delayNs) / 1e6);
+    setTimeout(runCoopSimulationTick, delayMs);
   }
-
-  nextCoopTickExpected += COOP_TICK_INTERVAL_NS;
-  const now = process.hrtime.bigint();
-  let delayNs = nextCoopTickExpected - now;
-
-  // Слишком большое отставание (лаг event loop, GC-пауза и т.д.) — ресинк без догонки.
-  const maxLagNs = COOP_TICK_INTERVAL_NS * 4n;
-  if (delayNs < -maxLagNs) {
-    nextCoopTickExpected = now + COOP_TICK_INTERVAL_NS;
-    delayNs = COOP_TICK_INTERVAL_NS;
-  }
-
-  const delayMs = Math.max(0, Number(delayNs) / 1e6);
-  setTimeout(runCoopSimulationTick, delayMs);
 }
 
 setTimeout(runCoopSimulationTick, 1000 / COOP_SIMULATION_RATE);

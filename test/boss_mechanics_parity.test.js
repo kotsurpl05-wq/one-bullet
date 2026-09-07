@@ -100,8 +100,8 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     assert.equal(drones.length, 4, "Exactly 4 corner shield pylons should spawn");
 
     for (const drone of drones) {
-      assert.equal(drone.hp, 2500);
-      assert.equal(drone.maxHp, 2500);
+      assert.equal(drone.hp, 1750);
+      assert.equal(drone.maxHp, 1750);
       assert.equal(drone.hasEnteredArena, true);
     }
 

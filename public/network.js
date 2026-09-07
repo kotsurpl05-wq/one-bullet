@@ -7,7 +7,12 @@ class OneBulletNetwork extends EventTarget {
     this.socket = io({
       transports: ["websocket", "polling"],
       upgrade: true,
-      rememberUpgrade: true
+      rememberUpgrade: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 2000,
+      timeout: 20000
     });
 
     this.connected = false;
