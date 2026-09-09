@@ -112,6 +112,41 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     assert.equal(damageTaken, 2, "Shielded boss must take only 20% damage (2 instead of 10)");
   });
 
+  await t.test("3.1 Boss Shield Pylon HP Scaling across tiers (wave 10, 20, 30, 50) for Coop and Solo", () => {
+    const expectedTiers = [
+      { wave: 10, tier: 2, coopHp: 1750, soloHp: 875 },
+      { wave: 15, tier: 3, coopHp: 2625, soloHp: 1313 },
+      { wave: 20, tier: 4, coopHp: 3733, soloHp: 1867 },
+      { wave: 30, tier: 6, coopHp: 6650, soloHp: 3325 },
+      { wave: 40, tier: 8, coopHp: 10500, soloHp: 5250 },
+      { wave: 50, tier: 10, coopHp: 15283, soloHp: 7642 },
+    ];
+
+    for (const exp of expectedTiers) {
+      const base = ctx.createEnemyBase("boss_drone", exp.wave);
+      assert.equal(base.hp, exp.coopHp, `Wave ${exp.wave} (Tier ${exp.tier}) base pylon HP should be ${exp.coopHp}`);
+
+      // Verify spawnServerBossDrones adheres to the wave/tier scaling
+      const { world } = createTestWorld(ctx);
+      world.wave = exp.wave;
+      const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
+      boss.bossTier = exp.tier;
+      world.enemies.set(boss.id, boss);
+
+      ctx.spawnServerBossDrones(world, boss);
+      const drones = [...world.enemies.values()].filter(e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === boss.id);
+      assert.equal(drones.length, 4);
+      for (const drone of drones) {
+        assert.equal(drone.hp, exp.coopHp, `Coop pylon HP on wave ${exp.wave} should be ${exp.coopHp}`);
+        assert.equal(drone.maxHp, exp.coopHp);
+      }
+
+      // Solo HP calculation: Math.max(1, Math.round(base.hp * 0.5))
+      const computedSoloHp = Math.max(1, Math.round(base.hp * 0.5));
+      assert.equal(computedSoloHp, exp.soloHp, `Solo pylon HP on wave ${exp.wave} should be ${exp.soloHp}`);
+    }
+  });
+
   await t.test("4. Telegraphed Piercing Sniper Bolt mechanics (high speed, 2 damage)", () => {
     const { world } = createTestWorld(ctx);
     world.wave = 10;

@@ -3241,7 +3241,7 @@
     /*
      * Множитель HP боссов и пилонов щита в соло: 0.5x от базового,
      * чтобы одиночный игрок с 1 патроном мог реально победить босса
-     * (~3800 HP на волне 5 вместо 7600 HP, и 1250 HP у пилонов вместо 2500).
+     * (~3800 HP на волне 5 вместо 7600 HP, а пилоны масштабируются: 875 HP на волне 10, 7642 HP на волне 50).
      */
     const SOLO_BOSS_HP_MULTIPLIER = 0.5;
 
@@ -6960,10 +6960,14 @@
         { x: ARENA_WIDTH - cornerMargin, y: ARENA_HEIGHT - cornerMargin }
       ];
 
+      const bossTier = boss?.bossTier || Math.max(2, Math.floor((wave || 10) / 5));
+      const effectiveWave = Math.max(wave || 0, bossTier * 5);
+      const base = GameShared.createEnemyBase("boss_drone", effectiveWave);
+      const droneHp = Math.max(1, Math.round(base.hp * SOLO_BOSS_HP_MULTIPLIER));
+
       for (let i = 0; i < corners.length; i++) {
         const drone = createEnemy("boss_drone", corners[i].x, corners[i].y);
         drone.bossId = boss.id;
-        const droneHp = Math.max(1, Math.round(2500 * SOLO_BOSS_HP_MULTIPLIER));
         drone.hp = droneHp;
         drone.maxHp = droneHp;
         drone.speed = 0;

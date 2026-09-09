@@ -3864,11 +3864,16 @@ function spawnServerBossDrones(world, boss) {
     { x: COOP_WORLD_WIDTH - cornerMargin, y: COOP_WORLD_HEIGHT - cornerMargin }
   ];
 
+  const bossTier = boss?.bossTier || Math.max(2, Math.floor((world?.wave || 10) / 5));
+  const effectiveWave = Math.max(world?.wave || 0, bossTier * 5);
+  const base = createEnemyBase("boss_drone", effectiveWave);
+  const droneHp = base.hp;
+
   for (let i = 0; i < corners.length; i++) {
     const drone = createServerEnemy(world, "boss_drone", corners[i].x, corners[i].y, true);
     drone.bossId = boss.id;
-    drone.hp = 1750;
-    drone.maxHp = 1750;
+    drone.hp = droneHp;
+    drone.maxHp = droneHp;
     drone.speed = 0;
     drone.r = 24;
     drone.color = "#00f2fe";

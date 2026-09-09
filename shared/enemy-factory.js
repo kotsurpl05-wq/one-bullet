@@ -44,8 +44,12 @@ function createEnemyBase(type, wave) {
       return { type, r: 7, speed: 135 + level * 3.0, hp: 100, color: "#34d399" };
 
     case "boss_drone":
-    case "boss_pylon":
-      return { type: "boss_drone", r: 24, speed: 0, hp: 2500, color: "#00f2fe" };
+    case "boss_pylon": {
+      const bossTier = Math.max(2, Math.floor((wave || 10) / 5));
+      const bossBaseHp = 4800 + bossTier * 2000 + bossTier * bossTier * 800;
+      const hp = Math.round(bossBaseHp * (7 / 48));
+      return { type: "boss_drone", r: 24, speed: 0, hp, color: "#00f2fe" };
+    }
 
     case "mini_boss": {
       return {
