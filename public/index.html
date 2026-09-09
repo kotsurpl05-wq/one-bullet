@@ -3230,6 +3230,14 @@
     const BOSS_SLOWMO_FACTOR = 0.3;
     const BULLET_TRAIL_INTERVAL = 0.022;
 
+    /*
+     * Множитель ценности опыта в соло: компенсирует меньшую плотность
+     * мобов по сравнению с коопом (где в 2 раза больше врагов), подтягивая
+     * прогрессию улучшений ближе к уровню каждого игрока в коопе (~5 улучшений
+     * к волне 5), избегая удвоения (так как 10 улучшений на одного были бы OP).
+     */
+    const SOLO_EXPERIENCE_MULTIPLIER = 1.35;
+
     const difficultySettings = {
       easy: {
         label: "Легко",
@@ -4896,7 +4904,7 @@
     function createExperienceCrystal(
       x,
       y,
-      value = 125
+      value = Math.round(125 * SOLO_EXPERIENCE_MULTIPLIER)
     ) {
       const angle =
         Math.random() * Math.PI * 2;
@@ -4991,7 +4999,9 @@
         return;
       }
 
-      const xp = getEnemyExperienceAmount(enemy);
+      const xp = Math.round(
+        getEnemyExperienceAmount(enemy) * SOLO_EXPERIENCE_MULTIPLIER
+      );
 
       createExperienceCrystal(
         enemy.x + random(-5, 5),

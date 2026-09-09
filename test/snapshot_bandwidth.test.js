@@ -57,7 +57,8 @@ test("Co-op snapshot bandwidth contract", async t => {
         "chargeProgress", "coolingProgress",
         "sporesCount", "bossId",
         "mirageVisible", "sniperState",
-        "sniperTimer", "sniperTargetX", "sniperTargetY"
+        "sniperTimer", "sniperTargetX", "sniperTargetY",
+        "facingAngle"
       ]);
 
       for (const key of keys) {
