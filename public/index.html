@@ -320,6 +320,39 @@
       border-radius: 4px;
     }
 
+    /* Resume countdown stays over the game instead of opening a modal. */
+    #overlay.coop-countdown-mode {
+      display: flex !important;
+      align-items: flex-start !important;
+      justify-content: center !important;
+      padding: clamp(64px, 14vh, 140px) 0 0 !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      pointer-events: none;
+    }
+
+    #overlay.coop-countdown-mode #panel {
+      width: auto !important;
+      max-height: none !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      background: transparent !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    .coop-countdown-number {
+      color: #00f2fe;
+      font-size: clamp(92px, 15vw, 150px);
+      font-weight: 900;
+      line-height: 1;
+      text-shadow:
+        0 0 22px rgba(0, 242, 254, 0.95),
+        0 0 60px rgba(0, 242, 254, 0.55);
+      user-select: none;
+    }
+
     #panel h1 {
       margin: 0 0 8px;
       font-size: clamp(28px, 5vw, 46px);
@@ -16453,9 +16486,8 @@ osc.stop(now + 0.05);
         coopUnpauseUiActive = true;
         hidePauseMenu();
         overlay.classList.remove("hidden");
+        overlay.classList.add("coop-countdown-mode");
         overlay.setAttribute("aria-hidden", "false");
-        overlay.style.background = "rgba(2, 4, 10, 0.35)";
-        overlay.style.backdropFilter = "none";
 
         if (count !== lastUnpauseCountdownSec) {
           lastUnpauseCountdownSec = count;
@@ -16466,19 +16498,13 @@ osc.stop(now + 0.05);
         if (unpauseTimerEl) {
           unpauseTimerEl.textContent = count;
         } else {
-          panel.innerHTML = `
-            <div style="text-align: center; user-select: none;">
-              <div id="coopUnpauseTimer" style="font-size: 120px; font-weight: 900; color: #00f2fe; text-shadow: 0 0 40px rgba(0,242,254,0.6), 0 0 80px rgba(0,242,254,0.3); line-height: 1; letter-spacing: 4px;">${count}</div>
-              <div style="font-size: 14px; font-weight: 700; color: #7ee7ff; text-transform: uppercase; letter-spacing: 3px; margin-top: 8px; text-shadow: 0 0 12px rgba(0,242,254,0.4);">Бой возобновится...</div>
-            </div>
-          `;
+          panel.innerHTML = `<div id="coopUnpauseTimer" class="coop-countdown-number">${count}</div>`;
         }
         return;
       }
 
       if (!unpauseCountdown && coopUnpauseUiActive) {
-        overlay.style.background = "";
-        overlay.style.backdropFilter = "";
+        overlay.classList.remove("coop-countdown-mode");
         coopUnpauseUiActive = false;
         lastUnpauseCountdownSec = null;
         if (!coopUpgradeUiActive && !coopGameOverUiActive && !coopReconnectUiActive && !coopSession.manualPaused) {
@@ -16492,33 +16518,8 @@ osc.stop(now + 0.05);
     function renderCoopReconnectUI(reconnectState) {
       if (reconnectState && reconnectState.unfreezing) {
         const count = reconnectState.countdownSec || 3;
-        coopReconnectUiActive = true;
-        overlay.classList.remove("hidden");
-        overlay.setAttribute("aria-hidden", "false");
-
-        const unfreezeTimerEl = panel.querySelector("#coopUnfreezeTimer");
-        if (unfreezeTimerEl) {
-          unfreezeTimerEl.textContent = count;
-        } else {
-          panel.innerHTML = `
-            <div class="coop-reconnect-screen">
-              <div class="coop-reconnect-badge" style="color: #22c55e; border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.15);">
-                <span class="coop-reconnect-pulse-dot" style="background: #22c55e; box-shadow: 0 0 10px #22c55e;"></span>
-                <span>НАПАРНИК ПОДКЛЮЧИЛСЯ // ВОЗОБНОВЛЕНИЕ БОЯ</span>
-              </div>
-
-              <div class="coop-reconnect-timer-box" style="border-color: rgba(34, 197, 94, 0.5); background: rgba(34, 197, 94, 0.12); padding: 20px 40px;">
-                <div class="coop-reconnect-timer-val" id="coopUnfreezeTimer" style="font-size: 54px; color: #22c55e; letter-spacing: 2px;">${count}</div>
-                <div class="coop-reconnect-timer-label" style="color: #86efac;">БОЙ НАЧНЁТСЯ ЧЕРЕЗ...</div>
-              </div>
-
-              <h2 class="coop-reconnect-title">Приготовьтесь к бою!</h2>
-              <p class="coop-reconnect-subtitle">
-                Оба игрока в строю. Симуляция возобновится через несколько секунд.
-              </p>
-            </div>
-          `;
-        }
+        coopReconnectUiActive = false;
+        renderCoopUnpauseUI(count);
         return;
       }
 
