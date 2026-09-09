@@ -147,6 +147,37 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     }
   });
 
+  await t.test("3.2 Solo raid balance applies 1.5x XP and 0.5x boss-unit HP in the real client", () => {
+    const clientHtml = fs.readFileSync(
+      path.resolve(__dirname, "../public/index.html"),
+      "utf8"
+    );
+
+    assert.match(
+      clientHtml,
+      /const SOLO_EXPERIENCE_MULTIPLIER = 1\.5;/,
+      "Solo experience multiplier must remain 1.5x"
+    );
+    assert.match(
+      clientHtml,
+      /const SOLO_BOSS_HP_MULTIPLIER = 0\.5;/,
+      "Solo boss-unit HP multiplier must remain 0.5x"
+    );
+    assert.match(
+      clientHtml,
+      /getEnemyExperienceAmount\(enemy\)\s*\*\s*SOLO_EXPERIENCE_MULTIPLIER/,
+      "Enemy crystal drops must apply the solo XP multiplier"
+    );
+    assert.match(
+      clientHtml,
+      /const isBossUnit = type === "boss" \|\| type === "mini_boss" \|\| type === "boss_drone" \|\| type === "boss_pylon";/,
+      "The solo HP reduction must cover bosses, mini-bosses and shield pylons"
+    );
+
+    const waveFiveBoss = ctx.createEnemyBase("boss", 5);
+    assert.equal(Math.round(waveFiveBoss.hp * 0.5), 3800);
+  });
+
   await t.test("4. Telegraphed Piercing Sniper Bolt mechanics (high speed, 2 damage)", () => {
     const { world } = createTestWorld(ctx);
     world.wave = 10;

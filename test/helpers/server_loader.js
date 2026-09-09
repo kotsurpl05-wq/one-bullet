@@ -89,6 +89,8 @@ function loadServerInstance() {
   if (typeof getServerPlayerSpawnPosition !== 'undefined') this.getServerPlayerSpawnPosition = getServerPlayerSpawnPosition;
   if (typeof damageServerPlayer !== 'undefined') this.damageServerPlayer = damageServerPlayer;
   if (typeof createServerCoopSnapshot !== 'undefined') this.createServerCoopSnapshot = createServerCoopSnapshot;
+  if (typeof advanceFullSnapshotClock !== 'undefined') this.advanceFullSnapshotClock = advanceFullSnapshotClock;
+  if (typeof COOP_FULL_SNAPSHOT_INTERVAL !== 'undefined') this.COOP_FULL_SNAPSHOT_INTERVAL = COOP_FULL_SNAPSHOT_INTERVAL;
   if (typeof updateServerWave !== 'undefined') this.updateServerWave = updateServerWave;
   if (typeof spawnServerWave !== 'undefined') this.spawnServerWave = spawnServerWave;
   if (typeof COOP_EXPERIENCE_MULTIPLIER !== 'undefined') this.COOP_EXPERIENCE_MULTIPLIER = COOP_EXPERIENCE_MULTIPLIER;

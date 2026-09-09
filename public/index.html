@@ -15867,6 +15867,8 @@ osc.stop(now + 0.05);
           }
           const recData = window.net?.getReconnectData?.();
           if (recData && recData.roomCode && recData.token) {
+            coopSession.waitingForSnapshot = true;
+            coopSession.snapshotRequestTimer = 0;
             if (!coopSession.active) {
               checkAndRenderFloatingReconnectWidget();
             }
@@ -16005,6 +16007,8 @@ osc.stop(now + 0.05);
           }
 
           if (gameState === "coop-playing") {
+            coopSession.waitingForSnapshot = true;
+            coopSession.snapshotRequestTimer = 0;
             // Даём сокету до 4 секунд на автоматический быстрый реконнект без вылета в меню
             if (coopSession.disconnectGraceTimer) clearTimeout(coopSession.disconnectGraceTimer);
             coopSession.disconnectGraceTimer = setTimeout(() => {
@@ -16518,6 +16522,27 @@ osc.stop(now + 0.05);
         return;
       }
 
+      if (reconnectState && reconnectState.syncing) {
+        coopReconnectUiActive = true;
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+        panel.innerHTML = `
+          <div class="coop-reconnect-screen">
+            <div class="coop-reconnect-badge">
+              <span class="coop-reconnect-dot"></span>
+              СИНХРОНИЗАЦИЯ СОСТОЯНИЯ
+            </div>
+            <h2 class="coop-reconnect-title">Восстанавливаем бой…</h2>
+            <p class="coop-reconnect-subtitle">
+              Полное состояние матча отправлено игроку
+              <strong style="color: #ffaa55;">${escapeHtml(reconnectState.playerName || 'Напарник')}</strong>.
+              Бой продолжится после подтверждения загрузки.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
       if (reconnectState && reconnectState.paused) {
         const secondsLeft = Math.max(0, Math.ceil((reconnectState.expiresAt - Date.now()) / 1000));
         const mins = Math.floor(secondsLeft / 60);
@@ -16602,19 +16627,6 @@ osc.stop(now + 0.05);
         return;
       }
 
-      const expiresAt = reconnectData.expiresAt || ((reconnectData.timestamp || Date.now()) + 120000);
-      const remainingMs = expiresAt - Date.now();
-
-      if (remainingMs <= 0) {
-        window.net?.clearReconnectData?.();
-        widget.classList.add("hidden");
-        if (floatingReconnectTimerInterval) {
-          clearInterval(floatingReconnectTimerInterval);
-          floatingReconnectTimerInterval = null;
-        }
-        return;
-      }
-
       const codeEl = document.getElementById("floatingReconnectCode");
       const timerEl = document.getElementById("floatingReconnectTimer");
       const reconnectBtn = document.getElementById("floatingReconnectBtn");
@@ -16622,28 +16634,11 @@ osc.stop(now + 0.05);
 
       if (codeEl) codeEl.textContent = 'АКТИВНЫЙ ЗАБЕГ // КОМНАТА [' + reconnectData.roomCode + ']';
 
-      const updateTimer = () => {
-        const secsLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-        if (secsLeft <= 0) {
-          window.net?.clearReconnectData?.();
-          widget.classList.add("hidden");
-          if (floatingReconnectTimerInterval) {
-            clearInterval(floatingReconnectTimerInterval);
-            floatingReconnectTimerInterval = null;
-          }
-          return;
-        }
-        const m = Math.floor(secsLeft / 60);
-        const s = secsLeft % 60;
-        if (timerEl) timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-      };
-
-      updateTimer();
+      // Only the server knows when the transport actually disconnected and
+      // therefore when its 120-second grace period began. The saved token is
+      // deliberately not expired from the age of the match.
+      if (timerEl) timerEl.textContent = "СЕРВЕР";
       widget.classList.remove("hidden");
-
-      if (!floatingReconnectTimerInterval) {
-        floatingReconnectTimerInterval = setInterval(updateTimer, 1000);
-      }
 
       if (reconnectBtn) {
         reconnectBtn.onclick = async () => {

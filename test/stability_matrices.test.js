@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { loadServerInstance } = require("./helpers/server_loader.js");
 
 test("Network Stability Matrix (N04 - N12)", async (t) => {
@@ -48,6 +50,18 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
 
     assert.equal(ack.success, true);
     assert.equal(ack.playerId, guestAck.playerId);
+
+    const clientHtml = fs.readFileSync(path.resolve(__dirname, "../public/index.html"), "utf8");
+    assert.doesNotMatch(
+      clientHtml,
+      /reconnectData\.(?:timestamp|expiresAt)[\s\S]{0,120}\+\s*120000/,
+      "The client must not derive reconnect expiry from when the match token was saved"
+    );
+    assert.doesNotMatch(
+      clientHtml,
+      /remainingMs\s*<=\s*0[\s\S]{0,160}clearReconnectData/,
+      "The reconnect widget must not delete a server-valid token using a local match-age timer"
+    );
   });
 
   await t.test("N05: Reconnect during manual pause preserves manual pause", () => {
@@ -69,6 +83,8 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
       ack = res;
     });
     assert.equal(ack.success, true);
+    assert.equal(room.world.reconnectState?.syncing, true);
+    newGuestSocket.emit("net:sync-ack");
 
     // Manual pause must NOT be removed by reconnecting
     assert.equal(room.world.manualPaused, true);
@@ -146,6 +162,17 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
     // Re-sending upgrade-choice on the same offerId must be ignored / not applied
     newGuestSocket.emit("net:upgrade-choice", { offerId: round.offerId, index: 0 });
     assert.equal(worldGuest.selectedUpgrades.length, 1);
+
+    // If the host finishes the round before the restored guest acknowledges
+    // its full snapshot, removing upgradePaused must still not resume combat.
+    hostSocket.emit("net:upgrade-choice", { offerId: round.offerId, index: 0 });
+    assert.equal(room.world.upgradePaused, false);
+    assert.equal(room.world.reconnectState?.syncing, true);
+    assert.equal(room.world.unpauseCountdown, null);
+
+    newGuestSocket.emit("net:sync-ack");
+    assert.equal(room.world.reconnectState?.unfreezing, true);
+    assert.equal(room.world.unpauseCountdown, 3);
   });
 
   await t.test("N08: Disconnect during unpause countdown immediately cancels countdown and returns to waiting", () => {
@@ -233,6 +260,13 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
     const enemyFull = fullSnap.enemies.find(e => e.id === enemy.id);
     assert.ok(enemyFull);
     assert.equal(enemyFull.type, "boss", "Full snapshot must include static fields");
+
+    // The regular simulation loop uses this clock to replace one volatile
+    // update with a reliable full snapshot every ten seconds.
+    assert.equal(ctx.COOP_FULL_SNAPSHOT_INTERVAL, 10);
+    assert.equal(ctx.advanceFullSnapshotClock(room.world, 9.99), false);
+    assert.equal(ctx.advanceFullSnapshotClock(room.world, 0.01), true);
+    assert.ok(room.world.fullSnapshotAccumulator < ctx.COOP_FULL_SNAPSHOT_INTERVAL);
   });
 
   await t.test("N12: matchSeq is incremented on room restart and older snapshots are rejected", () => {

@@ -79,7 +79,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     assert.ok(room.reconnectTimeout !== null, "120s reconnectTimeout must be active");
   });
 
-  await t.test("3. Successful room:reconnect within 120s restores socket, unpauses simulation and clears timeout", () => {
+  await t.test("3. Successful reconnect waits for sync acknowledgement before countdown", () => {
     const { guestSocket, guestAck, room, code } = setupActiveCoopGame();
 
     // Guest disconnects
@@ -103,8 +103,15 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     assert.equal(reconnectAck.role, "guest");
     assert.equal(reconnectAck.playerId, guestAck.playerId, "Stable player ID must survive reconnect");
 
-    // World must enter unfreezing countdown or be unpaused
-    assert.ok(room.world.reconnectState?.unfreezing || room.world.reconnectState === null, "reconnectState must enter unfreezing countdown");
+    assert.equal(room.world.reconnectState?.syncing, true, "World must wait for the restored client to apply its full snapshot");
+    assert.equal(room.world.unpauseCountdown, null, "Countdown must not start before sync acknowledgement");
+    ctx.updateServerCoopWorld(room, 4);
+    assert.equal(room.world.reconnectState?.syncing, true, "Simulation must remain paused even after the normal countdown duration");
+
+    newGuestSocket.emit("net:sync-ack");
+    assert.equal(room.players.get(guestAck.playerId).stateSynced, true);
+    assert.equal(room.world.reconnectState?.unfreezing, true, "Sync acknowledgement starts the single resume countdown");
+    assert.equal(room.world.unpauseCountdown, 3);
     assert.equal(room.reconnectTimeout, null, "reconnectTimeout must be cleared");
 
     assert.ok(room.world.players.has(guestAck.playerId), "World player keeps its stable ID");
@@ -157,6 +164,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     const replacement = simulateSocketConnection(`replacement_${socketCounter++}`);
     let firstAck;
     replacement.emit("room:reconnect", { code, token: guestAck.reconnectToken }, ack => { firstAck = ack; });
+    replacement.emit("net:sync-ack");
 
     assert.equal(firstAck.playerId, playerId);
     assert.equal(room.world.players.get(playerId), worldPlayer);
@@ -169,6 +177,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     const replacement2 = simulateSocketConnection(`replacement_${socketCounter++}`);
     let secondAck;
     replacement2.emit("room:reconnect", { code, token: guestAck.reconnectToken }, ack => { secondAck = ack; });
+    replacement2.emit("net:sync-ack");
     assert.equal(secondAck.playerId, playerId);
     assert.equal(room.players.size, 2);
     assert.equal(room.world.players.size, 2);
@@ -181,11 +190,15 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
 
     const hostReplacement = simulateSocketConnection(`replacement_${socketCounter++}`);
     hostReplacement.emit("room:reconnect", { code, token: hostAck.reconnectToken }, () => {});
+    hostReplacement.emit("net:sync-ack");
     assert.equal(room.world.reconnectState.paused, true);
     assert.deepEqual([...room.world.reconnectState.disconnectedIds], [guestAck.playerId]);
 
     const guestReplacement = simulateSocketConnection(`replacement_${socketCounter++}`);
     guestReplacement.emit("room:reconnect", { code, token: guestAck.reconnectToken }, () => {});
+    assert.equal(room.world.reconnectState.syncing, true);
+    assert.equal(room.world.unpauseCountdown, null);
+    guestReplacement.emit("net:sync-ack");
     assert.equal(room.world.reconnectState.unfreezing, true);
     assert.equal(room.world.reconnectState.countdown, 3);
   });
@@ -198,5 +211,18 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     stranger.emit("room:join", { code, name: "GuestBuddy" }, result => { ack = result; });
     assert.equal(ack.success, false);
     assert.equal(room.players.size, 2);
+  });
+
+  await t.test("9. explicit room:leave is final and does not leave a reconnect ghost slot", () => {
+    const { guestSocket, room, code } = setupActiveCoopGame();
+    let ack;
+    guestSocket.emit("room:leave", {}, result => { ack = result; });
+
+    assert.equal(ack.success, true);
+    assert.equal(ctx.rooms.has(code), false, "An explicit final leave closes the active two-player room");
+    assert.equal(room.reconnectTimeout || null, null);
+    for (const player of room.players.values()) {
+      assert.equal(player.reconnectTimeout || null, null);
+    }
   });
 });

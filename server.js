@@ -174,6 +174,22 @@ function refreshReconnectState(room, startCountdown = true) {
   }
 
   room.reconnectTimeout = null;
+  const syncing = [...room.players.values()].filter(
+    player => !player.disconnected && player.stateSynced === false
+  );
+  if (syncing.length > 0) {
+    room.world.unpauseCountdown = null;
+    room.world.unpauseCountdownSec = null;
+    room.world.reconnectState = {
+      paused: true,
+      syncing: true,
+      syncingIds: syncing.map(player => player.id),
+      playerName: syncing[0].name,
+      role: syncing[0].role
+    };
+    return;
+  }
+
   if (room.world.manualPaused || room.world.upgradePaused) {
     room.world.reconnectState = null;
     return;
@@ -191,6 +207,7 @@ function refreshReconnectState(room, startCountdown = true) {
 function markPlayerDisconnected(room, player, socket) {
   if (!room?.world || !player || player.socketId !== socket.id || player.disconnected) return false;
   player.disconnected = true;
+  player.stateSynced = false;
   player.disconnectTime = Date.now();
   player.disconnectExpiresAt = player.disconnectTime + 120000;
   player.input = sanitizeInput({});
@@ -217,6 +234,7 @@ function markPlayerDisconnected(room, player, socket) {
 }
 
 function handlePlayerReconnect(room, matchedPlayer, socket, acknowledge) {
+  matchedPlayer.stateSynced = false;
   bindPlayerSocket(room, matchedPlayer, socket);
   ensureServerMagazine(room.world, room.world.players.get(matchedPlayer.id));
 
@@ -409,15 +427,21 @@ function handlePlayerDisconnectDuringMatch(socket, room) {
   }
 }
 
-function leaveRoom(socket, reason = "Игрок вышел") {
+function leaveRoom(socket, reason = "Игрок вышел", options = {}) {
   const room = getRoomForSocket(socket);
 
   if (!room) {
     return;
   }
 
-  // Если матч уже идёт и мир активен — НЕ разрушаем игру, а даём 120 секунд на реконнект!
+  // Transport loss keeps the slot for reconnect. An explicit room:leave is
+  // final: the client deletes its token, so keeping a ghost slot would leave
+  // the teammate waiting for somebody who can no longer return.
   if (room.started && room.world) {
+    if (options.permanent) {
+      closeRoom(room, reason);
+      return;
+    }
     handlePlayerDisconnectDuringMatch(socket, room);
     return;
   }
@@ -485,6 +509,10 @@ const COOP_SIMULATION_RATE = 60;
  * снижает задержку буферизации снапшотов с 33мс до 16.6мс.
  */
 const COOP_SNAPSHOT_RATE = 60;
+// Reliable safety net for state that may have first appeared in a dropped
+// volatile snapshot. At ten seconds the extra traffic stays negligible while
+// unknown entities and missed stat/upgrade changes cannot remain stale.
+const COOP_FULL_SNAPSHOT_INTERVAL = 10;
 
 const COOP_INPUT_TIMEOUT = 1200;
 
@@ -4982,12 +5010,7 @@ function finishServerUpgradeRound(room) {
   }
 
   world.upgradePaused = false;
-  const missing = [...room.players.values()].filter(p => p.disconnected);
-  if (missing.length === 0 && !world.manualPaused) {
-    world.unpauseCountdown = 3.0;
-    world.unpauseCountdownSec = 3;
-    world.reconnectState = { unfreezing: true, countdown: 3, countdownSec: 3 };
-  }
+  refreshReconnectState(room, true);
 }
 
 function addServerExperience(
@@ -5564,6 +5587,18 @@ function createServerCoopSnapshot(room, options) {
   };
 }
 
+function advanceFullSnapshotClock(world, dt) {
+  world.fullSnapshotAccumulator =
+    (world.fullSnapshotAccumulator || 0) + Math.max(0, dt || 0);
+
+  if (world.fullSnapshotAccumulator < COOP_FULL_SNAPSHOT_INTERVAL) {
+    return false;
+  }
+
+  world.fullSnapshotAccumulator %= COOP_FULL_SNAPSHOT_INTERVAL;
+  return true;
+}
+
 function sendAcknowledgement(
   acknowledge,
   payload
@@ -5619,7 +5654,7 @@ io.on("connection", socket => {
     "room:create",
     (payload, acknowledge) => {
       try {
-        leaveRoom(socket);
+        leaveRoom(socket, "Игрок перешёл в другую комнату", { permanent: true });
 
         const code = generateRoomCode();
         const name = sanitizeName(payload?.name);
@@ -5735,7 +5770,7 @@ io.on("connection", socket => {
         return;
       }
 
-      leaveRoom(socket);
+      leaveRoom(socket, "Игрок перешёл в другую комнату", { permanent: true });
 
       const name = sanitizeName(payload?.name);
       const bulletSkin = sanitizeSkin(payload?.bulletSkin);
@@ -5778,7 +5813,7 @@ io.on("connection", socket => {
   socket.on(
     "room:leave",
     (payload, acknowledge) => {
-      leaveRoom(socket);
+      leaveRoom(socket, "Игрок окончательно вышел из забега", { permanent: true });
   
       if (typeof acknowledge === "function") {
         acknowledge({
@@ -6040,7 +6075,14 @@ io.on("connection", socket => {
   socket.on("net:sync-ack", () => {
     const room = getRoomForSocket(socket);
     const player = getRoomPlayer(socket, room);
-    if (player) player.stateSynced = true;
+    if (!room?.world || !player || player.disconnected || player.socketId !== socket.id) {
+      return;
+    }
+    if (player.stateSynced !== false) return;
+    player.stateSynced = true;
+    refreshReconnectState(room, true);
+    io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+    emitRoomState(room);
   });
 
   socket.on("net:request-upgrade-offers", () => {
@@ -6086,15 +6128,7 @@ io.on("connection", socket => {
     if (room.world.manualPaused) {
       // Unpausing: trigger 3-second countdown if not blocked by missing players or upgrades
       room.world.manualPaused = false;
-      const missing = [...room.players.values()].filter(p => p.disconnected);
-      if (missing.length === 0 && !room.world.upgradePaused) {
-        room.world.unpauseCountdown = 3.0;
-        room.world.unpauseCountdownSec = 3;
-        room.world.reconnectState = { unfreezing: true, countdown: 3, countdownSec: 3 };
-      } else {
-        room.world.unpauseCountdown = null;
-        room.world.unpauseCountdownSec = null;
-      }
+      refreshReconnectState(room, true);
     } else {
       // Pausing
       room.world.manualPaused = true;
@@ -6665,13 +6699,21 @@ function runCoopSimulationTick() {
             0.1
           );
 
-          const snapshot = createServerCoopSnapshot(room);
-          io.to(room.code)
-            .volatile
-            .emit(
-              "net:snapshot",
-              snapshot
-            );
+          const sendFullSnapshot = advanceFullSnapshotClock(
+            room.world,
+            dt
+          );
+          const snapshot = createServerCoopSnapshot(
+            room,
+            sendFullSnapshot ? { full: true } : undefined
+          );
+          const target = io.to(room.code);
+          if (sendFullSnapshot) {
+            // Full snapshots are the recovery path and must not be volatile.
+            target.emit("net:snapshot", snapshot);
+          } else {
+            target.volatile.emit("net:snapshot", snapshot);
+          }
           for (const p of room.world.players.values()) {
             p.statsDirty = false;
             p.upgradesDirty = false;
