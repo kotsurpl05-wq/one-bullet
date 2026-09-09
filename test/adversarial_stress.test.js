@@ -425,7 +425,8 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
     // Server properly allows ready toggle when world.gameOver is true:
     assert.equal(readyAck.success, true, "Ready toggle must succeed on Game Over screen");
     assert.equal(readyAck.ready, true);
-    assert.equal(room.players.get("host_deadlock").ready, true);
+    const hostPlayer = [...room.players.values()].find(player => player.socketId === host.id);
+    assert.equal(hostPlayer.ready, true);
   });
 
   await t.test("3.4 Malformed Payload Fuzzing & Injection Defense", () => {

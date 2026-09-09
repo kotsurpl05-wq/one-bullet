@@ -34,8 +34,9 @@ class OneBulletNetwork extends EventTarget {
 
   saveReconnectData(roomCode, token, playerName) {
     try {
-      const expiresAt = Date.now() + 120000;
-      const data = JSON.stringify({ roomCode, token, playerName, expiresAt, timestamp: Date.now() });
+      // The server owns the two-minute grace period, which begins at a
+      // disconnect. A healthy long-running match must not erase its token.
+      const data = JSON.stringify({ roomCode, token, playerName, timestamp: Date.now() });
       sessionStorage.setItem("one_bullet_reconnect_v1", data);
       localStorage.setItem("one_bullet_reconnect_v1", data);
     } catch {}
@@ -47,10 +48,6 @@ class OneBulletNetwork extends EventTarget {
       if (!raw) return null;
       const data = JSON.parse(raw);
       if (!data || !data.roomCode || !data.token) return null;
-      if (data.expiresAt && data.expiresAt < Date.now()) {
-        this.clearReconnectData();
-        return null;
-      }
       return data;
     } catch {
       return null;
@@ -148,6 +145,10 @@ class OneBulletNetwork extends EventTarget {
     const handleUpgradeApplied = (payload) => this.emit("upgrade-applied", payload);
     this.socket.on("net:upgrade-applied", handleUpgradeApplied);
     this.socket.on("coop:upgrade-applied", handleUpgradeApplied);
+
+    const handleUpgradeWaiting = (payload) => this.emit("upgrade-waiting", payload);
+    this.socket.on("net:upgrade-waiting", handleUpgradeWaiting);
+    this.socket.on("coop:upgrade-waiting", handleUpgradeWaiting);
 
     const handleGameEvent = (payload) => this.emit("game-event", payload);
     this.socket.on("net:game-event", handleGameEvent);
@@ -478,6 +479,33 @@ class OneBulletNetwork extends EventTarget {
 
   rerollUpgrades(offerId) {
     return this.sendReroll(offerId);
+  }
+
+  requestUpgradeOffers() {
+    if (!this.isMultiplayer || this.socket?.connected === false) return;
+    const now = Date.now();
+    if (now - (this._lastUpgradeOffersRequestAt || 0) < 1000) return;
+    this._lastUpgradeOffersRequestAt = now;
+    try {
+      this.socket.emit("net:request-upgrade-offers");
+    } catch {}
+  }
+
+  requestFullSnapshot() {
+    if (!this.isMultiplayer || this.socket?.connected === false) return;
+    const now = Date.now();
+    if (now - (this._lastFullSnapshotRequestAt || 0) < 1000) return;
+    this._lastFullSnapshotRequestAt = now;
+    try {
+      this.socket.emit("net:request-full-snapshot");
+    } catch {}
+  }
+
+  sendSyncAck() {
+    if (!this.isMultiplayer || this.socket?.connected === false) return;
+    try {
+      this.socket.emit("net:sync-ack");
+    } catch {}
   }
 }
 

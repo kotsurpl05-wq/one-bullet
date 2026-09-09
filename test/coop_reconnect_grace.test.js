@@ -101,14 +101,14 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
     assert.ok(reconnectAck, "Must receive reconnect acknowledgement");
     assert.equal(reconnectAck.success, true, "Reconnect must succeed");
     assert.equal(reconnectAck.role, "guest");
-    assert.equal(reconnectAck.playerId, newGuestSocket.id);
+    assert.equal(reconnectAck.playerId, guestAck.playerId, "Stable player ID must survive reconnect");
 
     // World must enter unfreezing countdown or be unpaused
     assert.ok(room.world.reconnectState?.unfreezing || room.world.reconnectState === null, "reconnectState must enter unfreezing countdown");
     assert.equal(room.reconnectTimeout, null, "reconnectTimeout must be cleared");
 
-    // Player ID in world must be updated to new socket ID
-    assert.ok(room.world.players.has(newGuestSocket.id), "World player mapping must be updated");
+    assert.ok(room.world.players.has(guestAck.playerId), "World player keeps its stable ID");
+    assert.equal(room.players.get(guestAck.playerId).socketId, newGuestSocket.id, "Transport binding must move to the new socket");
   });
 
   await t.test("4. Reconnect fails if token is invalid or room does not exist", () => {
@@ -144,5 +144,59 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
 
     assert.equal(cancelAck.success, true);
     assert.equal(ctx.rooms.has(code), false, "Room must be closed after cancelling wait");
+  });
+
+  await t.test("6. repeated reconnect preserves identity, state and rejects the old transport", () => {
+    const { guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const playerId = guestAck.playerId;
+    const worldPlayer = room.world.players.get(playerId);
+    worldPlayer.hp = 37;
+    const ownedBullet = [...room.world.bullets.values()].find(bullet => bullet.ownerId === playerId);
+
+    guestSocket.emit("disconnect");
+    const replacement = simulateSocketConnection(`replacement_${socketCounter++}`);
+    let firstAck;
+    replacement.emit("room:reconnect", { code, token: guestAck.reconnectToken }, ack => { firstAck = ack; });
+
+    assert.equal(firstAck.playerId, playerId);
+    assert.equal(room.world.players.get(playerId), worldPlayer);
+    assert.equal(worldPlayer.hp, 37);
+    assert.equal(ownedBullet.ownerId, playerId);
+    guestSocket.emit("disconnect");
+    assert.equal(room.players.get(playerId).disconnected, false, "late disconnect from old socket is ignored");
+
+    replacement.emit("disconnect");
+    const replacement2 = simulateSocketConnection(`replacement_${socketCounter++}`);
+    let secondAck;
+    replacement2.emit("room:reconnect", { code, token: guestAck.reconnectToken }, ack => { secondAck = ack; });
+    assert.equal(secondAck.playerId, playerId);
+    assert.equal(room.players.size, 2);
+    assert.equal(room.world.players.size, 2);
+  });
+
+  await t.test("7. one returning player cannot resume while the other is still missing", () => {
+    const { hostSocket, guestSocket, hostAck, guestAck, room, code } = setupActiveCoopGame();
+    hostSocket.emit("disconnect");
+    guestSocket.emit("disconnect");
+
+    const hostReplacement = simulateSocketConnection(`replacement_${socketCounter++}`);
+    hostReplacement.emit("room:reconnect", { code, token: hostAck.reconnectToken }, () => {});
+    assert.equal(room.world.reconnectState.paused, true);
+    assert.deepEqual([...room.world.reconnectState.disconnectedIds], [guestAck.playerId]);
+
+    const guestReplacement = simulateSocketConnection(`replacement_${socketCounter++}`);
+    guestReplacement.emit("room:reconnect", { code, token: guestAck.reconnectToken }, () => {});
+    assert.equal(room.world.reconnectState.unfreezing, true);
+    assert.equal(room.world.reconnectState.countdown, 3);
+  });
+
+  await t.test("8. room:join cannot claim a disconnected active slot without its token", () => {
+    const { guestSocket, room, code } = setupActiveCoopGame();
+    guestSocket.emit("disconnect");
+    const stranger = simulateSocketConnection(`stranger_${socketCounter++}`);
+    let ack;
+    stranger.emit("room:join", { code, name: "GuestBuddy" }, result => { ack = result; });
+    assert.equal(ack.success, false);
+    assert.equal(room.players.size, 2);
   });
 });

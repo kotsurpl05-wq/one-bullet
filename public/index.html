@@ -5227,20 +5227,27 @@
        * щит босса спадает, босс оглушается на 2 секунды, а блокировка урона снимается!
        */
       if ((enemy.type === "boss_drone" || enemy.type === "boss_pylon") && enemy.bossId) {
+    function removeSoloBossShield(boss) {
+      if (!boss || !boss.shieldActive) return false;
+      boss.shieldActive = false;
+      boss.stunTimer = 2.0;
+      boss.dashState = "none";
+      boss.sniperState = "none";
+      boss.spiralActive = false;
+      boss.armorRespawnCooldown = 60;
+      createRing(boss.x, boss.y, 80, "#00f2fe");
+      createParticles(boss.x, boss.y, "#00f2fe", 35, 260);
+      screenShake = Math.max(screenShake, 14);
+      return true;
+    }
+
         const remainingPylons = enemies.filter(
           e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.bossId && e.hp > 0
         );
         if (remainingPylons.length === 0) {
           const boss = enemies.find(e => e.id === enemy.bossId && e.hp > 0);
-          if (boss && boss.shieldActive) {
-            boss.shieldActive = false;
-            boss.stunTimer = 2.0;
-            boss.dashState = "none";
-            boss.sniperState = "none";
-            boss.spiralActive = false;
-            createRing(boss.x, boss.y, 80, "#00f2fe");
-            createParticles(boss.x, boss.y, "#00f2fe", 35, 260);
-            screenShake = Math.max(screenShake, 14);
+          if (boss) {
+            removeSoloBossShield(boss);
           }
         }
       }
@@ -5316,10 +5323,12 @@
     }
 
 
-    function damagePlayer(amount) {
+    function damagePlayer(amount, options) {
+      const isBeam = Boolean(options?.isBeam);
+      const hasSpecialInvuln = (player.dashTimer > 0) || (player.invulnerability > PLAYER_HIT_INVULNERABILITY);
       if (
         (typeof debug !== "undefined" && debug._godMode) ||
-        player.invulnerability > 0 ||
+        (isBeam ? hasSpecialInvuln : (player.invulnerability > 0)) ||
         (gameState !== "playing" && gameState !== "menu")
       ) {
         return false;
@@ -6244,7 +6253,7 @@
         enemy.hasEnteredArena !== false
       ) {
         enemy.targetMarked = true;
-        enemy.targetMarkTimer = 4.0;
+        enemy.targetMarkTimer = stats.markDuration || 4.0;
         enemy.targetMarkBonus = stats.markBonus || 0.40;
         enemy.markBonus = stats.markBonus || 0.40;
       }
@@ -6254,7 +6263,8 @@
        */
       if (stats.poison && enemy.hp > 0 && enemy.hasEnteredArena !== false) {
         enemy.poisonTimer = Math.max(enemy.poisonTimer || 0, stats.poisonDuration || 2.0);
-        enemy.poisonTickTimer = 1.0;
+        // Refresh duration without postponing an already scheduled tick.
+        if (!(enemy.poisonTickTimer > 0)) enemy.poisonTickTimer = 1.0;
         enemy.poisonDamage = (stats.damage || 100) * (stats.poisonDamageRatio || 0.5);
       }
 
@@ -6285,7 +6295,7 @@
       if (stunChance > 0 && Math.random() <= stunChance && enemy.hp > 0) {
         enemy.stunTimer = Math.max(
           enemy.stunTimer || 0,
-          0.3
+          stats.stunDuration || 0.4
         );
       }
       if (stats.explosionRadius > 0) {
@@ -7268,10 +7278,11 @@
             }
           }
         }
-        // Continuous damage during firing (+75% = 157.5 base)
+        // One active beam hits the player at most once, independent of frame rate.
         if (blaster.state === "firing" && player.hp > 0) {
-          if (isSoloHitByBeam(player.x, player.y, player.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
-            damagePlayer(157.5 * dt / 0.25);
+          if (!blaster.hitPlayer && isSoloHitByBeam(player.x, player.y, player.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
+            // A blocked hit remains available after dash/revive protection ends.
+            if (damagePlayer(40)) blaster.hitPlayer = true;
           }
         }
       }
@@ -8721,6 +8732,9 @@
               continue;
             }
           }
+          if (enemy.poisonTimer <= 0) {
+            enemy.poisonTickTimer = 0;
+          }
         }
 
         if (enemy.stunTimer > 0) {
@@ -8829,15 +8843,7 @@
               e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.id && e.hp > 0
             );
             if (alivePylons.length === 0) {
-              enemy.shieldActive = false;
-              enemy.stunTimer = 2.0;
-              enemy.dashState = "none";
-              enemy.sniperState = "none";
-              enemy.spiralActive = false;
-              enemy.armorRespawnCooldown = 60;
-              createRing(enemy.x, enemy.y, 80, "#00f2fe");
-              createParticles(enemy.x, enemy.y, "#00f2fe", 35, 260);
-              screenShake = Math.max(screenShake, 14);
+              removeSoloBossShield(enemy);
             }
           }
 
@@ -15429,13 +15435,12 @@ osc.stop(now + 0.05);
       }
     }
 
-    function confirmCoopUpgrade() {
-      if (coopUpgradeChoiceLocked || !coopUpgradeOfferId || coopSelectedUpgradeIndex === null || coopSelectedUpgradeIndex === undefined) {
-        return;
-      }
-      const chosenOffer = coopUpgradeOffers?.[coopSelectedUpgradeIndex];
+    function showCoopUpgradeWaitingScreen(chosenOffer) {
+      if (!coopSession.active) return;
+      hidePauseMenu();
+      hideUpgradeTooltip();
+      coopUpgradeUiActive = true;
       coopUpgradeChoiceLocked = true;
-      net.sendUpgradeChoice(coopUpgradeOfferId, coopSelectedUpgradeIndex);
 
       const localId = window.net?.playerId;
       const teammate = [...coopSession.players.values()].find(p => p.id !== localId);
@@ -15458,7 +15463,7 @@ osc.stop(now + 0.05);
               <div class="coop-waiting-card-label">✔ ВАШ ВЫБРАННЫЙ БОНУС</div>
               <div class="upgrade-card ${escapeHtml(chosenOffer.rarityKey || 'common')} preview-only">
                 <div class="upgrade-meta">
-                  <span class="upgrade-number">0${coopSelectedUpgradeIndex + 1}</span>
+                  <span class="upgrade-number">0${(coopSelectedUpgradeIndex !== null && coopSelectedUpgradeIndex !== undefined ? coopSelectedUpgradeIndex + 1 : 1)}</span>
                   ${chosenOffer.levelText ? `<span class="upgrade-level-badge">${escapeHtml(chosenOffer.levelText)}</span>` : ""}
                   <span class="rarity-label">${escapeHtml(chosenOffer.rarityLabel || 'ОБЫЧНОЕ')}</span>
                 </div>
@@ -15476,7 +15481,19 @@ osc.stop(now + 0.05);
         </div>
       `;
 
+      overlay.classList.remove("hidden");
+      overlay.setAttribute("aria-hidden", "false");
       panel.onclick = null;
+    }
+
+    function confirmCoopUpgrade() {
+      if (coopUpgradeChoiceLocked || !coopUpgradeOfferId || coopSelectedUpgradeIndex === null || coopSelectedUpgradeIndex === undefined) {
+        return;
+      }
+      const chosenOffer = coopUpgradeOffers?.[coopSelectedUpgradeIndex];
+      coopUpgradeChoiceLocked = true;
+      net.sendUpgradeChoice(coopUpgradeOfferId, coopSelectedUpgradeIndex);
+      showCoopUpgradeWaitingScreen(chosenOffer);
     }
 
     function showCoopUpgradeSelection(payload) {
@@ -15860,6 +15877,15 @@ osc.stop(now + 0.05);
         event => {
           showCoopUpgradeSelection(
             event.detail
+          );
+        }
+      );
+
+      net.addEventListener(
+        "upgrade-waiting",
+        event => {
+          showCoopUpgradeWaitingScreen(
+            coopUpgradeOffers?.[coopSelectedUpgradeIndex]
           );
         }
       );
@@ -16655,6 +16681,24 @@ osc.stop(now + 0.05);
       if (!coopSession.active) {
         return;
       }
+
+      // Volatile snapshots can arrive out of order. A new match is allowed
+      // to reset the sequence; an older packet from the current match is not.
+      if (Number.isFinite(snapshot.matchSeq) && Number.isFinite(coopSession.matchSeq) && snapshot.matchSeq < coopSession.matchSeq) {
+        return;
+      }
+      if (Number.isFinite(snapshot.matchSeq) && Number.isFinite(coopSession.matchSeq) && snapshot.matchSeq > coopSession.matchSeq) {
+        coopSession.matchSeq = snapshot.matchSeq;
+        coopSession.lastSnapshotSeq = 0;
+      }
+      if (snapshot.matchId && coopSession.matchId && snapshot.matchId !== coopSession.matchId) {
+        coopSession.matchId = snapshot.matchId;
+        coopSession.lastSnapshotSeq = 0;
+      }
+      if (snapshot.matchId && coopSession.matchId === snapshot.matchId &&
+          Number.isFinite(snapshot.snapshotSeq) && snapshot.snapshotSeq <= (coopSession.lastSnapshotSeq || 0)) {
+        return;
+      }
     
       if (
         !snapshot ||
@@ -16672,12 +16716,19 @@ osc.stop(now + 0.05);
       
         return;
       }
+
+      if (snapshot.matchId) coopSession.matchId = snapshot.matchId;
+      if (Number.isFinite(snapshot.matchSeq)) coopSession.matchSeq = snapshot.matchSeq;
+      if (Number.isFinite(snapshot.snapshotSeq)) coopSession.lastSnapshotSeq = snapshot.snapshotSeq;
     
       const wasWaiting =
         coopSession.waitingForSnapshot;
     
       coopSession.waitingForSnapshot = false;
       coopSession.snapshotRequestTimer = 0;
+      if (wasWaiting && window.net?.sendSyncAck) {
+        window.net.sendSyncAck();
+      }
     
       /*
        * Общее состояние забега.
@@ -17495,6 +17546,9 @@ osc.stop(now + 0.05);
         }
       
         if (!coopEnemy) {
+          if (!snapshotEnemy.type && window.net?.requestFullSnapshot) {
+            window.net.requestFullSnapshot();
+          }
           coopEnemy = {
             id: snapshotEnemy.id,
           
@@ -17631,6 +17685,16 @@ osc.stop(now + 0.05);
           Number.isFinite(snapshotEnemy.r)
             ? snapshotEnemy.r
             : coopEnemy.r;
+
+        if (Number.isFinite(snapshotEnemy.maxHp)) {
+          coopEnemy.maxHp = snapshotEnemy.maxHp;
+        }
+        if (snapshotEnemy.color) {
+          coopEnemy.color = snapshotEnemy.color;
+        }
+        if (snapshotEnemy.entered || snapshotEnemy.hasEnteredArena) {
+          coopEnemy.hasEnteredArena = true;
+        }
       
         const nextEnemyHp =
           Number.isFinite(snapshotEnemy.hp)
@@ -18050,6 +18114,13 @@ osc.stop(now + 0.05);
         coopUpgradeChoiceLocked = false;
         overlay.classList.add("hidden");
         panel.onclick = null;
+      } else if (
+        coopSession.upgradePaused &&
+        !coopUpgradeUiActive &&
+        !coopGameOverUiActive &&
+        window.net?.requestUpgradeOffers
+      ) {
+        window.net.requestUpgradeOffers();
       }
 
       if (coopSession.gameOver && !coopGameOverUiActive) {

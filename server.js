@@ -112,6 +112,159 @@ function generateReconnectToken() {
   return crypto.randomBytes(8).toString("hex");
 }
 
+function generatePlayerId() {
+  return crypto.randomBytes(12).toString("hex");
+}
+
+function getPlayerIdForSocket(room, socket) {
+  if (!room || !socket) return null;
+  return socket.data.playerId || room.socketToPlayer?.get(socket.id) || null;
+}
+
+function getRoomPlayer(socket, room = getRoomForSocket(socket)) {
+  const playerId = getPlayerIdForSocket(room, socket);
+  return playerId ? room?.players.get(playerId) || null : null;
+}
+
+function bindPlayerSocket(room, player, socket) {
+  if (!room || !player || !socket) return false;
+  const previousSocketId = player.socketId;
+  if (previousSocketId && previousSocketId !== socket.id) {
+    const previous = io.sockets.sockets.get(previousSocketId);
+    if (previous) {
+      previous.data.roomCode = null;
+      previous.data.role = null;
+      previous.data.playerId = null;
+      previous.leave(room.code);
+      previous.leave(player.id);
+    }
+    room.socketToPlayer?.delete(previousSocketId);
+  }
+  player.socketId = socket.id;
+  player.disconnected = false;
+  player.disconnectTime = null;
+  if (player.reconnectTimeout) {
+    clearTimeout(player.reconnectTimeout);
+    player.reconnectTimeout = null;
+  }
+  room.socketToPlayer.set(socket.id, player.id);
+  socket.data.roomCode = room.code;
+  socket.data.role = player.role;
+  socket.data.playerId = player.id;
+  socket.join(room.code);
+  socket.join(player.id);
+  return true;
+}
+
+function refreshReconnectState(room, startCountdown = true) {
+  if (!room?.world) return;
+  const missing = [...room.players.values()].filter(player => player.disconnected);
+  if (missing.length > 0) {
+    const first = missing.sort((a, b) => (a.disconnectExpiresAt || 0) - (b.disconnectExpiresAt || 0))[0];
+    room.world.reconnectState = {
+      paused: true,
+      disconnectedIds: missing.map(player => player.id),
+      disconnectedId: first.id,
+      playerName: first.name,
+      role: first.role,
+      expiresAt: first.disconnectExpiresAt
+    };
+    room.reconnectTimeout = first.reconnectTimeout || null;
+    return;
+  }
+
+  room.reconnectTimeout = null;
+  if (room.world.manualPaused || room.world.upgradePaused) {
+    room.world.reconnectState = null;
+    return;
+  }
+
+  room.world.reconnectState = startCountdown
+    ? { unfreezing: true, countdown: 3, countdownSec: 3 }
+    : null;
+  if (startCountdown) {
+    room.world.unpauseCountdown = 3.0;
+    room.world.unpauseCountdownSec = 3;
+  }
+}
+
+function markPlayerDisconnected(room, player, socket) {
+  if (!room?.world || !player || player.socketId !== socket.id || player.disconnected) return false;
+  player.disconnected = true;
+  player.disconnectTime = Date.now();
+  player.disconnectExpiresAt = player.disconnectTime + 120000;
+  player.input = sanitizeInput({});
+  const worldPlayer = room.world.players.get(player.id);
+  if (worldPlayer) {
+    worldPlayer.input = sanitizeInput({});
+    worldPlayer.lastInputAt = 0;
+  }
+  room.socketToPlayer.delete(socket.id);
+  player.reconnectTimeout = setTimeout(() => {
+    if (rooms.get(room.code) === room && player.disconnected) {
+      closeRoom(room, "Время ожидания напарника (2 мин) истекло");
+    }
+  }, 120000);
+  room.world.unpauseCountdown = null;
+  room.world.unpauseCountdownSec = null;
+  refreshReconnectState(room, false);
+  socket.leave(room.code);
+  socket.leave(player.id);
+  socket.data.roomCode = null;
+  socket.data.role = null;
+  socket.data.playerId = null;
+  return true;
+}
+
+function handlePlayerReconnect(room, matchedPlayer, socket, acknowledge) {
+  bindPlayerSocket(room, matchedPlayer, socket);
+  ensureServerMagazine(room.world, room.world.players.get(matchedPlayer.id));
+
+  matchedPlayer.disconnected = false;
+  matchedPlayer.disconnectTime = null;
+
+  socket.data.roomCode = room.code;
+  socket.data.role = matchedPlayer.role;
+  socket.join(room.code);
+
+  refreshReconnectState(room, true);
+
+  const snapshot = createServerCoopSnapshot(room, { full: true });
+
+  acknowledge?.({
+    success: true,
+    role: matchedPlayer.role,
+    playerId: matchedPlayer.id,
+    reconnectToken: matchedPlayer.reconnectToken,
+    room: getPublicRoomState(room),
+    snapshot
+  });
+
+  io.to(room.code).emit("net:snapshot", snapshot);
+  emitRoomState(room);
+
+  // Restore in-progress upgrade offers or waiting screen
+  if (room.world?.upgradeRound) {
+    const round = room.world.upgradeRound;
+    if (round.waitingPlayers.has(matchedPlayer.id)) {
+      const offers = round.offersByPlayer.get(matchedPlayer.id) || [];
+      const worldPlayer = room.world.players.get(matchedPlayer.id);
+      const rerolls = typeof worldPlayer?.rerolls === "number" ? worldPlayer.rerolls : 1;
+      socket.emit("net:upgrade-offers", {
+        offerId: round.offerId,
+        playerLevel: room.world.level,
+        pendingLevelUps: room.world.pendingLevelUps,
+        offers,
+        rerolls
+      });
+    } else {
+      socket.emit("net:upgrade-waiting", {
+        offerId: round.offerId
+      });
+    }
+  }
+}
+
 function generateRoomCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -229,13 +382,19 @@ function closeRoom(room, reason) {
   });
 
   for (const playerId of room.players.keys()) {
-    const memberSocket =
-      io.sockets.sockets.get(playerId);
+    const roomPlayer = room.players.get(playerId);
+    if (roomPlayer?.reconnectTimeout) {
+      clearTimeout(roomPlayer.reconnectTimeout);
+      roomPlayer.reconnectTimeout = null;
+    }
+    const memberSocket = io.sockets.sockets.get(room.players.get(playerId)?.socketId);
 
     if (memberSocket) {
       memberSocket.data.roomCode = null;
       memberSocket.data.role = null;
+      memberSocket.data.playerId = null;
       memberSocket.leave(room.code);
+      memberSocket.leave(playerId);
     }
   }
 
@@ -243,34 +402,8 @@ function closeRoom(room, reason) {
 }
 
 function handlePlayerDisconnectDuringMatch(socket, room) {
-  const player = room.players.get(socket.id);
-  if (player && !player.disconnected) {
-    player.disconnected = true;
-    player.disconnectTime = Date.now();
-
-    room.world.reconnectState = {
-      paused: true,
-      disconnectedId: player.id,
-      playerName: player.name,
-      role: player.role,
-      expiresAt: Date.now() + 120000
-    };
-
-    if (room.reconnectTimeout) {
-      clearTimeout(room.reconnectTimeout);
-    }
-
-    room.reconnectTimeout = setTimeout(() => {
-      if (!rooms.has(room.code)) return;
-      if (room.world && room.world.reconnectState?.paused) {
-        closeRoom(room, "Время ожидания напарника (2 мин) истекло");
-      }
-    }, 120000);
-
-    socket.leave(room.code);
-    socket.data.roomCode = null;
-    socket.data.role = null;
-
+  const player = getRoomPlayer(socket, room);
+  if (markPlayerDisconnected(room, player, socket)) {
     io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
     emitRoomState(room);
   }
@@ -289,11 +422,18 @@ function leaveRoom(socket, reason = "Игрок вышел") {
     return;
   }
 
-  const wasHost = room.hostId === socket.id;
+  const player = getRoomPlayer(socket, room);
+  const wasHost = room.hostId === player?.id;
   cancelRoomCountdown(room);
-  room.players.delete(socket.id);
+  if (player) {
+    room.players.delete(player.id);
+    room.socketToPlayer.delete(socket.id);
+  }
 
   socket.leave(room.code);
+  if (player?.id) {
+    socket.leave(player.id);
+  }
   socket.data.roomCode = null;
   socket.data.role = null;
 
@@ -312,8 +452,8 @@ function leaveRoom(socket, reason = "Игрок вышел") {
     p.ready = false;
   }
 
-  io.to(room.hostId).emit("room:peer-left", {
-    playerId: socket.id,
+  io.to(room.players.get(room.hostId)?.socketId).emit("room:peer-left", {
+    playerId: player?.id,
     reason: "Гость покинул комнату"
   });
 
@@ -635,6 +775,18 @@ function catchServerBullet(
   }
 }
 
+function isServerCombatPaused(world) {
+  if (!world) return true;
+  return Boolean(
+    world.gameOver ||
+    world.upgradePaused ||
+    world.manualPaused ||
+    world.unpauseCountdown ||
+    world.reconnectState?.paused ||
+    world.reconnectState?.unfreezing
+  );
+}
+
 function shootServerBullet(
   room,
   ownerId,
@@ -644,6 +796,10 @@ function shootServerBullet(
   clientShootY
 ) {
   if (!room?.world) {
+    return false;
+  }
+
+  if (isServerCombatPaused(room.world)) {
     return false;
   }
 
@@ -1311,7 +1467,7 @@ function updateServerBullet(
       enemy.hp > 0
     ) {
       enemy.targetMarked = true;
-      enemy.targetMarkTimer = 4.0;
+      enemy.targetMarkTimer = owner.stats.markDuration || 4.0;
       enemy.targetMarkBonus = owner.stats.markBonus || 0.40;
       enemy.markBonus = owner.stats.markBonus || 0.40;
     }
@@ -1321,7 +1477,9 @@ function updateServerBullet(
      */
     if (owner.stats?.poison && world.enemies.has(enemy.id) && enemy.hp > 0) {
       enemy.poisonTimer = Math.max(enemy.poisonTimer || 0, owner.stats.poisonDuration || 2.0);
-      enemy.poisonTickTimer = 1.0;
+      // Refresh duration without postponing an already scheduled poison tick.
+      // Sustained fire must not make periodic damage disappear forever.
+      if (!(enemy.poisonTickTimer > 0)) enemy.poisonTickTimer = 1.0;
       enemy.poisonDamage = (owner.stats.damage || 100) * (owner.stats.poisonDamageRatio || 0.5);
       enemy.poisonOwnerId = owner.id;
     }
@@ -1670,40 +1828,40 @@ function updateServerCoopWorld(
 
   /*
    * Мир полностью останавливается, пока оба
-   * игрока не выберут личные улучшения, либо идёт пауза/обратный отсчёт реконнекта.
+   * игрока не выберут личные улучшения, либо идёт ручная пауза, либо один отключён.
    */
-  if (world.upgradePaused || world.manualPaused) {
+  if (world.upgradePaused || world.manualPaused || world.reconnectState?.paused) {
     return;
   }
 
-  if (typeof world.unpauseCountdown === "number") {
-    world.unpauseCountdown -= dt;
-    world.unpauseCountdownSec = Math.max(1, Math.ceil(world.unpauseCountdown));
-    if (world.unpauseCountdown <= 0) {
+  if (typeof world.unpauseCountdown === "number" || world.reconnectState?.unfreezing) {
+    const cd = typeof world.unpauseCountdown === "number"
+      ? world.unpauseCountdown
+      : world.reconnectState.countdown;
+    const nextCd = cd - dt;
+    const sec = Math.max(1, Math.ceil(nextCd));
+    if (typeof world.unpauseCountdown === "number") {
+      world.unpauseCountdown = nextCd;
+      world.unpauseCountdownSec = sec;
+    }
+    if (world.reconnectState?.unfreezing) {
+      world.reconnectState.countdown = nextCd;
+      world.reconnectState.countdownSec = sec;
+    }
+    if (nextCd <= 0) {
       world.unpauseCountdown = null;
       world.unpauseCountdownSec = null;
+      world.reconnectState = null;
       for (const p of world.players.values()) {
         p.invulnerability = Math.max(p.invulnerability || 0, 1.5);
+        p.input = sanitizeInput({});
+        p.lastInputAt = 0;
+      }
+      for (const p of room.players.values()) {
+        p.input = sanitizeInput({});
       }
     }
     return;
-  }
-
-  if (world.reconnectState) {
-    if (world.reconnectState.paused) {
-      return;
-    }
-    if (world.reconnectState.unfreezing) {
-      world.reconnectState.countdown -= dt;
-      world.reconnectState.countdownSec = Math.max(1, Math.ceil(world.reconnectState.countdown));
-      if (world.reconnectState.countdown <= 0) {
-        world.reconnectState = null;
-        for (const p of world.players.values()) {
-          p.invulnerability = Math.max(p.invulnerability || 0, 1.5);
-        }
-      }
-      return;
-    }
   }
 
   for (
@@ -2412,6 +2570,10 @@ function createCoopWorld(room) {
   ];
 
   const world = {
+    matchId: crypto.randomBytes(8).toString("hex"),
+    matchSeq: room.matchSeq || 1,
+    snapshotSeq: 0,
+    fullSnapshotAccumulator: 0,
     difficulty:
       room.difficulty || "normal",
 
@@ -2615,14 +2777,20 @@ function getServerEnemyEntryTarget(enemy) {
 function damageServerPlayer(
   world,
   coopPlayer,
-  amount
+  amount,
+  options
 ) {
   if (
     coopPlayer._godMode ||
     !coopPlayer.alive ||
-    coopPlayer.invulnerability > 0 ||
     world.gameOver
   ) {
+    return false;
+  }
+
+  const isBeam = Boolean(options?.isBeam);
+  const hasSpecialInvuln = (coopPlayer.dashTimer > 0) || Boolean(coopPlayer.revivePrompt?.active) || (coopPlayer.invulnerability > COOP_PLAYER_INVULNERABILITY);
+  if (isBeam ? hasSpecialInvuln : (coopPlayer.invulnerability > 0)) {
     return false;
   }
 
@@ -2930,14 +3098,7 @@ function killServerEnemy(
       e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.bossId && e.hp > 0
     );
     if (remainingPylons.length === 0) {
-      const boss = world.enemies.get(enemy.bossId);
-      if (boss && boss.shieldActive) {
-        boss.shieldActive = false;
-        boss.stunTimer = 2.0;
-        boss.dashState = "none";
-        boss.sniperState = "none";
-        boss.spiralActive = false;
-      }
+      removeServerBossShield(world.enemies.get(enemy.bossId));
     }
   }
 
@@ -3493,12 +3654,21 @@ function updateServerGasterBlasters(world, dt) {
         }
       }
     }
-    // Continuous damage during firing (+75% = 157.5 base)
+    // A beam is one attack, not frame-rate dependent damage.  This state
+    // belongs to the active blaster, so it survives a reconnect of a player.
     if (blaster.state === "firing") {
+      if (!blaster.hitPlayerIds) blaster.hitPlayerIds = new Set();
       for (const p of world.players.values()) {
         if (!p.alive) continue;
-        if (isHitByBeam(p.x, p.y, p.r || 12, blaster.x, blaster.y, blaster.aimAngle)) {
-          damageServerPlayer(world, p, 157.5 * dt / 0.25);
+        if (
+          !blaster.hitPlayerIds.has(p.id) &&
+          isHitByBeam(p.x, p.y, p.r || 12, blaster.x, blaster.y, blaster.aimAngle)
+        ) {
+          // A blocked hit is deliberately not recorded: revival/dash
+          // protection may end while this same beam is still firing.
+          if (damageServerPlayer(world, p, 40, { isBeam: true, beamId: blaster.id })) {
+            blaster.hitPlayerIds.add(p.id);
+          }
         }
       }
     }
@@ -3523,6 +3693,20 @@ function updateServerDamageZones(world, dt) {
 }
 
 const SERVER_ZONE_PATTERNS = ["cluster", "line", "circle", "cross", "grid", "chase"];
+
+// Both pylon death and boss AI can observe the last pylon.  Keeping this
+// transition idempotent prevents duplicate stuns and starts the next shield
+// cycle regardless of which path observes it first.
+function removeServerBossShield(boss) {
+  if (!boss || !boss.shieldActive) return false;
+  boss.shieldActive = false;
+  boss.stunTimer = 2.0;
+  boss.dashState = "none";
+  boss.sniperState = "none";
+  boss.spiralActive = false;
+  boss.armorRespawnCooldown = 60;
+  return true;
+}
 
 function spawnServerZonePattern(world, boss, targetPlayer) {
   const px = targetPlayer.x, py = targetPlayer.y;
@@ -3853,6 +4037,9 @@ function updateServerEnemies(
           continue;
         }
       }
+      if (enemy.poisonTimer <= 0) {
+        enemy.poisonTickTimer = 0;
+      }
     }
 
     /*
@@ -3881,6 +4068,13 @@ function updateServerEnemies(
           minion.parentId = enemy.id;
           world.enemies.set(minion.id, minion);
         }
+      }
+    }
+
+    if (enemy.armorRespawnCooldown > 0) {
+      enemy.armorRespawnCooldown -= dt;
+      if (enemy.armorRespawnCooldown <= 0) {
+        enemy.shieldTriggered = false;
       }
     }
 
@@ -3963,19 +4157,7 @@ function updateServerEnemies(
           e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.id && e.hp > 0
         );
         if (alivePylons.length === 0) {
-          enemy.shieldActive = false;
-          enemy.stunTimer = 2.0;
-          enemy.dashState = "none";
-          enemy.sniperState = "none";
-          enemy.spiralActive = false;
-          enemy.armorRespawnCooldown = 60;
-        }
-      }
-
-      if (enemy.armorRespawnCooldown > 0) {
-        enemy.armorRespawnCooldown -= dt;
-        if (enemy.armorRespawnCooldown <= 0) {
-          enemy.shieldTriggered = false;
+          removeServerBossShield(enemy);
         }
       }
 
@@ -4745,7 +4927,7 @@ function startServerUpgradeRound(room) {
       player.id
     );
 
-    io.to(player.id).emit(
+    io.to(room.players.get(player.id)?.socketId || player.id).emit(
       "net:upgrade-offers",
       {
         offerId,
@@ -4795,6 +4977,12 @@ function finishServerUpgradeRound(room) {
   }
 
   world.upgradePaused = false;
+  const missing = [...room.players.values()].filter(p => p.disconnected);
+  if (missing.length === 0 && !world.manualPaused) {
+    world.unpauseCountdown = 3.0;
+    world.unpauseCountdownSec = 3;
+    world.reconnectState = { unfreezing: true, countdown: 3, countdownSec: 3 };
+  }
 }
 
 function addServerExperience(
@@ -5041,6 +5229,9 @@ function createServerCoopSnapshot(room, options) {
   return {
     type: "coop-server-v4",
     serverTime: Date.now(),
+    matchSeq: world.matchSeq || 1,
+    matchId: world.matchId,
+    snapshotSeq: (world.snapshotSeq = (world.snapshotSeq || 0) + 1),
 
     worldWidth: COOP_WORLD_WIDTH,
     worldHeight: COOP_WORLD_HEIGHT,
@@ -5196,7 +5387,7 @@ function createServerCoopSnapshot(room, options) {
        * первом снапшоте — клиент кеширует значения.
        */
       if (fullSnapshot || !enemy.staticSent) {
-        enemy.staticSent = true;
+        if (!options?.full) enemy.staticSent = true;
         serialized.type = enemy.type;
         serialized.r = enemy.r;
         serialized.maxHp = enemy.maxHp;
@@ -5430,38 +5621,41 @@ io.on("connection", socket => {
 
         const room = {
           code,
-          hostId: socket.id,
+          hostId: null,
           difficulty: "normal",
           started: false,
           createdAt: Date.now(),
           lastActivity: Date.now(),
-          players: new Map()
+          players: new Map(),
+          socketToPlayer: new Map()
         };
 
         const reconnectToken = generateReconnectToken();
 
         const bulletSkin = sanitizeSkin(payload?.bulletSkin);
         const playerSkin = sanitizePlayerSkin(payload?.playerSkin);
-        room.players.set(socket.id, {
-          id: socket.id,
+        const playerId = generatePlayerId();
+        const roomPlayer = {
+          id: playerId,
           name,
           bulletSkin,
           playerSkin,
           role: "host",
           ready: false,
-          reconnectToken
-        });
+          reconnectToken,
+          socketId: null
+        };
+        room.hostId = playerId;
+        room.players.set(playerId, roomPlayer);
 
         rooms.set(code, room);
 
-        socket.data.roomCode = code;
-        socket.data.role = "host";
-        socket.join(code);
+        bindPlayerSocket(room, roomPlayer, socket);
 
         acknowledge?.({
           success: true,
           role: "host",
-          playerId: socket.id,
+          playerId,
           reconnectToken,
           room: getPublicRoomState(room)
         });
@@ -5514,88 +5708,8 @@ io.on("connection", socket => {
           }
         }
 
-        // Если токена нет, но в комнате есть отключившийся игрок (по имени или единственный)
-        if (!matchedPlayer && (room.world.reconnectState?.paused || room.reconnectTimeout)) {
-          for (const [pId, p] of room.players.entries()) {
-            if (p.disconnected && (!name || p.name === name || room.players.size <= 2)) {
-              matchedPlayer = p;
-              oldPlayerId = pId;
-              break;
-            }
-          }
-        }
-
         if (matchedPlayer) {
-          if (room.reconnectTimeout) {
-            clearTimeout(room.reconnectTimeout);
-            room.reconnectTimeout = null;
-          }
-
-          if (oldPlayerId !== socket.id) {
-            room.players.delete(oldPlayerId);
-            matchedPlayer.id = socket.id;
-            room.players.set(socket.id, matchedPlayer);
-
-            if (room.hostId === oldPlayerId) {
-              room.hostId = socket.id;
-            }
-
-            const coopPlayer = room.world.players.get(oldPlayerId);
-            if (coopPlayer) {
-              room.world.players.delete(oldPlayerId);
-              coopPlayer.id = socket.id;
-              room.world.players.set(socket.id, coopPlayer);
-            }
-
-            for (const bullet of room.world.bullets.values()) {
-              if (bullet.ownerId === oldPlayerId) {
-                bullet.ownerId = socket.id;
-              }
-            }
-
-            ensureServerMagazine(room.world, coopPlayer);
-
-            if (room.world.upgradeRound) {
-              if (room.world.upgradeRound.waitingPlayers.has(oldPlayerId)) {
-                room.world.upgradeRound.waitingPlayers.delete(oldPlayerId);
-                room.world.upgradeRound.waitingPlayers.add(socket.id);
-              }
-              if (room.world.upgradeRound.offersByPlayer.has(oldPlayerId)) {
-                const offers = room.world.upgradeRound.offersByPlayer.get(oldPlayerId);
-                room.world.upgradeRound.offersByPlayer.delete(oldPlayerId);
-                room.world.upgradeRound.offersByPlayer.set(socket.id, offers);
-              }
-            }
-          }
-
-          matchedPlayer.disconnected = false;
-          matchedPlayer.disconnectTime = null;
-
-          socket.data.roomCode = code;
-          socket.data.role = matchedPlayer.role;
-          socket.join(code);
-
-          room.world.reconnectState = {
-            unfreezing: true,
-            countdown: 3.0,
-            countdownSec: 3,
-            playerName: matchedPlayer.name,
-            role: matchedPlayer.role
-          };
-
-          const snapshot = createServerCoopSnapshot(room, { full: true });
-
-          acknowledge?.({
-            success: true,
-            role: matchedPlayer.role,
-            playerId: socket.id,
-            reconnectToken: matchedPlayer.reconnectToken,
-            room: getPublicRoomState(room),
-            snapshot
-          });
-
-          io.to(room.code).emit("net:snapshot", snapshot);
-          emitRoomState(room);
+          handlePlayerReconnect(room, matchedPlayer, socket, acknowledge);
           return;
         }
 
@@ -5624,30 +5738,31 @@ io.on("connection", socket => {
 
       const reconnectToken = generateReconnectToken();
 
-      room.players.set(socket.id, {
-        id: socket.id,
+      const playerId = generatePlayerId();
+      const roomPlayer = {
+        id: playerId,
         name,
         role: "guest",
         ready: false,
         bulletSkin,
         playerSkin,
-        reconnectToken
-      });
+        reconnectToken,
+        socketId: null
+      };
+      room.players.set(playerId, roomPlayer);
 
-      socket.data.roomCode = code;
-      socket.data.role = "guest";
-      socket.join(code);
+      bindPlayerSocket(room, roomPlayer, socket);
 
       acknowledge?.({
         success: true,
         role: "guest",
-        playerId: socket.id,
+        playerId,
         reconnectToken,
         room: getPublicRoomState(room)
       });
 
-      io.to(room.hostId).emit("room:peer-joined", {
-        playerId: socket.id,
+      io.to(room.players.get(room.hostId)?.socketId).emit("room:peer-joined", {
+        playerId,
         name
       });
 
@@ -5680,13 +5795,13 @@ io.on("connection", socket => {
     if (!room.restartVotes) {
       room.restartVotes = new Set();
     }
-    room.restartVotes.add(socket.id);
+    room.restartVotes.add(getPlayerIdForSocket(room, socket));
 
     // Уведомляем всех о голосе
     io.to(room.code).emit("net:game-event", {
       type: "restart-vote",
-      voterId: socket.id,
-      voterName: room.players.get(socket.id)?.name || "Игрок",
+      voterId: getPlayerIdForSocket(room, socket),
+      voterName: room.players.get(getPlayerIdForSocket(room, socket))?.name || "Игрок",
       votesCount: room.restartVotes.size,
       votesNeeded: room.players.size
     });
@@ -5694,10 +5809,14 @@ io.on("connection", socket => {
     // Если все проголосовали — рестарт
     if (room.restartVotes.size >= room.players.size) {
       room.restartVotes = null;
+      room.matchSeq = (room.matchSeq || 0) + 1;
       room.world = createCoopWorld(room);
+      room.world.matchSeq = room.matchSeq;
 
       io.to(room.code).emit("room:started", {
-        difficulty: room.difficulty
+        difficulty: room.difficulty,
+        matchId: room.world.matchId,
+        matchSeq: room.matchSeq
       });
 
       io.to(room.code).emit(
@@ -5713,7 +5832,7 @@ io.on("connection", socket => {
 
   socket.on("room:return-to-lobby", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
-    if (!room || room.hostId !== socket.id) {
+    if (!room || room.hostId !== getPlayerIdForSocket(room, socket)) {
       acknowledge?.({ success: false, message: "Только хозяин может вернуть комнату в лобби" });
       return;
     }
@@ -5728,7 +5847,7 @@ io.on("connection", socket => {
 
     io.to(room.code).emit("room:returned-to-lobby", {
       room: getPublicRoomState(room),
-      returnedPlayerId: socket.id
+      returnedPlayerId: getPlayerIdForSocket(room, socket)
     });
 
     emitRoomState(room);
@@ -5743,7 +5862,7 @@ io.on("connection", socket => {
     }
     touchRoom(room);
 
-    const player = room.players.get(socket.id);
+    const player = room.players.get(getPlayerIdForSocket(room, socket));
     if (!player) {
       acknowledge?.({ success: false, message: "Игрок не найден" });
       return;
@@ -5771,7 +5890,7 @@ io.on("connection", socket => {
 
   socket.on("room:set-difficulty", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
-    if (!room || room.hostId !== socket.id) {
+    if (!room || room.hostId !== getPlayerIdForSocket(room, socket)) {
       acknowledge?.({ success: false, message: "Только хозяин может менять сложность" });
       return;
     }
@@ -5797,7 +5916,7 @@ io.on("connection", socket => {
     (payload, acknowledge) => {
       const room = getRoomForSocket(socket);
 
-      if (!room || room.hostId !== socket.id) {
+      if (!room || room.hostId !== getPlayerIdForSocket(room, socket)) {
         acknowledge?.({
           success: false,
           message: "Только хозяин может начать игру"
@@ -5861,7 +5980,7 @@ io.on("connection", socket => {
   
     const coopPlayer =
       room.world.players.get(
-        socket.id
+        getPlayerIdForSocket(room, socket)
       );
   
     if (!coopPlayer) {
@@ -5882,7 +6001,7 @@ io.on("connection", socket => {
     }
     touchRoom(room);
 
-    const coopPlayer = room.world.players.get(socket.id);
+    const coopPlayer = room.world.players.get(getPlayerIdForSocket(room, socket));
     if (!coopPlayer || !coopPlayer.revivePrompt?.active) {
       return;
     }
@@ -5913,6 +6032,46 @@ io.on("connection", socket => {
     ack?.({ timestamp, serverTime: Date.now() });
   });
 
+  socket.on("net:sync-ack", () => {
+    const room = getRoomForSocket(socket);
+    const player = getRoomPlayer(socket, room);
+    if (player) player.stateSynced = true;
+  });
+
+  socket.on("net:request-upgrade-offers", () => {
+    const room = getRoomForSocket(socket);
+    const world = room?.world;
+    const round = world?.upgradeRound;
+    if (!room || !world || !round) return;
+    const playerId = getPlayerIdForSocket(room, socket);
+    if (!playerId) return;
+    const worldPlayer = world.players.get(playerId);
+    if (round.waitingPlayers.has(playerId)) {
+      const offers = round.offersByPlayer.get(playerId) || [];
+      const rerolls = typeof worldPlayer?.rerolls === "number" ? worldPlayer.rerolls : 1;
+      socket.emit("net:upgrade-offers", {
+        offerId: round.offerId,
+        playerLevel: world.level,
+        pendingLevelUps: world.pendingLevelUps,
+        offers,
+        rerolls
+      });
+    } else {
+      socket.emit("net:upgrade-waiting", {
+        offerId: round.offerId
+      });
+    }
+  });
+
+  socket.on("net:request-full-snapshot", () => {
+    const room = getRoomForSocket(socket);
+    if (!room?.world) return;
+    const now = Date.now();
+    if (now - (socket._lastFullSnapshotRequestAt || 0) < 1000) return;
+    socket._lastFullSnapshotRequestAt = now;
+    socket.emit("net:snapshot", createServerCoopSnapshot(room, { full: true }));
+  });
+
   socket.on("net:toggle-pause", () => {
     const room = getRoomForSocket(socket);
     if (!room || !room.started || !room.world || room.world.gameOver) {
@@ -5920,15 +6079,25 @@ io.on("connection", socket => {
     }
     touchRoom(room);
     if (room.world.manualPaused) {
-      // Unpausing: trigger 3-second countdown before game continues
+      // Unpausing: trigger 3-second countdown if not blocked by missing players or upgrades
       room.world.manualPaused = false;
-      room.world.unpauseCountdown = 3.0;
-      room.world.unpauseCountdownSec = 3;
+      const missing = [...room.players.values()].filter(p => p.disconnected);
+      if (missing.length === 0 && !room.world.upgradePaused) {
+        room.world.unpauseCountdown = 3.0;
+        room.world.unpauseCountdownSec = 3;
+        room.world.reconnectState = { unfreezing: true, countdown: 3, countdownSec: 3 };
+      } else {
+        room.world.unpauseCountdown = null;
+        room.world.unpauseCountdownSec = null;
+      }
     } else {
       // Pausing
       room.world.manualPaused = true;
       room.world.unpauseCountdown = null;
       room.world.unpauseCountdownSec = null;
+      if (room.world.reconnectState?.unfreezing) {
+        room.world.reconnectState = null;
+      }
     }
   });
 
@@ -5940,7 +6109,7 @@ io.on("connection", socket => {
     touchRoom(room);
 
     const world = room.world;
-    const player = world.players.get(socket.id);
+    const player = world.players.get(getPlayerIdForSocket(room, socket));
     const action = payload?.action;
     const data = payload?.data || {};
 
@@ -5949,7 +6118,7 @@ io.on("connection", socket => {
     if (data.target === "all") {
       targetPlayers = [...world.players.values()];
     } else if (data.target === "teammate") {
-      targetPlayers = [...world.players.values()].filter(p => p.id !== socket.id);
+      targetPlayers = [...world.players.values()].filter(p => p.id !== getPlayerIdForSocket(room, socket));
       if (targetPlayers.length === 0 && player) targetPlayers = [player];
     } else if (typeof data.target === "string" && world.players.has(data.target)) {
       targetPlayers = [world.players.get(data.target)];
@@ -5959,7 +6128,7 @@ io.on("connection", socket => {
 
     switch (action) {
       case "set-wave": {
-        const targetWave = Math.max(1, parseInt(data.wave, 10) || 1);
+        const targetWave = Math.min(10000, Math.max(1, parseInt(data.wave, 10) || 1));
         world.wave = targetWave;
         world.enemies.clear();
         world.enemyProjectiles.clear();
@@ -5999,7 +6168,7 @@ io.on("connection", socket => {
       }
 
       case "set-hp": {
-        const amount = Math.max(1, parseInt(data.hp, 10) || 1);
+        const amount = Math.min(1000000, Math.max(1, parseInt(data.hp, 10) || 1));
         for (const tp of targetPlayers) {
           if (amount > tp.maxHp) tp.maxHp = amount;
           tp.hp = amount;
@@ -6048,7 +6217,7 @@ io.on("connection", socket => {
       case "give-upgrade": {
         if (data.upgradeId) {
           const power = Math.max(1, parseInt(data.power, 10) || 1);
-          const count = Math.max(1, parseInt(data.count, 10) || 1);
+          const count = Math.min(100, Math.max(1, parseInt(data.count, 10) || 1));
           for (const tp of targetPlayers) {
             for (let i = 0; i < count; i++) {
               applyServerUpgrade(world, tp, {
@@ -6070,7 +6239,7 @@ io.on("connection", socket => {
           "reactive-armor", "target-mark", "poison", "poison-damage", "poison-duration",
           "parasite", "parasite-chance", "parasite-count", "parasite-damage"
         ];
-        const power = Math.max(1, parseInt(data.power, 10) || 1);
+        const power = Math.min(100, Math.max(1, parseInt(data.power, 10) || 1));
         for (const tp of targetPlayers) {
           for (const uId of allUpgradeIds) {
             try {
@@ -6105,7 +6274,7 @@ io.on("connection", socket => {
 
       case "spawn-enemy": {
         const type = data.type || "normal";
-        const count = Math.max(1, parseInt(data.count, 10) || 1);
+        const count = Math.min(100, Math.max(1, parseInt(data.count, 10) || 1));
         for (let i = 0; i < count; i++) {
           spawnServerEnemyFromEdge(world, type);
         }
@@ -6113,22 +6282,22 @@ io.on("connection", socket => {
       }
 
       case "set-level": {
-        world.level = Math.max(1, parseInt(data.level, 10) || 1);
+        world.level = Math.min(10000, Math.max(1, parseInt(data.level, 10) || 1));
         world.experience = 0;
         world.experienceToNext = getServerExperienceRequirement(world.level);
         break;
       }
 
       case "add-level": {
-        const count = Math.max(1, parseInt(data.count, 10) || 1);
-        world.level += count;
+        const count = Math.min(1000, Math.max(1, parseInt(data.count, 10) || 1));
+        world.level = Math.min(10000, world.level + count);
         world.experience = 0;
         world.experienceToNext = getServerExperienceRequirement(world.level);
         break;
       }
 
       case "remove-level": {
-        const count = Math.max(1, parseInt(data.count, 10) || 1);
+        const count = Math.min(1000, Math.max(1, parseInt(data.count, 10) || 1));
         world.level = Math.max(1, world.level - count);
         world.experience = 0;
         world.experienceToNext = getServerExperienceRequirement(world.level);
@@ -6136,7 +6305,7 @@ io.on("connection", socket => {
       }
 
       case "add-exp": {
-        const exp = Math.max(1, parseInt(data.amount, 10) || 10);
+        const exp = Math.min(10000000, Math.max(1, parseInt(data.amount, 10) || 10));
         addServerExperience(room, exp);
         break;
       }
@@ -6152,13 +6321,13 @@ io.on("connection", socket => {
     const room = getRoomForSocket(socket);
     const skin = sanitizeSkin(payload?.bulletSkin);
     if (room) {
-      const p = room.players.get(socket.id);
+      const p = room.players.get(getPlayerIdForSocket(room, socket));
       if (p) p.bulletSkin = skin;
       if (room.world) {
-        const wp = room.world.players.get(socket.id);
+        const wp = room.world.players.get(getPlayerIdForSocket(room, socket));
         if (wp) wp.bulletSkin = skin;
         for (const b of room.world.bullets.values()) {
-          if (b.ownerId === socket.id) b.skin = skin;
+          if (b.ownerId === getPlayerIdForSocket(room, socket)) b.skin = skin;
         }
       }
     }
@@ -6168,10 +6337,10 @@ io.on("connection", socket => {
     const room = getRoomForSocket(socket);
     const skin = sanitizePlayerSkin(payload?.playerSkin);
     if (room) {
-      const p = room.players.get(socket.id);
+      const p = room.players.get(getPlayerIdForSocket(room, socket));
       if (p) p.playerSkin = skin;
       if (room.world) {
-        const wp = room.world.players.get(socket.id);
+        const wp = room.world.players.get(getPlayerIdForSocket(room, socket));
         if (wp) wp.playerSkin = skin;
       }
     }
@@ -6209,7 +6378,7 @@ io.on("connection", socket => {
 
     shootServerBullet(
       room,
-      socket.id,
+      getPlayerIdForSocket(room, socket),
       aimX,
       aimY,
       shootX,
@@ -6221,13 +6390,13 @@ io.on("connection", socket => {
     const room = getRoomForSocket(socket);
     const world = room?.world;
     const round = world?.upgradeRound;
-    if (!room || !world || !round || payload?.offerId !== round.offerId || !round.waitingPlayers.has(socket.id)) {
+    if (!room || !world || !round || payload?.offerId !== round.offerId || !round.waitingPlayers.has(getPlayerIdForSocket(room, socket))) {
       acknowledge?.({ success: false });
       return;
     }
     touchRoom(room);
 
-    const player = world.players.get(socket.id);
+    const player = world.players.get(getPlayerIdForSocket(room, socket));
     if (!player || (player.rerolls || 0) <= 0) {
       acknowledge?.({ success: false, message: "Нет доступных перебросов" });
       return;
@@ -6235,7 +6404,7 @@ io.on("connection", socket => {
 
     player.rerolls -= 1;
     const newOffers = createServerUpgradeOffers(player);
-    round.offersByPlayer.set(socket.id, newOffers);
+    round.offersByPlayer.set(getPlayerIdForSocket(room, socket), newOffers);
 
     io.to(socket.id).emit("net:upgrade-offers", {
       offerId: round.offerId,
@@ -6266,18 +6435,14 @@ io.on("connection", socket => {
         !round ||
         payload?.offerId !==
           round.offerId ||
-        !round.waitingPlayers.has(
-          socket.id
-        )
+        !round.waitingPlayers.has(getPlayerIdForSocket(room, socket))
       ) {
         return;
       }
       touchRoom(room);
 
       const offers =
-        round.offersByPlayer.get(
-          socket.id
-        );
+        round.offersByPlayer.get(getPlayerIdForSocket(room, socket));
 
       const index = Math.max(
         0,
@@ -6291,9 +6456,7 @@ io.on("connection", socket => {
         offers?.[index];
 
       const player =
-        world.players.get(
-          socket.id
-        );
+        world.players.get(getPlayerIdForSocket(room, socket));
 
       if (!offer || !player) {
         return;
@@ -6310,9 +6473,7 @@ io.on("connection", socket => {
         return;
       }
 
-      round.waitingPlayers.delete(
-        socket.id
-      );
+      round.waitingPlayers.delete(getPlayerIdForSocket(room, socket));
 
       io.to(socket.id).emit(
         "net:game-event",
@@ -6334,7 +6495,7 @@ io.on("connection", socket => {
 
     if (
       !room ||
-      room.hostId !== socket.id
+      room.hostId !== getPlayerIdForSocket(room, socket)
     ) {
       return;
     }
@@ -6380,77 +6541,7 @@ io.on("connection", socket => {
         return;
       }
 
-      if (room.reconnectTimeout) {
-        clearTimeout(room.reconnectTimeout);
-        room.reconnectTimeout = null;
-      }
-
-      if (oldPlayerId !== socket.id) {
-        room.players.delete(oldPlayerId);
-        matchedPlayer.id = socket.id;
-        room.players.set(socket.id, matchedPlayer);
-
-        if (room.hostId === oldPlayerId) {
-          room.hostId = socket.id;
-        }
-
-        const coopPlayer = room.world.players.get(oldPlayerId);
-        if (coopPlayer) {
-          room.world.players.delete(oldPlayerId);
-          coopPlayer.id = socket.id;
-          room.world.players.set(socket.id, coopPlayer);
-        }
-
-        for (const bullet of room.world.bullets.values()) {
-          if (bullet.ownerId === oldPlayerId) {
-            bullet.ownerId = socket.id;
-          }
-        }
-
-        ensureServerMagazine(room.world, coopPlayer);
-
-        if (room.world.upgradeRound) {
-          if (room.world.upgradeRound.waitingPlayers.has(oldPlayerId)) {
-            room.world.upgradeRound.waitingPlayers.delete(oldPlayerId);
-            room.world.upgradeRound.waitingPlayers.add(socket.id);
-          }
-          if (room.world.upgradeRound.offersByPlayer.has(oldPlayerId)) {
-            const offers = room.world.upgradeRound.offersByPlayer.get(oldPlayerId);
-            room.world.upgradeRound.offersByPlayer.delete(oldPlayerId);
-            room.world.upgradeRound.offersByPlayer.set(socket.id, offers);
-          }
-        }
-      }
-
-      matchedPlayer.disconnected = false;
-      matchedPlayer.disconnectTime = null;
-
-      socket.data.roomCode = code;
-      socket.data.role = matchedPlayer.role;
-      socket.join(code);
-
-      // Start smooth 3-second unfreeze countdown before resuming combat
-      room.world.reconnectState = {
-        unfreezing: true,
-        countdown: 3.0,
-        countdownSec: 3,
-        playerName: matchedPlayer.name,
-        role: matchedPlayer.role
-      };
-
-      const snapshot = createServerCoopSnapshot(room, { full: true });
-
-      acknowledge?.({
-        success: true,
-        role: matchedPlayer.role,
-        playerId: socket.id,
-        reconnectToken: matchedPlayer.reconnectToken,
-        room: getPublicRoomState(room),
-        snapshot
-      });
-
-      io.to(room.code).emit("net:snapshot", snapshot);
-      emitRoomState(room);
+      handlePlayerReconnect(room, matchedPlayer, socket, acknowledge);
     } catch (err) {
       acknowledge?.({
         success: false,
@@ -6477,30 +6568,8 @@ io.on("connection", socket => {
     const room = getRoomForSocket(socket);
     if (!room || !room.started || !room.world || room.world.gameOver) return;
 
-    const player = room.players.get(socket.id);
-    if (player && !player.disconnected) {
-      player.disconnected = true;
-      player.disconnectTime = Date.now();
-
-      room.world.reconnectState = {
-        paused: true,
-        disconnectedId: player.id,
-        playerName: player.name,
-        role: player.role,
-        expiresAt: Date.now() + 120000
-      };
-
-      if (room.reconnectTimeout) {
-        clearTimeout(room.reconnectTimeout);
-      }
-
-      room.reconnectTimeout = setTimeout(() => {
-        if (!rooms.has(room.code)) return;
-        if (room.world && room.world.reconnectState?.paused) {
-          closeRoom(room, "Время ожидания напарника (2 мин) истекло");
-        }
-      }, 120000);
-
+    const player = room.players.get(getPlayerIdForSocket(room, socket));
+    if (markPlayerDisconnected(room, player, socket)) {
       io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
       emitRoomState(room);
     }
@@ -6511,34 +6580,8 @@ io.on("connection", socket => {
     if (!room) return;
 
     if (room.started && room.world) {
-      const player = room.players.get(socket.id);
-      if (player && !player.disconnected) {
-        player.disconnected = true;
-        player.disconnectTime = Date.now();
-
-        room.world.reconnectState = {
-          paused: true,
-          disconnectedId: player.id,
-          playerName: player.name,
-          role: player.role,
-          expiresAt: Date.now() + 120000
-        };
-
-        if (room.reconnectTimeout) {
-          clearTimeout(room.reconnectTimeout);
-        }
-
-        room.reconnectTimeout = setTimeout(() => {
-          if (!rooms.has(room.code)) return;
-          if (room.world && room.world.reconnectState?.paused) {
-            closeRoom(room, "Время ожидания напарника (2 мин) истекло");
-          }
-        }, 120000);
-
-        socket.leave(room.code);
-        socket.data.roomCode = null;
-        socket.data.role = null;
-
+      const player = room.players.get(getPlayerIdForSocket(room, socket));
+      if (markPlayerDisconnected(room, player, socket)) {
         io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
         emitRoomState(room);
         return;

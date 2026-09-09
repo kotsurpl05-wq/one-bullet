@@ -21,16 +21,17 @@ test("R3 Lobby & Game Lifecycle State Integrity Suite", async (t) => {
 
     assert.equal(ackResult.success, true);
     assert.equal(ackResult.role, "host");
-    assert.equal(ackResult.playerId, hostSocket.id);
+    assert.notEqual(ackResult.playerId, hostSocket.id);
 
     const room = ctx.rooms.get(ackResult.room.code);
     assert.ok(room, "Room must be registered in server rooms Map");
-    assert.equal(room.hostId, hostSocket.id);
+    assert.equal(room.hostId, ackResult.playerId);
     assert.equal(room.started, false);
     assert.equal(room.difficulty, "normal");
     assert.equal(room.players.size, 1);
 
-    const hostPlayer = room.players.get(hostSocket.id);
+    const hostPlayer = room.players.get(ackResult.playerId);
+    assert.equal(hostPlayer.socketId, hostSocket.id);
     assert.equal(hostPlayer.name, "HostMaster", "Name must be trimmed");
     assert.equal(hostPlayer.role, "host");
     assert.equal(hostPlayer.ready, false, "Host initial readiness must be false");
@@ -52,11 +53,12 @@ test("R3 Lobby & Game Lifecycle State Integrity Suite", async (t) => {
 
     assert.equal(joinAck.success, true);
     assert.equal(joinAck.role, "guest");
-    assert.equal(joinAck.playerId, guestSocket.id);
+    assert.notEqual(joinAck.playerId, guestSocket.id);
 
     const room = ctx.rooms.get(code);
     assert.equal(room.players.size, 2);
-    const guestPlayer = room.players.get(guestSocket.id);
+    const guestPlayer = room.players.get(joinAck.playerId);
+    assert.equal(guestPlayer.socketId, guestSocket.id);
     assert.equal(guestPlayer.name, "BetaGuest");
     assert.equal(guestPlayer.role, "guest");
     assert.equal(guestPlayer.ready, false);
@@ -145,7 +147,7 @@ test("R3 Lobby & Game Lifecycle State Integrity Suite", async (t) => {
 
     ctx.leaveRoom(guest1, "Guest disconnected");
     assert.equal(room1.players.size, 1);
-    assert.ok(!room1.players.has(guest1.id));
+    assert.ok(![...room1.players.values()].some(player => player.socketId === guest1.id));
     assert.ok(ctx.rooms.has(c1.room.code), "Room must still exist when guest leaves");
 
     // 5b. Host leaves
