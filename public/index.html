@@ -3238,6 +3238,13 @@
      */
     const SOLO_EXPERIENCE_MULTIPLIER = 1.35;
 
+    /*
+     * Множитель HP боссов и пилонов щита в соло: 0.5x от базового,
+     * чтобы одиночный игрок с 1 патроном мог реально победить босса
+     * (~3800 HP на волне 5 вместо 7600 HP, и 1250 HP у пилонов вместо 2500).
+     */
+    const SOLO_BOSS_HP_MULTIPLIER = 0.5;
+
     const difficultySettings = {
       easy: {
         label: "Легко",
@@ -4135,14 +4142,17 @@
 
     function createEnemy(type, x, y) {
       const base = GameShared.createEnemyBase(type, wave);
+      const isBossUnit = type === "boss" || type === "mini_boss" || type === "boss_drone" || type === "boss_pylon";
+      const hpMultiplier = isBossUnit ? SOLO_BOSS_HP_MULTIPLIER : 1.0;
+      const initialHp = Math.max(1, Math.round(base.hp * hpMultiplier));
       const result = {
         id: ++enemyId,
         x, y,
         type: base.type,
         r: base.r,
         speed: base.speed,
-        hp: base.hp,
-        maxHp: base.hp,
+        hp: initialHp,
+        maxHp: initialHp,
         color: base.color
       };
 
@@ -6953,8 +6963,9 @@
       for (let i = 0; i < corners.length; i++) {
         const drone = createEnemy("boss_drone", corners[i].x, corners[i].y);
         drone.bossId = boss.id;
-        drone.hp = 2500;
-        drone.maxHp = 2500;
+        const droneHp = Math.max(1, Math.round(2500 * SOLO_BOSS_HP_MULTIPLIER));
+        drone.hp = droneHp;
+        drone.maxHp = droneHp;
         drone.speed = 0;
         drone.r = 22;
         drone.color = "#00f2fe";
