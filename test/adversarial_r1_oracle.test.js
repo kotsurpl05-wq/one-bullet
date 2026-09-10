@@ -386,13 +386,13 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     boss.shieldActive = true;
     world.enemies.set(boss.id, boss);
 
-    // With shield active: amount = Math.max(1, Math.floor(amount * 0.2))
-    // 1. Crit damage = 10 (base 4 * 2.0) -> shielded = Math.floor(10 * 0.2) = 2
+    // With shield active: 90% protection lets only 10% of damage through.
+    // 1. Crit damage = 10 -> shielded = Math.floor(10 * 0.1) = 1
     const hpBefore1 = boss.hp;
     ctx.damageServerEnemy(world, boss.id, 10);
-    assert.equal(hpBefore1 - boss.hp, 2, "Shielded boss must take 2 damage from 10 crit damage");
+    assert.equal(hpBefore1 - boss.hp, 1, "Shielded boss must take 1 damage from 10 crit damage");
 
-    // 2. Crit damage = 2.0 (base 1 * 2.0) -> shielded = Math.max(1, Math.floor(2.0 * 0.2)) = Math.max(1, 0) = 1
+    // 2. Small hits still deal the minimum 1 damage.
     const hpBefore2 = boss.hp;
     ctx.damageServerEnemy(world, boss.id, 2.0);
     assert.equal(hpBefore2 - boss.hp, 1, "Shielded boss must take minimum 1 damage from 2.0 crit damage");

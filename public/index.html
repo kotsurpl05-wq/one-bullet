@@ -5061,6 +5061,43 @@
       );
     }
 
+    function removeSoloBossShield(boss) {
+      if (!boss || !boss.shieldActive) return false;
+      boss.shieldActive = false;
+      boss.stunTimer = 2.0;
+      boss.dashState = "none";
+      boss.sniperState = "none";
+      boss.spiralActive = false;
+      boss.armorRespawnCooldown = 60;
+      createRing(boss.x, boss.y, 80, "#00f2fe");
+      createParticles(boss.x, boss.y, "#00f2fe", 35, 260);
+      screenShake = Math.max(screenShake, 14);
+      return true;
+    }
+
+    function destroySoloBossPylons(boss) {
+      if (!boss) return 0;
+
+      let destroyed = 0;
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const pylon = enemies[i];
+        if (
+          (pylon.type === "boss_drone" || pylon.type === "boss_pylon") &&
+          pylon.bossId === boss.id
+        ) {
+          createParticles(pylon.x, pylon.y, "#00f2fe", 18, 220);
+          createRing(pylon.x, pylon.y, 36, "#00f2fe");
+          enemies.splice(i, 1);
+          destroyed += 1;
+        }
+      }
+
+      boss.shieldActive = false;
+      boss.armorRespawnCooldown = 0;
+      if (destroyed > 0) screenShake = Math.max(screenShake, 12);
+      return destroyed;
+    }
+
     function damageEnemy(indexOrEnemy, damage, critical = false, hitAngle) {
       let enemy = null;
       let index = -1;
@@ -5088,7 +5125,7 @@
       }
 
       /*
-       * Щит босса: снижает урон на 80% пока активны угловые генераторы щита.
+       * Щит босса: снижает урон на 90% пока активны угловые генераторы щита.
        * После уничтожения всех 4 генераторов щит спадает и босс получает 100% полный урон!
        */
       if (enemy.type === "boss" && enemy.turretMode) {
@@ -5096,7 +5133,7 @@
         return;
       }
       if (isBossLike(enemy) && enemy.shieldActive) {
-        damage = Math.max(1, Math.floor(damage * 0.2));
+        damage = Math.max(1, Math.floor(damage * 0.1));
         createParticles(enemy.x, enemy.y, "#00f2fe", 8, 140);
         createRing(enemy.x, enemy.y, 50, "#00f2fe");
       }
@@ -5283,25 +5320,15 @@
 
       enemies.splice(index, 1);
 
+      if (isBossOrMini) {
+        destroySoloBossPylons(enemy);
+      }
+
       /*
        * Угловые генераторы щита босса: при уничтожении последнего
        * щит босса спадает, босс оглушается на 2 секунды, а блокировка урона снимается!
        */
       if ((enemy.type === "boss_drone" || enemy.type === "boss_pylon") && enemy.bossId) {
-    function removeSoloBossShield(boss) {
-      if (!boss || !boss.shieldActive) return false;
-      boss.shieldActive = false;
-      boss.stunTimer = 2.0;
-      boss.dashState = "none";
-      boss.sniperState = "none";
-      boss.spiralActive = false;
-      boss.armorRespawnCooldown = 60;
-      createRing(boss.x, boss.y, 80, "#00f2fe");
-      createParticles(boss.x, boss.y, "#00f2fe", 35, 260);
-      screenShake = Math.max(screenShake, 14);
-      return true;
-    }
-
         const remainingPylons = enemies.filter(
           e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === enemy.bossId && e.hp > 0
         );

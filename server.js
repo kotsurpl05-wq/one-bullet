@@ -3058,6 +3058,12 @@ function killServerEnemy(
 
   world.enemies.delete(enemy.id);
 
+  // Shield pylons belong to their boss encounter and must not survive the
+  // owner as inert enemies or keep firing after the boss reward is granted.
+  if (isBossLike(enemy)) {
+    destroyServerBossPylons(world, enemy);
+  }
+
   world.kills += 1;
 
   // 5% шанс выпадения аптечки (+100 HP) только из основных мобов (не из осколков сплиттера или личинок инкубатора)
@@ -3188,7 +3194,7 @@ function damageServerEnemy(
   }
 
   if (isBossLike(enemy) && enemy.shieldActive) {
-    amount = Math.max(1, Math.floor(amount * 0.2));
+    amount = Math.max(1, Math.floor(amount * 0.1));
   }
 
   /*
@@ -3736,6 +3742,25 @@ function removeServerBossShield(boss) {
   return true;
 }
 
+function destroyServerBossPylons(world, boss) {
+  if (!world?.enemies || !boss) return 0;
+
+  let destroyed = 0;
+  for (const [id, enemy] of world.enemies) {
+    if (
+      (enemy.type === "boss_drone" || enemy.type === "boss_pylon") &&
+      enemy.bossId === boss.id
+    ) {
+      world.enemies.delete(id);
+      destroyed += 1;
+    }
+  }
+
+  boss.shieldActive = false;
+  boss.armorRespawnCooldown = 0;
+  return destroyed;
+}
+
 function spawnServerZonePattern(world, boss, targetPlayer) {
   const px = targetPlayer.x, py = targetPlayer.y;
   const vx = targetPlayer.vx || 0, vy = targetPlayer.vy || 0;
@@ -4172,7 +4197,7 @@ function updateServerEnemies(
           enemy.shootCooldown = random(2.2, 3.5);
         }
       } else {
-        damageServerEnemy(world, enemy.id, 9999);
+        world.enemies.delete(enemy.id);
       }
       continue;
     } else if (isBossLike(enemy)) {

@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { loadServerInstance } = require("./helpers/server_loader.js");
 const { createTestWorld } = require("./helpers/test_utils.js");
 
@@ -105,11 +106,24 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
       assert.equal(drone.hasEnteredArena, true);
     }
 
-    // Verify damage reduction on shielded boss: 10 damage reduced to Math.max(1, floor(10 * 0.2)) = 2
+    // Verify 90% damage reduction on shielded boss: only 10% gets through.
     const hpBefore = boss.hp;
-    ctx.damageServerEnemy(world, boss.id, 10, player);
+    ctx.damageServerEnemy(world, boss.id, 100, player);
     const damageTaken = hpBefore - boss.hp;
-    assert.equal(damageTaken, 2, "Shielded boss must take only 20% damage (2 instead of 10)");
+    assert.equal(damageTaken, 10, "Shielded boss must take only 10% damage (10 instead of 100)");
+
+    // A lethal hit through the shield removes every encounter-owned pylon
+    // immediately, without waiting for another AI update.
+    boss.hp = 5;
+    ctx.damageServerEnemy(world, boss.id, 100, player);
+    assert.equal(world.enemies.has(boss.id), false, "Boss must be removed after lethal shielded damage");
+    assert.equal(
+      [...world.enemies.values()].filter(e =>
+        (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === boss.id
+      ).length,
+      0,
+      "All pylons must self-destruct with their boss"
+    );
   });
 
   await t.test("3.1 Boss Shield Pylon HP Scaling across tiers (wave 10, 20, 30, 50) for Coop and Solo", () => {
@@ -172,6 +186,68 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
       clientHtml,
       /const isBossUnit = type === "boss" \|\| type === "mini_boss" \|\| type === "boss_drone" \|\| type === "boss_pylon";/,
       "The solo HP reduction must cover bosses, mini-bosses and shield pylons"
+    );
+    assert.match(
+      clientHtml,
+      /isBossLike\(enemy\) && enemy\.shieldActive[\s\S]{0,120}damage = Math\.max\(1, Math\.floor\(damage \* 0\.1\)\)/,
+      "Solo shield must reduce incoming boss damage by 90%"
+    );
+    assert.match(
+      clientHtml,
+      /if \(isBossOrMini\) \{\s*destroySoloBossPylons\(enemy\);\s*\}/,
+      "Solo boss death must immediately destroy its remaining pylons"
+    );
+
+    const damageStart = clientHtml.indexOf("function damageEnemy");
+    const damageEnd = clientHtml.indexOf("function registerRepairKill", damageStart);
+    const damageSource = clientHtml.slice(damageStart, damageEnd);
+    const soloBoss = {
+      id: 100,
+      type: "boss",
+      hp: 1000,
+      maxHp: 1000,
+      shieldActive: true,
+      turretMode: false,
+      x: 100,
+      y: 100,
+      color: "#fff"
+    };
+    const damageContext = vm.createContext({
+      enemies: [soloBoss],
+      stats: {},
+      isBossLike: enemy => enemy.type === "boss" || enemy.type === "mini_boss",
+      createParticles() {},
+      createRing() {},
+      addDamageNumber() {},
+      killEnemy() {},
+      soundManager: { playHit() {}, playCritHit() {} },
+      totalDamageDealt: 0,
+      Math,
+      Number
+    });
+    vm.runInContext(`${damageSource}; this.damageEnemy = damageEnemy;`, damageContext);
+    damageContext.damageEnemy(soloBoss, 100);
+    assert.equal(soloBoss.hp, 990, "Real solo damage path must let only 10% through the shield");
+
+    const destroyStart = clientHtml.indexOf("function destroySoloBossPylons");
+    const destroyEnd = clientHtml.indexOf("function damageEnemy", destroyStart);
+    const destroySource = clientHtml.slice(destroyStart, destroyEnd);
+    const pylonA = { id: 101, type: "boss_drone", bossId: soloBoss.id, x: 1, y: 1 };
+    const pylonB = { id: 102, type: "boss_pylon", bossId: soloBoss.id, x: 2, y: 2 };
+    const unrelated = { id: 103, type: "boss_drone", bossId: 999, x: 3, y: 3 };
+    const destroyContext = vm.createContext({
+      enemies: [soloBoss, pylonA, unrelated, pylonB],
+      createParticles() {},
+      createRing() {},
+      screenShake: 0,
+      Math
+    });
+    vm.runInContext(`${destroySource}; this.destroySoloBossPylons = destroySoloBossPylons;`, destroyContext);
+    assert.equal(destroyContext.destroySoloBossPylons(soloBoss), 2);
+    assert.deepEqual(
+      destroyContext.enemies.map(enemy => enemy.id),
+      [soloBoss.id, unrelated.id],
+      "Solo cleanup must remove only pylons owned by the dead boss"
     );
 
     const waveFiveBoss = ctx.createEnemyBase("boss", 5);
