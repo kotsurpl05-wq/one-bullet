@@ -3704,6 +3704,17 @@
       return Math.max(min, Math.min(max, value));
     }
 
+    function normalizeHealth(value, maxHealth = Infinity) {
+      const numericValue = Number(value);
+      const numericMax = Number(maxHealth);
+      const roundedMax = Number.isFinite(numericMax)
+        ? Math.max(0, Math.round(numericMax))
+        : Infinity;
+
+      if (!Number.isFinite(numericValue)) return 0;
+      return Math.min(roundedMax, Math.max(0, Math.round(numericValue)));
+    }
+
     function random(min, max) {
       return min + Math.random() * (max - min);
     }
@@ -4356,14 +4367,11 @@
       experienceFill.style.width =
         `${clamp(experienceRatio, 0, 1) * 100}%`;
 
-      const hp = Math.max(
-        0,
-        Number(localPlayer?.hp) || 0
-      );
+      const hp = normalizeHealth(localPlayer?.hp, localPlayer?.maxHp);
 
       const maxHp = Math.max(
         1,
-        Number(localPlayer?.maxHp) || 1
+        normalizeHealth(localPlayer?.maxHp) || 1
       );
 
       const isAlive = localPlayer ? (localPlayer.alive !== false && hp > 0) : hp > 0;
@@ -4451,8 +4459,8 @@
         }
 
         if (coopTeammateHp) {
-          const tHp = Math.max(0, Number(teammate.hp) || 0);
-          const tMaxHp = Math.max(1, Number(teammate.maxHp) || 1);
+          const tHp = normalizeHealth(teammate.hp, teammate.maxHp);
+          const tMaxHp = Math.max(1, normalizeHealth(teammate.maxHp) || 1);
           const tAlive = teammate.alive !== false && tHp > 0;
 
           if (tAlive) {
@@ -5397,9 +5405,9 @@
       }
     
       soundManager.playPlayerHurt();
-      player.hp = Math.max(
-        0,
-        player.hp - actualDamage
+      player.hp = normalizeHealth(
+        player.hp - actualDamage,
+        player.maxHp
       );
     
       player.invulnerability =
@@ -21222,11 +21230,12 @@ osc.stop(now + 0.05);
       waveValue.textContent = wave;
       killsValue.textContent = kills;
       scoreValue.textContent = score;
-      const currentHp = Math.max(0, player.hp);
+      const currentHp = normalizeHealth(player.hp, player.maxHp);
+      const currentMaxHp = Math.max(1, normalizeHealth(player.maxHp) || 1);
       if (currentHp > 0 && gameState !== "gameover") {
-        healthValue.textContent = `❤️ ${currentHp} / ${player.maxHp}`;
+        healthValue.textContent = `❤️ ${currentHp} / ${currentMaxHp}`;
         healthValue.style.color = currentHp <= 2 ? "#ff7992" : "#7ee7ff";
-        healthFill.style.width = `${Math.max(0, player.hp / player.maxHp) * 100}%`;
+        healthFill.style.width = `${clamp(currentHp / currentMaxHp, 0, 1) * 100}%`;
       } else {
         healthValue.textContent = "💀 ПОГИБ";
         healthValue.style.color = "#ff5577";
