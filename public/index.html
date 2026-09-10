@@ -873,6 +873,82 @@
       background: rgba(103, 255, 154, 0.06);
     }
 
+    .lobby-run-stats {
+      width: 100%;
+      max-width: 780px;
+      padding: 14px 16px 16px;
+      background: rgba(10, 18, 32, 0.82);
+      border: 1px solid rgba(126, 231, 255, 0.2);
+      border-radius: 14px;
+    }
+
+    .lobby-run-stats-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .lobby-run-stats-title {
+      color: #dffaff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .lobby-run-stats-profile {
+      color: #7ee7ff;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .lobby-run-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .lobby-run-stat {
+      min-width: 0;
+      padding: 9px 10px;
+      background: rgba(22, 34, 53, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+    }
+
+    .lobby-run-stat span,
+    .lobby-run-stat strong {
+      display: block;
+    }
+
+    .lobby-run-stat span {
+      margin-bottom: 3px;
+      overflow: hidden;
+      color: #8293aa;
+      font-size: 10px;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lobby-run-stat strong {
+      color: #eefaff;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lobby-run-stat.highlight strong {
+      color: #7ee7ff;
+    }
+
+    @media (max-width: 720px) {
+      .lobby-run-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     .upgrade-card.legendary:hover {
       border-color: var(--legendary);
       box-shadow:
@@ -15030,6 +15106,16 @@ osc.stop(now + 0.05);
       const me = players.find(p => p.id === myId);
       const isMeReady = Boolean(me?.ready);
       const isCountdownActive = typeof activeRoom.countdown === "number";
+      const roomPlayerCount = Math.max(1, Math.min(2, players.length));
+      const roomBalance = GameShared.getRoomBalance(roomPlayerCount);
+      const roomDifficultyKey = activeRoom.difficulty || difficulty || "normal";
+      const roomDifficulty = difficultySettings[roomDifficultyKey] || difficultySettings.normal;
+      const formatMultiplier = value => {
+        const rounded = Math.round(Number(value || 0) * 100) / 100;
+        return `×${String(rounded).replace(".", ",")}`;
+      };
+      const enemyCountMultiplier =
+        roomBalance.enemyCountMultiplier * roomDifficulty.enemyCount;
     
       const playerSlots = [0, 1]
         .map(index => {
@@ -15106,6 +15192,55 @@ osc.stop(now + 0.05);
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; width: 100%; max-width: 780px;">
               ${playerSlots}
             </div>
+
+            <section class="lobby-run-stats" aria-label="Параметры забега">
+              <div class="lobby-run-stats-header">
+                <div class="lobby-run-stats-title">Параметры забега</div>
+                <div class="lobby-run-stats-profile">${roomPlayerCount === 1 ? "Один игрок" : "Два игрока"} · ${escapeHtml(roomDifficulty.label)}</div>
+              </div>
+              <div class="lobby-run-stats-grid">
+                <div class="lobby-run-stat">
+                  <span>Игроки</span>
+                  <strong>${roomPlayerCount} / 2</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>Здоровье игрока</span>
+                  <strong>${roomDifficulty.playerHp}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>Количество врагов</span>
+                  <strong>${formatMultiplier(enemyCountMultiplier)}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>Скорость врагов</span>
+                  <strong>${formatMultiplier(roomDifficulty.enemySpeed)}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>HP обычных врагов</span>
+                  <strong>${formatMultiplier(roomBalance.enemyHpMultiplier)}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>HP босса</span>
+                  <strong>${formatMultiplier(roomBalance.bossHpMultiplier)}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>HP пилонов</span>
+                  <strong>${formatMultiplier(roomBalance.bossUnitHpMultiplier)}</strong>
+                </div>
+                <div class="lobby-run-stat highlight">
+                  <span>Получаемый опыт</span>
+                  <strong>${formatMultiplier(roomBalance.experienceMultiplier)}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>Предел врагов</span>
+                  <strong>${roomBalance.maxWaveEnemies}</strong>
+                </div>
+                <div class="lobby-run-stat">
+                  <span>Множитель очков</span>
+                  <strong>${formatMultiplier(roomDifficulty.scoreMultiplier)}</strong>
+                </div>
+              </div>
+            </section>
         
             ${
               isHost
