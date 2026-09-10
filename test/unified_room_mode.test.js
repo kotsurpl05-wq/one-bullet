@@ -124,6 +124,7 @@ test("Unified 1-2 player room mode", async t => {
     assert.equal(room.world.playerCount, 2);
     assert.equal(room.world.balance.enemyCountMultiplier, 2);
     assert.equal(room.world.balance.bossHpMultiplier, 1.1);
+    assert.equal(room.world.balance.experienceMultiplier, 1.7);
 
     room.world.wave = 5;
     const base = createEnemyBase("boss", room.world.wave);
@@ -141,5 +142,16 @@ test("Unified 1-2 player room mode", async t => {
     room.world.enemies.set(normal.id, normal);
     ctx.killServerEnemy(room.world, normal, room.world.players.get(created.playerId));
     assert.equal([...room.world.experienceCrystals.values()][0].value, scaleExperience(125, 2));
+
+    room.world.experienceCrystals.clear();
+    room.world.playerCount = 1;
+    const secondNormal = ctx.createServerEnemy(room.world, "normal", 320, 300, true);
+    room.world.enemies.set(secondNormal.id, secondNormal);
+    ctx.killServerEnemy(room.world, secondNormal, room.world.players.get(created.playerId));
+    assert.equal(
+      [...room.world.experienceCrystals.values()][0].value,
+      213,
+      "XP must use the frozen two-player room profile even if a mutable count drifts"
+    );
   });
 });

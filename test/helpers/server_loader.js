@@ -80,6 +80,7 @@ function loadServerInstance() {
   if (typeof refreshServerBulletContacts !== 'undefined') this.refreshServerBulletContacts = refreshServerBulletContacts;
   if (typeof getServerExperienceRequirement !== 'undefined') this.getServerExperienceRequirement = getServerExperienceRequirement;
   if (typeof getServerEnemyExperience !== 'undefined') this.getServerEnemyExperience = getServerEnemyExperience;
+  if (typeof scaleWorldExperience !== 'undefined') this.scaleWorldExperience = scaleWorldExperience;
   if (typeof addServerExperience !== 'undefined') this.addServerExperience = addServerExperience;
   if (typeof SERVER_UPGRADES !== 'undefined') this.SERVER_UPGRADES = SERVER_UPGRADES;
   if (typeof SERVER_UPGRADE_RARITIES !== 'undefined') this.SERVER_UPGRADE_RARITIES = SERVER_UPGRADE_RARITIES;

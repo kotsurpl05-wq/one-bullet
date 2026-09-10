@@ -14,7 +14,7 @@ const { getEnemyExperience, getContactDamage, getEnemyDamageMultiplier } = requi
 const { createPlayerStats } = require("./shared/player-stats");
 const { createEnemyBase } = require("./shared/enemy-factory");
 const { UPGRADE_DEFS, applyUpgrade, getUpgradeProgress } = require("./shared/upgrades");
-const { getRoomBalance, scaleEnemyHp, scaleEnemyCount, scaleExperience } = require("./shared/room-balance");
+const { getRoomBalance, scaleEnemyHp, scaleEnemyCount } = require("./shared/room-balance");
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -2981,6 +2981,21 @@ function createServerExperienceCrystal(
   );
 }
 
+function scaleWorldExperience(world, baseExperience) {
+  const frozenMultiplier = Number(world?.balance?.experienceMultiplier);
+  const fallbackBalance = getRoomBalance(
+    world?.playerCount || world?.players?.size || 1
+  );
+  const multiplier = Number.isFinite(frozenMultiplier)
+    ? frozenMultiplier
+    : fallbackBalance.experienceMultiplier;
+
+  return Math.max(
+    0,
+    Math.round(Number(baseExperience || 0) * multiplier)
+  );
+}
+
 function dropServerExperience(
   world,
   enemy
@@ -2990,9 +3005,9 @@ function dropServerExperience(
     return;
   }
 
-  const xp = scaleExperience(
-    getServerEnemyExperience(enemy),
-    world.playerCount || world.players?.size || 1
+  const xp = scaleWorldExperience(
+    world,
+    getServerEnemyExperience(enemy)
   );
 
   createServerExperienceCrystal(
