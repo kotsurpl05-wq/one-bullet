@@ -3269,14 +3269,15 @@
      * прогрессию улучшений ближе к уровню каждого игрока в коопе (~5-6 улучшений
      * к волне 5), избегая удвоения (так как 10 улучшений на одного были бы OP).
      */
-    const SOLO_EXPERIENCE_MULTIPLIER = 1.5;
+    const SOLO_RUN_BALANCE = GameShared.getRunBalance(1);
+    const SOLO_EXPERIENCE_MULTIPLIER = SOLO_RUN_BALANCE.experienceMultiplier;
 
     /*
      * Множитель HP боссов и пилонов щита в соло: 0.5x от базового,
      * чтобы одиночный игрок с 1 патроном мог реально победить босса
      * (~3800 HP на волне 5 вместо 7600 HP, а пилоны масштабируются: 875 HP на волне 10, 7642 HP на волне 50).
      */
-    const SOLO_BOSS_HP_MULTIPLIER = 0.5;
+    const SOLO_BOSS_HP_MULTIPLIER = SOLO_RUN_BALANCE.bossHpMultiplier;
 
     const difficultySettings = {
       easy: {
@@ -4186,9 +4187,7 @@
 
     function createEnemy(type, x, y) {
       const base = GameShared.createEnemyBase(type, wave);
-      const isBossUnit = type === "boss" || type === "mini_boss" || type === "boss_drone" || type === "boss_pylon";
-      const hpMultiplier = isBossUnit ? SOLO_BOSS_HP_MULTIPLIER : 1.0;
-      const initialHp = Math.max(1, Math.round(base.hp * hpMultiplier));
+      const initialHp = GameShared.scaleEnemyHp(base.hp, type, 1);
       const result = {
         id: ++enemyId,
         x, y,
@@ -4955,7 +4954,7 @@
     function createExperienceCrystal(
       x,
       y,
-      value = Math.round(125 * SOLO_EXPERIENCE_MULTIPLIER)
+      value = GameShared.scaleExperience(125, 1)
     ) {
       const angle =
         Math.random() * Math.PI * 2;
@@ -5050,8 +5049,9 @@
         return;
       }
 
-      const xp = Math.round(
-        getEnemyExperienceAmount(enemy) * SOLO_EXPERIENCE_MULTIPLIER
+      const xp = GameShared.scaleExperience(
+        getEnemyExperienceAmount(enemy),
+        1
       );
 
       createExperienceCrystal(
@@ -7031,7 +7031,7 @@
       const bossTier = boss?.bossTier || Math.max(2, Math.floor((wave || 10) / 5));
       const effectiveWave = Math.max(wave || 0, bossTier * 5);
       const base = GameShared.createEnemyBase("boss_drone", effectiveWave);
-      const droneHp = Math.max(1, Math.round(base.hp * SOLO_BOSS_HP_MULTIPLIER));
+      const droneHp = GameShared.scaleEnemyHp(base.hp, "boss_drone", 1);
 
       for (let i = 0; i < corners.length; i++) {
         const drone = createEnemy("boss_drone", corners[i].x, corners[i].y);
@@ -12016,22 +12016,12 @@ osc.stop(now + 0.05);
           </div>
 
           <div class="main-mode-grid-cyber">
-            <button type="button" class="mode-card-cyber solo-card" data-main-action="solo">
-              <div class="mode-card-icon">⚡</div>
-              <div class="mode-card-body">
-                <div class="mode-card-badge">SINGLEPLAYER</div>
-                <h3>Одиночный рейд</h3>
-                <p>Классический забег с личным рекордом, локальной паузой и тактическими апгрейдами.</p>
-              </div>
-              <div class="mode-card-arrow">→</div>
-            </button>
-
-            <button type="button" class="mode-card-cyber coop-card" data-main-action="network">
+            <button type="button" class="mode-card-cyber coop-card" data-main-action="play" style="grid-column: span 2;">
               <div class="mode-card-icon">👥</div>
               <div class="mode-card-body">
-                <div class="mode-card-badge">ONLINE CO-OP 2P</div>
-                <h3>Совместный режим</h3>
-                <p>Общий опыт, синхронный бой, комната по коду и воскрешение напарника.</p>
+                <div class="mode-card-badge">ONLINE RAID · 1–2 PLAYERS</div>
+                <h3>Начать забег</h3>
+                <p>Создайте комнату и запускайтесь сразу в одиночку либо дождитесь напарника. Баланс автоматически зависит от состава отряда.</p>
               </div>
               <div class="mode-card-arrow">→</div>
             </button>
@@ -12082,11 +12072,7 @@ osc.stop(now + 0.05);
         soundManager.playUiClick();
         const action = actionBtn.dataset.mainAction;
 
-        if (action === "solo") {
-          showSoloMenu();
-          return;
-        }
-        if (action === "network") {
+        if (action === "play" || action === "network") {
           showNetworkMenu();
           return;
         }
@@ -14861,8 +14847,8 @@ osc.stop(now + 0.05);
           <div class="cyber-modal-header" style="flex-shrink: 0;">
             <div class="cyber-modal-icon">👥</div>
             <div>
-              <h2 class="cyber-modal-title">Совместный режим // Сетевое подключение</h2>
-              <div class="cyber-modal-subtitle">Онлайн-кооператив на 2 игроков с синхронизацией в реальном времени</div>
+              <h2 class="cyber-modal-title">Комнаты // Новый забег</h2>
+              <div class="cyber-modal-subtitle">Единый серверный режим для 1–2 игроков: стартуйте сами или пригласите напарника</div>
             </div>
           </div>
 
@@ -14893,7 +14879,7 @@ osc.stop(now + 0.05);
                     <span class="guide-num">01</span>
                     <h4>👤 Позывной бойца</h4>
                   </div>
-                  <p style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">Укажите позывной, отображаемый для напарника в лобби и интерфейсе совместной битвы.</p>
+                  <p style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">Укажите позывной, отображаемый в комнате и во время забега.</p>
                   
                   <div class="network-field">
                     <input
@@ -14954,7 +14940,7 @@ osc.stop(now + 0.05);
                   🔄 Обновить
                 </button>
               </div>
-              <p style="font-size: 12px; color: #94a3b8; margin: 0;">Открытые лобби, ожидающие второго игрока. Нажмите на комнату, чтобы подключиться.</p>
+              <p style="font-size: 12px; color: #94a3b8; margin: 0;">Открытые комнаты, которые ещё не начали забег. Нажмите на комнату, чтобы подключиться.</p>
               <div id="networkRoomListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto;">
                 <div style="font-size: 12px; color: #64748b; text-align: center; padding: 10px;">Загрузка списка...</div>
               </div>
@@ -15245,7 +15231,8 @@ osc.stop(now + 0.05);
         window.net?.isHost;
     
       const roomIsReady =
-        players.length === 2;
+        players.length >= 1;
+      const isSoloLobby = players.length === 1;
 
       const myId = window.net?.playerId;
       const me = players.find(p => p.id === myId);
@@ -15260,8 +15247,8 @@ osc.stop(now + 0.05);
             return `
               <div class="solo-diff-card" style="border-style: dashed; border-color: rgba(255,255,255,0.18); background: rgba(15, 23, 42, 0.45); cursor: default; justify-content: center; min-height: 136px; padding: 18px;">
                 <div style="font-size: 26px; margin-bottom: 6px;">⏳</div>
-                <div style="font-size: 15px; font-weight: 800; color: #64748b;">Ожидание напарника…</div>
-                <div style="font-size: 11.5px; color: #475569; margin-top: 4px;">Передайте 5-значный код комнаты</div>
+                <div style="font-size: 15px; font-weight: 800; color: #64748b;">Свободное место</div>
+                <div style="font-size: 11.5px; color: #475569; margin-top: 4px;">Можно начать одному или передать код напарнику</div>
               </div>
             `;
           }
@@ -15305,8 +15292,8 @@ osc.stop(now + 0.05);
           <div class="cyber-modal-header" style="flex-shrink: 0;">
             <div class="cyber-modal-icon">👥</div>
             <div>
-              <h2 class="cyber-modal-title">Кооперативное лобби // Отряд</h2>
-              <div class="cyber-modal-subtitle">Подготовка бойцов к совместной высадке на арену</div>
+              <h2 class="cyber-modal-title">Комната забега // Отряд</h2>
+              <div class="cyber-modal-subtitle">Состав при старте определит здоровье боссов, число врагов и получаемый опыт</div>
             </div>
           </div>
 
@@ -15372,9 +15359,9 @@ osc.stop(now + 0.05);
                   : `
                     <div class="lobby-notice-box ${roomIsReady ? 'ready-prompt' : ''}">
                       ${
-                        roomIsReady
-                          ? "⚡ Оба игрока на месте. Нажмите «Я готов» для запуска отсчёта."
-                          : "⏳ Ожидание подключения напарника по коду комнаты..."
+                        isSoloLobby
+                          ? "⚡ Можно запуститься одному. Напарник ещё может войти по коду до начала отсчёта."
+                          : "⚡ Отряд собран. Подтвердите готовность для запуска отсчёта."
                       }
                     </div>
                   `
@@ -15418,7 +15405,7 @@ osc.stop(now + 0.05);
                     style="min-width: 220px; margin: 0;"
                   >
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="m8.5 12 2.5 2.5 5-5"/></svg>
-                    <span>⚡ Я готов</span>
+                    <span>${isSoloLobby ? "🚀 Начать одному" : "⚡ Я готов"}</span>
                   </button>
                 `
             }
@@ -15487,7 +15474,6 @@ osc.stop(now + 0.05);
         }
       
         if (action === "ready") {
-          if (!roomIsReady) return;
           button.disabled = true;
           button.textContent = "Отправка...";
           if (window.net?.isMultiplayer) {

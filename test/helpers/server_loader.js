@@ -66,6 +66,7 @@ function loadServerInstance() {
   if (typeof sanitizeCode !== 'undefined') this.sanitizeCode = sanitizeCode;
   if (typeof generateRoomCode !== 'undefined') this.generateRoomCode = generateRoomCode;
   if (typeof startRoomCountdown !== 'undefined') this.startRoomCountdown = startRoomCountdown;
+  if (typeof canStartRoom !== 'undefined') this.canStartRoom = canStartRoom;
   if (typeof cancelRoomCountdown !== 'undefined') this.cancelRoomCountdown = cancelRoomCountdown;
   if (typeof touchRoom !== 'undefined') this.touchRoom = touchRoom;
   if (typeof closeRoom !== 'undefined') this.closeRoom = closeRoom;
@@ -196,7 +197,8 @@ function loadServerInstance() {
     require("../../shared/enemy-xp"),
     require("../../shared/player-stats"),
     require("../../shared/enemy-factory"),
-    require("../../shared/upgrades")
+    require("../../shared/upgrades"),
+    require("../../shared/run-balance")
   ];
   for (const mod of sharedModules) {
     for (const [key, value] of Object.entries(mod)) {

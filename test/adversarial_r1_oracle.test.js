@@ -454,7 +454,10 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
       world.enemies.set(boss.id, boss);
 
       const expectedCrystalCount = 1;
-      const expectedValue = 1050 + tier * 275;
+      const expectedValue = ctx.scaleExperience(
+        1050 + tier * 275,
+        world.playerCount
+      );
       world.experienceCrystals.clear();
 
       ctx.killServerEnemy(world, boss, player1);

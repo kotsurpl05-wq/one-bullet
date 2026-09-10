@@ -14,6 +14,7 @@ const { getEnemyExperience, getContactDamage, getEnemyDamageMultiplier } = requi
 const { createPlayerStats } = require("./shared/player-stats");
 const { createEnemyBase } = require("./shared/enemy-factory");
 const { UPGRADE_DEFS, applyUpgrade, getUpgradeProgress } = require("./shared/upgrades");
+const { getRunBalance, scaleEnemyHp, scaleEnemyCount, scaleExperience } = require("./shared/run-balance");
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -340,7 +341,7 @@ function startRoomCountdown(room) {
   emitRoomState(room);
 
   room.countdownInterval = setInterval(() => {
-    if (room.players.size !== 2 || ![...room.players.values()].every(p => p.ready)) {
+    if (!canStartRoom(room)) {
       cancelRoomCountdown(room);
       return;
     }
@@ -369,6 +370,16 @@ function startRoomCountdown(room) {
       emitRoomState(room);
     }
   }, 1000);
+}
+
+function canStartRoom(room) {
+  return Boolean(
+    room &&
+    (!room.started || room.world?.gameOver) &&
+    room.players.size >= 1 &&
+    room.players.size <= 2 &&
+    [...room.players.values()].every(player => player.ready)
+  );
 }
 
 function cancelRoomCountdown(room) {
@@ -527,9 +538,12 @@ const COOP_BULLET_BOUNCES = BULLET_BOUNCES;
 const COOP_BULLET_MAX_AGE = 6;
 const COOP_BULLET_CATCH_DELAY = 0.24;
 
-const COOP_ENEMY_COUNT_MULTIPLIER = 2.0;
-const COOP_ENEMY_HP_MULTIPLIER = 1.0;
-const COOP_BOSS_HP_MULTIPLIER = 1.1;
+// Совместимые имена для существующих диагностик; сами значения принадлежат
+// общей таблице баланса, а не отдельной co-op формуле.
+const TWO_PLAYER_RUN_BALANCE = getRunBalance(2);
+const COOP_ENEMY_COUNT_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.enemyCountMultiplier;
+const COOP_ENEMY_HP_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.enemyHpMultiplier;
+const COOP_BOSS_HP_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.bossHpMultiplier;
 
 const COOP_WAVE_BREAK = 3.5;
 
@@ -547,7 +561,7 @@ const COOP_RESPAWN_INVULNERABILITY = 2.0;
 const COOP_RESURRECTION_REQUIRED_PRESSES = 3;
 const COOP_ENEMY_CONTACT_COOLDOWN = 0.85;
 
-const COOP_EXPERIENCE_MULTIPLIER = 1.7;
+const COOP_EXPERIENCE_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.experienceMultiplier;
 
 const COOP_CRYSTAL_RADIUS = CRYSTAL_RADIUS;
 const COOP_CRYSTAL_ATTRACTION_RADIUS = 180;
@@ -2051,14 +2065,10 @@ function createServerEnemy(
 ) {
   const base = createEnemyBase(type, world.wave);
 
-  const hpMultiplier =
-    (type === "boss" || type === "mini_boss")
-      ? COOP_BOSS_HP_MULTIPLIER
-      : COOP_ENEMY_HP_MULTIPLIER;
-
-  const hp = Math.max(
-    1,
-    Math.round(base.hp * hpMultiplier)
+  const hp = scaleEnemyHp(
+    base.hp,
+    type,
+    world.playerCount || world.players?.size || 1
   );
 
   // Server-only: shooter gets random preferred distance and cooldown
@@ -2293,6 +2303,14 @@ function spawnServerWave(world) {
       escortCount = 6 + Math.min(bossTier, 4);
     }
 
+    // Значения выше описывают полный отряд из двух игроков. Та же общая
+    // формула уменьшает охрану босса для одиночного запуска комнаты.
+    escortCount = scaleEnemyCount(
+      escortCount / 2,
+      world.playerCount || world.players?.size || 1,
+      12
+    );
+
     for (let i = 0; i < escortCount; i++) {
       const escortType = escortPool[i % escortPool.length];
       if (escortType === "twin") {
@@ -2310,13 +2328,10 @@ function spawnServerWave(world) {
     return;
   }
 
-  const enemyCount = Math.min(
-    Math.round(
-      (5 + world.wave * 2) *
-      difficulty.enemyCount *
-      COOP_ENEMY_COUNT_MULTIPLIER
-    ),
-    70
+  const enemyCount = scaleEnemyCount(
+    (5 + world.wave * 2) * difficulty.enemyCount,
+    world.playerCount || world.players?.size || 1,
+    world.balance?.maxWaveEnemies
   );
 
   for (
@@ -2585,17 +2600,8 @@ function createCoopWorld(room) {
     ] ||
     COOP_DIFFICULTY.normal;
 
-  const spawnPositions = [
-    {
-      x: COOP_WORLD_WIDTH / 2 - 70,
-      y: COOP_WORLD_HEIGHT / 2
-    },
-
-    {
-      x: COOP_WORLD_WIDTH / 2 + 70,
-      y: COOP_WORLD_HEIGHT / 2
-    }
-  ];
+  const playerCount = Math.max(1, Math.min(2, roomPlayers.length));
+  const balance = getRunBalance(playerCount);
 
   const world = {
     matchId: crypto.randomBytes(8).toString("hex"),
@@ -2604,6 +2610,8 @@ function createCoopWorld(room) {
     fullSnapshotAccumulator: 0,
     difficulty:
       room.difficulty || "normal",
+    playerCount,
+    balance,
 
     players: new Map(),
     bullets: new Map(),
@@ -2650,8 +2658,7 @@ function createCoopWorld(room) {
   roomPlayers.forEach(
     (roomPlayer, index) => {
       const position =
-        spawnPositions[index] ||
-        spawnPositions[0];
+        getPlayerSpawnPosition(index, roomPlayers.length);
 
       const coopPlayer = {
         id: roomPlayer.id,
@@ -2983,7 +2990,10 @@ function dropServerExperience(
     return;
   }
 
-  const xp = getServerEnemyExperience(enemy);
+  const xp = scaleExperience(
+    getServerEnemyExperience(enemy),
+    world.playerCount || world.players?.size || 1
+  );
 
   createServerExperienceCrystal(
     world,
@@ -3920,7 +3930,11 @@ function spawnServerBossDrones(world, boss) {
   const bossTier = boss?.bossTier || Math.max(2, Math.floor((world?.wave || 10) / 5));
   const effectiveWave = Math.max(world?.wave || 0, bossTier * 5);
   const base = createEnemyBase("boss_drone", effectiveWave);
-  const droneHp = base.hp;
+  const droneHp = scaleEnemyHp(
+    base.hp,
+    "boss_drone",
+    world.playerCount || world.players?.size || 1
+  );
 
   for (let i = 0; i < corners.length; i++) {
     const drone = createServerEnemy(world, "boss_drone", corners[i].x, corners[i].y, true);
@@ -5288,6 +5302,8 @@ function createServerCoopSnapshot(room, options) {
 
     worldWidth: COOP_WORLD_WIDTH,
     worldHeight: COOP_WORLD_HEIGHT,
+    playerCount: world.playerCount || world.players.size,
+    balance: world.balance || getRunBalance(world.playerCount || world.players.size),
 
     wave: world.wave,
     kills: world.kills,
@@ -5815,6 +5831,9 @@ io.on("connection", socket => {
         socketId: null
       };
       room.players.set(playerId, roomPlayer);
+      // Изменение состава во время предстартового отсчёта требует нового
+      // подтверждения готовности уже от всего фактического отряда.
+      cancelRoomCountdown(room);
 
       bindPlayerSocket(room, roomPlayer, socket);
 
@@ -5941,7 +5960,7 @@ io.on("connection", socket => {
       player.playerSkin = sanitizePlayerSkin(payload.playerSkin);
     }
 
-    if (room.players.size === 2 && [...room.players.values()].every(p => p.ready)) {
+    if (canStartRoom(room)) {
       startRoomCountdown(room);
     } else {
       cancelRoomCountdown(room);
@@ -5991,10 +6010,10 @@ io.on("connection", socket => {
       }
       touchRoom(room);
 
-      if (room.players.size !== 2) {
+      if (room.players.size < 1 || room.players.size > 2) {
         acknowledge?.({
           success: false,
-          message: "Нужно дождаться второго игрока"
+          message: "Для запуска нужен хотя бы один игрок"
         });
 
         return;

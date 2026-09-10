@@ -169,23 +169,18 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
 
     assert.match(
       clientHtml,
-      /const SOLO_EXPERIENCE_MULTIPLIER = 1\.5;/,
-      "Solo experience multiplier must remain 1.5x"
+      /const SOLO_RUN_BALANCE = GameShared\.getRunBalance\(1\);/,
+      "Legacy local simulation must consume the same shared one-player profile"
     );
     assert.match(
       clientHtml,
-      /const SOLO_BOSS_HP_MULTIPLIER = 0\.5;/,
-      "Solo boss-unit HP multiplier must remain 0.5x"
+      /GameShared\.scaleEnemyHp\(base\.hp, type, 1\)/,
+      "Enemy HP must use shared run-balance math"
     );
     assert.match(
       clientHtml,
-      /getEnemyExperienceAmount\(enemy\)\s*\*\s*SOLO_EXPERIENCE_MULTIPLIER/,
-      "Enemy crystal drops must apply the solo XP multiplier"
-    );
-    assert.match(
-      clientHtml,
-      /const isBossUnit = type === "boss" \|\| type === "mini_boss" \|\| type === "boss_drone" \|\| type === "boss_pylon";/,
-      "The solo HP reduction must cover bosses, mini-bosses and shield pylons"
+      /GameShared\.scaleExperience\([\s\S]{0,80}getEnemyExperienceAmount\(enemy\),[\s\S]{0,30}1[\s\S]{0,10}\)/,
+      "Enemy crystal drops must use shared run-balance math"
     );
     assert.match(
       clientHtml,

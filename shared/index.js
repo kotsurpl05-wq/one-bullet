@@ -8,6 +8,7 @@ const enemyXp = require("./enemy-xp");
 const playerStats = require("./player-stats");
 const enemyFactory = require("./enemy-factory");
 const upgrades = require("./upgrades");
+const runBalance = require("./run-balance");
 
 module.exports = {
   ...math,
@@ -16,5 +17,6 @@ module.exports = {
   ...enemyXp,
   ...playerStats,
   ...enemyFactory,
-  ...upgrades
+  ...upgrades,
+  ...runBalance
 };
