@@ -43,11 +43,11 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
     }
   });
 
-  await t.test("1.2 COOP_BOSS_HP_MULTIPLIER = 1.1 and Wave 30 HP >= 800 (50160)", () => {
+  await t.test("1.2 ROOM_BOSS_HP_MULTIPLIER = 1.1 and Wave 30 HP >= 800 (50160)", () => {
     const { world } = createTestWorld(ctx);
-    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.1, "COOP_BOSS_HP_MULTIPLIER must be 1.1");
+    assert.equal(ctx.ROOM_BOSS_HP_MULTIPLIER, 1.1, "ROOM_BOSS_HP_MULTIPLIER must be 1.1");
 
-    // Wave 30 -> tier 6 -> baseHp = 456*100=45600 -> coopHp = Math.round(45600 * 1.1) = 50160
+    // Wave 30 -> tier 6 -> baseHp = 456*100=45600 -> roomHp = Math.round(45600 * 1.1) = 50160
     world.wave = 30;
     const bossWave30 = ctx.createServerEnemy(world, "boss", 400, 300, true);
     assert.ok(bossWave30.hp >= 800, `Wave 30 Boss HP must be >= 800 (got ${bossWave30.hp})`);
@@ -69,19 +69,19 @@ test("M1 Rebalance & Foundation Suite (Requirement R1)", async (t) => {
 
     const { world } = createTestWorld(ctx);
     const waves = [
-      { wave: 5, tier: 1, baseHp: 7600, coopHp: 8360 },
-      { wave: 10, tier: 2, baseHp: 12000, coopHp: 13200 },
-      { wave: 15, tier: 3, baseHp: 18000, coopHp: 19800 },
-      { wave: 20, tier: 4, baseHp: 25600, coopHp: 28160 },
-      { wave: 25, tier: 5, baseHp: 34800, coopHp: 38280 },
-      { wave: 30, tier: 6, baseHp: 45600, coopHp: 50160 }
+      { wave: 5, tier: 1, baseHp: 7600, roomHp: 8360 },
+      { wave: 10, tier: 2, baseHp: 12000, roomHp: 13200 },
+      { wave: 15, tier: 3, baseHp: 18000, roomHp: 19800 },
+      { wave: 20, tier: 4, baseHp: 25600, roomHp: 28160 },
+      { wave: 25, tier: 5, baseHp: 34800, roomHp: 38280 },
+      { wave: 30, tier: 6, baseHp: 45600, roomHp: 50160 }
     ];
 
     for (const item of waves) {
       world.wave = item.wave;
       const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
       assert.equal(boss.bossTier, item.tier, `Wave ${item.wave} must have bossTier ${item.tier}`);
-      assert.equal(boss.hp, item.coopHp, `Wave ${item.wave} coop HP should be ${item.coopHp}`);
+      assert.equal(boss.hp, item.roomHp, `Wave ${item.wave} run HP should be ${item.roomHp}`);
     }
   });
 

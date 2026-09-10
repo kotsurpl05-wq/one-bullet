@@ -41,8 +41,8 @@ test("Co-op snapshot bandwidth contract", async t => {
       const { room, world } = buildSteadyStateWorld(ctx);
 
       // Первый снапшот расходует статику, второй — штатный.
-      ctx.createServerCoopSnapshot(room);
-      const steady = ctx.createServerCoopSnapshot(room);
+      ctx.createServerRoomSnapshot(room);
+      const steady = ctx.createServerRoomSnapshot(room);
 
       const enemy = steady.enemies[0];
       assert.ok(enemy, "Snapshot must contain enemies");
@@ -85,9 +85,9 @@ test("Co-op snapshot bandwidth contract", async t => {
 
     await t.test("Fields the client never reads are absent entirely", () => {
       const { room } = buildSteadyStateWorld(ctx);
-      const snapshot = ctx.createServerCoopSnapshot(room, { full: true });
+      const snapshot = ctx.createServerRoomSnapshot(room, { full: true });
 
-      // Эти поля не читаются в applyCoopSnapshot.
+      // Эти поля не читаются в applyRoomSnapshot.
       const deadFields = [
         "dashState", "dashTimer",
         "shieldActive", "phase"
@@ -105,7 +105,7 @@ test("Co-op snapshot bandwidth contract", async t => {
 
     await t.test("First snapshot of an enemy carries the static fields", () => {
       const { room } = buildSteadyStateWorld(ctx);
-      const first = ctx.createServerCoopSnapshot(room);
+      const first = ctx.createServerRoomSnapshot(room);
 
       const enemy = first.enemies[0];
       for (const staticKey of ["type", "r", "maxHp", "color"]) {
@@ -120,15 +120,15 @@ test("Co-op snapshot bandwidth contract", async t => {
       const { room } = buildSteadyStateWorld(ctx);
 
       // Статика израсходована обычной рассылкой.
-      ctx.createServerCoopSnapshot(room);
-      const delta = ctx.createServerCoopSnapshot(room);
+      ctx.createServerRoomSnapshot(room);
+      const delta = ctx.createServerRoomSnapshot(room);
       assert.ok(
         !("color" in delta.enemies[0]),
         "Delta snapshot should have dropped static fields"
       );
 
       // Переподключившийся игрок обязан получить их снова.
-      const full = ctx.createServerCoopSnapshot(room, { full: true });
+      const full = ctx.createServerRoomSnapshot(room, { full: true });
       for (const staticKey of ["type", "r", "maxHp", "color"]) {
         assert.ok(
           staticKey in full.enemies[0],
@@ -145,7 +145,7 @@ test("Co-op snapshot bandwidth contract", async t => {
       const waiting = [...world.enemies.values()].find(e => !e.hasEnteredArena);
       assert.ok(waiting, "Wave should contain enemies still outside the arena");
 
-      const snapshot = ctx.createServerCoopSnapshot(room, { full: true });
+      const snapshot = ctx.createServerRoomSnapshot(room, { full: true });
       const serialized = snapshot.enemies.find(e => e.id === waiting.id);
 
       assert.ok(serialized, "Waiting enemy must be serialized");
@@ -165,8 +165,8 @@ test("Co-op snapshot bandwidth contract", async t => {
 
     await t.test("Steady-state snapshot stays under the bandwidth budget", () => {
       const { room, world } = buildSteadyStateWorld(ctx);
-      ctx.createServerCoopSnapshot(room);
-      const steady = ctx.createServerCoopSnapshot(room);
+      ctx.createServerRoomSnapshot(room);
+      const steady = ctx.createServerRoomSnapshot(room);
 
       const size = deflatedSize(steady);
       const enemyCount = world.enemies.size;
@@ -199,17 +199,17 @@ test("Co-op snapshot bandwidth contract", async t => {
 
       // Статика должна иметь фолбэк на кешированное значение.
       assert.ok(
-        /coopEnemy\.color\s*=\s*\n?\s*snapshotEnemy\.color\s*\|\|\s*\n?\s*coopEnemy\.color/.test(html),
+        /roomEnemy\.color\s*=\s*\n?\s*snapshotEnemy\.color\s*\|\|\s*\n?\s*roomEnemy\.color/.test(html),
         "Client must fall back to the cached color when the field is omitted"
       );
       assert.ok(
-        /coopEnemy\.type\s*=\s*\n?\s*snapshotEnemy\.type\s*\|\|\s*\n?\s*coopEnemy\.type/.test(html),
+        /roomEnemy\.type\s*=\s*\n?\s*snapshotEnemy\.type\s*\|\|\s*\n?\s*roomEnemy\.type/.test(html),
         "Client must fall back to the cached type when the field is omitted"
       );
 
       // spawnEdge нельзя безусловно сбрасывать в null.
       assert.ok(
-        !/coopEnemy\.spawnEdge\s*=\s*\n?\s*snapshotEnemy\.spawnEdge\s*\|\|\s*\n?\s*null/.test(html),
+        !/roomEnemy\.spawnEdge\s*=\s*\n?\s*snapshotEnemy\.spawnEdge\s*\|\|\s*\n?\s*null/.test(html),
         "Client must not reset spawnEdge to null when the field is omitted"
       );
 

@@ -2,7 +2,7 @@
   "name": "one-bullet-coop",
   "version": "1.0.0",
   "private": true,
-  "description": "Кооперативная версия игры Один патрон",
+  "description": "Серверный арена-забег Один патрон для комнат на 1–2 игроков",
   "main": "server.js",
   "scripts": {
     "build": "esbuild shared/index.js --bundle --outfile=public/shared-bundle.js --format=iife --global-name=GameShared --sourcemap",
@@ -13,7 +13,7 @@
     "test": "node --test test/*.test.js",
     "test:full": "npm run build && npm test",
     "test:empirical": "node test/empirical_stress_runner.js",
-    "test:live": "node test/live_coop_smoke.js"
+    "test:live": "node test/live_room_smoke.js"
   },
   "dependencies": {
     "express": "^4.21.2",

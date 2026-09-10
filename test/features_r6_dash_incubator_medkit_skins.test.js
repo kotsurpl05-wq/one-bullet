@@ -131,7 +131,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(world.medkits.size, 1);
 
       // Advance server world simulation to process pickups
-      ctx.updateServerCoopWorld(room, 0.05, Date.now());
+      ctx.updateServerRoomWorld(room, 0.05, Date.now());
 
       assert.equal(world.medkits.size, 0, "Medkit must be collected and removed from world");
       assert.equal(player1.hp, 3, "Player HP must increase by +1 (from 2 to 3)");
@@ -152,17 +152,17 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
         life: 35.0
       });
 
-      ctx.updateServerCoopWorld(room, 0.05, Date.now());
+      ctx.updateServerRoomWorld(room, 0.05, Date.now());
 
       assert.equal(world.medkits.size, 1, "Medkit should NOT be collected at full health");
       assert.equal(player1.hp, 500, "Player HP remains 500");
     });
 
-    await t2.test("2.4 Medkits are serialized in createServerCoopSnapshot", () => {
+    await t2.test("2.4 Medkits are serialized in createServerRoomSnapshot", () => {
       const { room, world } = createTestWorld(ctx);
       world.medkits.set(201, { id: 201, x: 250, y: 350, r: 12, life: 30 });
 
-      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapshot = ctx.createServerRoomSnapshot(room);
       assert.ok(Array.isArray(snapshot.medkits), "Snapshot must contain medkits array");
       assert.equal(snapshot.medkits.length, 1);
       assert.equal(snapshot.medkits[0].id, 201);
@@ -218,7 +218,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes('data-skin="cosmic"'), "Settings must have cosmic skin");
     });
 
-    await t3.test("3.4 Server updateServerCoopPlayer triggers dash physics on input.dash", () => {
+    await t3.test("3.4 Server updateServerRoomPlayer triggers dash physics on input.dash", () => {
       const { world, player1 } = createTestWorld(ctx);
       player1.x = 400;
       player1.y = 300;
@@ -229,7 +229,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       player1.dashCooldown = 0;
 
       // Update server player simulation
-      ctx.updateServerCoopPlayer(world, player1, 0.1, Date.now());
+      ctx.updateServerRoomPlayer(world, player1, 0.1, Date.now());
 
       assert.equal(player1.dashCooldown, 10.0, "dashCooldown must be set to 10s on trigger");
       assert.ok(player1.dashTimer > 0, "dashTimer must be active");
@@ -237,10 +237,10 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(player1.invulnerability >= 0.15, "Invulnerability must be active during dash");
     });
 
-    await t3.test("3.5 Client drawCoopBullet and drawCoop support bullet skins and settings", () => {
-      assert.ok(indexHtml.includes("drawCoopBullet"), "drawCoopBullet must exist");
-      assert.ok(indexHtml.includes("skin === \"fire\""), "drawCoopBullet must check bullet skin");
-      assert.ok(indexHtml.includes("coop-pause"), "Settings must support coop-pause return");
+    await t3.test("3.5 Client drawRoomBullet and drawRoom support bullet skins and settings", () => {
+      assert.ok(indexHtml.includes("drawRoomBullet"), "drawRoomBullet must exist");
+      assert.ok(indexHtml.includes("skin === \"fire\""), "drawRoomBullet must check bullet skin");
+      assert.ok(indexHtml.includes("room-pause"), "Settings must support room-pause return");
     });
 
     await t3.test("3.6 Server unpause countdown pauses simulation and grants invulnerability", () => {
@@ -250,33 +250,33 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       world.unpauseCountdownSec = 3;
 
       // When countdown is active, world simulation does not tick enemies or damage
-      ctx.updateServerCoopWorld(room, 0.5, Date.now());
+      ctx.updateServerRoomWorld(room, 0.5, Date.now());
       assert.equal(world.unpauseCountdown, 2.5);
       assert.equal(world.unpauseCountdownSec, 3);
 
       // Finish countdown
-      ctx.updateServerCoopWorld(room, 2.6, Date.now());
+      ctx.updateServerRoomWorld(room, 2.6, Date.now());
       assert.equal(world.unpauseCountdown, null);
       assert.ok(player1.invulnerability >= 1.0, "Player must receive invulnerability buffer after unpausing");
     });
 
-    await t3.test("3.7 Client crosshair contains Dash Charge Ring for both solo and coop", () => {
-      assert.ok(indexHtml.includes("renderCoopUnpauseUI"), "Client must define renderCoopUnpauseUI");
+    await t3.test("3.7 Client crosshair contains Dash Charge Ring for both solo and run", () => {
+      assert.ok(indexHtml.includes("renderRoomUnpauseUI"), "Client must define renderRoomUnpauseUI");
       assert.ok(indexHtml.includes("drawCrosshair"), "Solo drawCrosshair must exist");
-      assert.ok(indexHtml.includes("drawCoopCrosshair"), "Coop drawCoopCrosshair must exist");
+      assert.ok(indexHtml.includes("drawRoomCrosshair"), "Room drawRoomCrosshair must exist");
       assert.ok(indexHtml.includes("startAngle = -Math.PI / 2"), "Crosshair must render circular charge arc");
     });
 
-    await t3.test("3.8 Server createServerCoopSnapshot serializes parasites and client defines drawCoopParasiteSpores", () => {
+    await t3.test("3.8 Server createServerRoomSnapshot serializes parasites and client defines drawRoomParasiteSpores", () => {
       const { world, room } = createTestWorld(ctx);
       world.parasites = new Map();
       world.parasites.set(101, { id: 101, x: 250, y: 350, vx: 50, vy: -50, r: 7 });
 
-      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapshot = ctx.createServerRoomSnapshot(room);
       assert.ok(Array.isArray(snapshot.parasites), "Snapshot must contain parasites array");
       assert.equal(snapshot.parasites.length, 1);
       assert.equal(snapshot.parasites[0].id, 101);
-      assert.ok(indexHtml.includes("drawCoopParasiteSpores"), "Client must define drawCoopParasiteSpores");
+      assert.ok(indexHtml.includes("drawRoomParasiteSpores"), "Client must define drawRoomParasiteSpores");
     });
 
     await t3.test("3.9 Server player updates smoothly with client-streamed input coordinates", () => {
@@ -285,7 +285,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       player1.y = 200;
       player1.input = ctx.sanitizeInput ? ctx.sanitizeInput({ x: 235.4, y: 218.2 }) : { x: 235.4, y: 218.2 };
 
-      ctx.updateServerCoopPlayer(world, player1, 0.016, Date.now());
+      ctx.updateServerRoomPlayer(world, player1, 0.016, Date.now());
       assert.equal(player1.x, 235.4, "Server player x must match streamed client coordinate without drift");
       assert.equal(player1.y, 218.2, "Server player y must match streamed client coordinate without drift");
     });
@@ -309,7 +309,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(room.started, true, "room.started remains true to allow game over snapshot delivery");
     });
 
-    await t3.test("3.11 Parasites move towards enemy in updateServerCoopWorld", () => {
+    await t3.test("3.11 Parasites move towards enemy in updateServerRoomWorld", () => {
       const { world, room, player1 } = createTestWorld(ctx);
       room.started = true;
       const enemy = ctx.createServerEnemy(world, "basic", 400, 300, true);
@@ -327,14 +327,14 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
         r: 7
       });
 
-      ctx.updateServerCoopWorld(room, 0.1, Date.now());
+      ctx.updateServerRoomWorld(room, 0.1, Date.now());
       const spore = world.parasites.get(201);
       assert.ok(spore, "Parasite spore must exist");
       assert.ok(spore.vx > 0, `Parasite vx must accelerate towards enemy (got ${spore.vx})`);
       assert.ok(spore.x > 300, `Parasite x must move towards enemy (got ${spore.x})`);
     });
 
-    await t3.test("3.12 Splinter shards spawn on bounce and update in updateServerCoopWorld", () => {
+    await t3.test("3.12 Splinter shards spawn on bounce and update in updateServerRoomWorld", () => {
       const { world, room, player1 } = createTestWorld(ctx);
       room.started = true;
       player1.stats.splinter = true;
@@ -353,10 +353,10 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       ctx.updateServerBullet(room, bullet, 0.05);
       assert.ok(world.splinters.size >= 2, `Splinter shards must spawn on bounce (got ${world.splinters.size})`);
 
-      const snap = ctx.createServerCoopSnapshot(room);
+      const snap = ctx.createServerRoomSnapshot(room);
       assert.ok(Array.isArray(snap.splinters), "Snapshot must contain splinters");
       assert.ok(snap.splinters.length >= 2, "Snapshot splinters count must match");
-      assert.ok(indexHtml.includes("drawCoopSplinters"), "Client must define drawCoopSplinters");
+      assert.ok(indexHtml.includes("drawRoomSplinters"), "Client must define drawRoomSplinters");
     });
 
     await t3.test("3.13 applyServerUpgrade applies pickup and magnet-range correctly", () => {
@@ -373,7 +373,7 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.ok(indexHtml.includes("playWaveStart()"), "SoundManager must implement playWaveStart");
     });
 
-    await t3.test("3.15 Co-op medkits are collected by wounded player, serialized, and rendered in drawCoopScene", () => {
+    await t3.test("3.15 Co-op medkits are collected by wounded player, serialized, and rendered in drawRoomScene", () => {
       const { world, room, player1 } = createTestWorld(ctx);
       room.started = true;
       player1.x = 200;
@@ -382,14 +382,14 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       player1.maxHp = 5;
 
       world.medkits.set(501, { id: 501, x: 205, y: 205, r: 12, heal: 1, life: 30 });
-      ctx.updateServerCoopWorld(room, 0.05, Date.now());
+      ctx.updateServerRoomWorld(room, 0.05, Date.now());
 
       assert.equal(player1.hp, 4, "Wounded player must gain +1 HP from medkit");
       assert.equal(world.medkits.size, 0, "Consumed medkit must be deleted");
 
-      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapshot = ctx.createServerRoomSnapshot(room);
       assert.ok(Array.isArray(snapshot.medkits), "Snapshot must contain medkits array");
-      assert.ok(indexHtml.includes("drawMedkits()"), "drawCoopScene must call drawMedkits");
+      assert.ok(indexHtml.includes("drawMedkits()"), "drawRoomScene must call drawMedkits");
     });
 
     await t3.test("3.16 Bullet shooting and dropping are clamped strictly within arena boundaries", () => {
@@ -423,17 +423,17 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
       assert.equal(bullet2.skin, "fire", "Bullet must inherit owner bulletSkin");
       world.bullets.set(bullet2.id, bullet2);
 
-      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapshot = ctx.createServerRoomSnapshot(room);
       const snapBullet = snapshot.bullets.find(b => b.id === bullet2.id);
       assert.equal(snapBullet.skin, "fire", "Snapshot bullet must serialize skin");
 
       const snapPlayer = snapshot.players.find(p => p.id === player2.id);
       assert.equal(snapPlayer.bulletSkin, "fire", "Snapshot player must serialize bulletSkin");
 
-      assert.ok(indexHtml.includes("coopBullet.skin || owner?.bulletSkin"), "drawCoopBullet must read remote skin");
+      assert.ok(indexHtml.includes("roomBullet.skin || owner?.bulletSkin"), "drawRoomBullet must read remote skin");
     });
 
-    await t3.test("3.18 createCoopWorld preserves room player bulletSkin into coopPlayer and bullet", () => {
+    await t3.test("3.18 createRoomWorld preserves room player bulletSkin into roomPlayer and bullet", () => {
       const room = {
         code: "TEST18",
         hostId: "host1",
@@ -444,12 +444,12 @@ test("R6 Major Feature Pack: Energy Dash, Incubator Swarms, 5% Medkits & Bullet 
         ])
       };
 
-      const world = ctx.createCoopWorld(room);
-      const hostCoop = world.players.get("host1");
-      const guestCoop = world.players.get("guest1");
+      const world = ctx.createRoomWorld(room);
+      const hostRoom = world.players.get("host1");
+      const guestRoom = world.players.get("guest1");
 
-      assert.equal(hostCoop.bulletSkin, "quantum", "Host coop player must have quantum skin");
-      assert.equal(guestCoop.bulletSkin, "toxic", "Guest coop player must have toxic skin");
+      assert.equal(hostRoom.bulletSkin, "quantum", "Host run player must have quantum skin");
+      assert.equal(guestRoom.bulletSkin, "toxic", "Guest run player must have toxic skin");
 
       const bullets = [...world.bullets.values()];
       const hostBullet = bullets.find(b => b.ownerId === "host1");

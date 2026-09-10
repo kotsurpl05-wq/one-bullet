@@ -119,7 +119,7 @@ console.log("\n* Adversarial Test: Player moving away at 200 px/s while reconcil
 // --- 2. INPUT TIMER BENCHMARK ---
 console.log("\n--- 2. INPUT TIMER ACCUMULATOR & DRIFT BENCHMARK ---");
 
-const COOP_INPUT_INTERVAL = 1 / 60;
+const ROOM_INPUT_INTERVAL = 1 / 60;
 
 function runTimerSim(profileName, getDt, totalSeconds) {
   let fixedSession = { inputTimer: 0 }, fixedCount = 0;
@@ -133,14 +133,14 @@ function runTimerSim(profileName, getDt, totalSeconds) {
 
     // Fixed version
     fixedSession.inputTimer += dt;
-    if (fixedSession.inputTimer >= COOP_INPUT_INTERVAL) {
-      fixedSession.inputTimer = Math.max(0, fixedSession.inputTimer - COOP_INPUT_INTERVAL);
+    if (fixedSession.inputTimer >= ROOM_INPUT_INTERVAL) {
+      fixedSession.inputTimer = Math.max(0, fixedSession.inputTimer - ROOM_INPUT_INTERVAL);
       fixedCount++;
     }
 
     // Buggy version
     buggySession.inputTimer += dt;
-    if (buggySession.inputTimer >= COOP_INPUT_INTERVAL) {
+    if (buggySession.inputTimer >= ROOM_INPUT_INTERVAL) {
       buggySession.inputTimer = 0;
       buggyCount++;
     }

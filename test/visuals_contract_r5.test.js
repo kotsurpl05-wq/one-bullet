@@ -310,8 +310,8 @@ function createClientVisualSandbox() {
     CustomEvent: function MockCustomEvent() {},
     Event: function MockEvent() {},
     structuredClone: (value) => JSON.parse(JSON.stringify(value)),
-    // public/network.js is a separate <script src>, so the coop client's
-    // transport has to be stubbed for updateCoopClient() to be drivable.
+    // public/network.js is a separate <script src>, so the run client's
+    // transport has to be stubbed for updateRoomClient() to be drivable.
     net: {
       addEventListener: noop,
       createRoom: noop,
@@ -380,12 +380,12 @@ function createClientVisualSandbox() {
   const resetCombat = (overrides = {}) => {
     evaluate(`
       gameState = "playing";
-      coopSession.active = false;
+      roomSession.active = false;
       enemies.length = 0;
       bullets.length = 0;
       particles.length = 0;
       experienceCrystals.length = 0;
-      coopParticles.length = 0;
+      roomParticles.length = 0;
       screenShake = 0;
       stats.homing = 0;
       stats.explosionRadius = 0;
@@ -462,7 +462,7 @@ const SLOW_MO_NAMES = [
 function measureSimulationDeltas(frames, { setup = "", dtMs = 16, startTime = 1000 } = {}) {
   return client.evaluate(`
     gameState = "playing";
-    coopSession.active = false;
+    roomSession.active = false;
     stats.homing = 0;
     bullets.length = 0;
     const probeBullet = {
@@ -827,19 +827,19 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
       );
     });
 
-    await t1.test("Coop trails are coloured from the bullet OWNER, not a constant", () => {
-      // Drives the real coop client with two in-flight bullets owned by
+    await t1.test("Room trails are coloured from the bullet OWNER, not a constant", () => {
+      // Drives the real run client with two in-flight bullets owned by
       // different players, then checks the trail colours the client chose.
       const result = client.evaluate(`
-        coopSession.active = true;
-        coopSession.manualPaused = false;
-        coopSession.upgradePaused = false;
-        coopSession.bullets.clear();
-        coopSession.players.clear();
-        coopParticles.length = 0;
+        roomSession.active = true;
+        roomSession.manualPaused = false;
+        roomSession.upgradePaused = false;
+        roomSession.bullets.clear();
+        roomSession.players.clear();
+        roomParticles.length = 0;
 
         for (const index of [0, 1]) {
-          coopSession.bullets.set("b" + index, {
+          roomSession.bullets.set("b" + index, {
             id: "b" + index,
             ownerId: "p" + index,
             colorIndex: index,
@@ -852,12 +852,12 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
           });
         }
 
-        for (let frame = 0; frame < 12; frame++) updateCoopClient(0.016);
+        for (let frame = 0; frame < 12; frame++) updateRoomClient(0.016);
 
-        const trails = coopParticles.filter(p => p.isTrail === true);
+        const trails = roomParticles.filter(p => p.isTrail === true);
         const byOwner = {};
         for (const index of [0, 1]) {
-          const bullet = coopSession.bullets.get("b" + index);
+          const bullet = roomSession.bullets.get("b" + index);
           // Trails for this owner: nearest to that bullet's lane (distinct y).
           byOwner["p" + index] = [
             ...new Set(
@@ -868,18 +868,18 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
           ];
         }
 
-        coopSession.active = false;
+        roomSession.active = false;
         return {
           trailCount: trails.length,
           distinctColors: [...new Set(trails.map(p => String(p.color).toLowerCase()))],
           byOwner,
-          ownerColors: coopPlayerColors.map(c => String(c.body).toLowerCase())
+          ownerColors: roomPlayerColors.map(c => String(c.body).toLowerCase())
         };
       `);
 
       assert.ok(
         result.trailCount > 0,
-        "Flying coop bullets must emit flagged trail particles via updateCoopClient"
+        "Flying run bullets must emit flagged trail particles via updateRoomClient"
       );
 
       assert.equal(
@@ -913,20 +913,20 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
       );
     });
 
-    await t1.test("Coop particle pipeline spawns, flags and expires correctly", () => {
+    await t1.test("Room particle pipeline spawns, flags and expires correctly", () => {
       const result = client.evaluate(`
-        coopParticles.length = 0;
-        createCoopParticles(10, 20, coopPlayerColors[1].body, 5, 100);
-        createCoopRing(30, 40, 26, coopPlayerColors[0].body);
-        const spawned = coopParticles.length;
-        const rings = coopParticles.filter(p => p.ring).length;
-        updateCoopParticles(10);
-        return { spawned, rings, cleared: coopParticles.length };
+        roomParticles.length = 0;
+        createRoomParticles(10, 20, roomPlayerColors[1].body, 5, 100);
+        createRoomRing(30, 40, 26, roomPlayerColors[0].body);
+        const spawned = roomParticles.length;
+        const rings = roomParticles.filter(p => p.ring).length;
+        updateRoomParticles(10);
+        return { spawned, rings, cleared: roomParticles.length };
       `);
 
-      assert.equal(result.spawned, 6, "Coop particle + ring pipeline must populate coopParticles");
+      assert.equal(result.spawned, 6, "Room particle + ring pipeline must populate roomParticles");
       assert.equal(result.rings, 1);
-      assert.equal(result.cleared, 0, "Coop particles must expire");
+      assert.equal(result.cleared, 0, "Room particles must expire");
     });
   });
 
@@ -1235,7 +1235,7 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
           });
           updateParticles(0.08);
         }
-        // Run past the ring lifetime to confirm cleanup.
+        // Room past the ring lifetime to confirm cleanup.
         updateParticles(2);
         return { samples, remainingRings: particles.filter(p => p.ring).length };
       `);
@@ -1440,7 +1440,7 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
       client.resetCombat();
       const result = client.evaluate(`
         gameState = "playing";
-        coopSession.active = false;
+        roomSession.active = false;
         enemies.length = 0;
         bullets.length = 0;
         particles.length = 0;
@@ -1487,7 +1487,7 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
       client.resetCombat();
       const result = client.evaluate(`
         gameState = "playing";
-        coopSession.active = false;
+        roomSession.active = false;
         enemies.length = 0;
         bullets.length = 0;
         particles.length = 0;
@@ -1593,17 +1593,16 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
       );
     });
 
-    await t2.test("Visual state does not leak across run boundaries", () => {
+    await t2.test("Visual state does not leak when returning to the menu", () => {
       const hitStop = findBinding(HIT_STOP_NAMES);
       const slowMo = findBinding(SLOW_MO_NAMES);
       const damage = findBinding(DAMAGE_NUMBER_NAMES);
 
       assert.ok(hitStop && slowMo && damage, "R5 visual state bindings must exist");
 
-      // Starting a new run and returning to the menu are the real boundaries a
-      // frozen/slowed frame must not survive, otherwise the next run (or the
-      // menu's background scene) would start mid-freeze.
-      for (const boundary of ["restartGame", "showMainMenu"]) {
+      // Returning to the menu is the client-side boundary. Match restarts are
+      // server-authoritative and create a fresh room world.
+      for (const boundary of ["showMainMenu"]) {
         assert.equal(
           typeof client.readBinding(boundary),
           "function",
@@ -1666,14 +1665,14 @@ test("R5 Visual Juice & Client Structural Contract Verification Suite", async (t
   // =========================================================================
 
   await t.test("Tier 3: Cross-feature integration", async (t3) => {
-    await t3.test("Solo and coop both expose complete particle pipelines", () => {
+    await t3.test("Solo and run both expose complete particle pipelines", () => {
       for (const name of [
         "createParticles",
         "createRing",
         "updateParticles",
-        "createCoopParticles",
-        "createCoopRing",
-        "updateCoopParticles"
+        "createRoomParticles",
+        "createRoomRing",
+        "updateRoomParticles"
       ]) {
         assert.equal(
           typeof client.readBinding(name),

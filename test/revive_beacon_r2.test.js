@@ -63,7 +63,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     // Simulate 1.0 second in 1/60s ticks
     const dt = 1 / 60;
     for (let i = 0; i < 60; i++) {
-      ctx.updateServerCoopWorld(room, dt, Date.now());
+      ctx.updateServerRoomWorld(room, dt, Date.now());
     }
 
     assert.ok(
@@ -87,7 +87,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     // Accumulate 3.0s (180 frames at 60fps)
     const dt = 1 / 60;
     for (let i = 0; i < 185; i++) {
-      ctx.updateServerCoopWorld(room, dt, Date.now());
+      ctx.updateServerRoomWorld(room, dt, Date.now());
     }
 
     assert.equal(player1.alive, true, "Player 1 should be revived");
@@ -106,7 +106,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     assert.equal(player1.y, 300, "Revived player position Y should match beacon Y");
   });
 
-  await t.test("Tier 1 - Unit 4: Snapshot Synchronization of Revive Beacon in CoopSnapshotV4", () => {
+  await t.test("Tier 1 - Unit 4: Snapshot Synchronization of Revive Beacon in RoomSnapshotV4", () => {
     const { room, world, player1, player2 } = createTestWorld(ctx);
     player1.x = 450;
     player1.y = 250;
@@ -115,10 +115,10 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     // Update slightly so beacon has progress
     player2.x = 460;
     player2.y = 250;
-    ctx.updateServerCoopWorld(room, 0.5, Date.now());
+    ctx.updateServerRoomWorld(room, 0.5, Date.now());
 
-    const snapshot = ctx.createServerCoopSnapshot(room);
-    assert.equal(snapshot.type, "coop-server-v4", "Snapshot type must be coop-server-v4");
+    const snapshot = ctx.createServerRoomSnapshot(room);
+    assert.equal(snapshot.type, "room-server-v1", "Snapshot type must be room-server-v1");
 
     const p1Snap = snapshot.players.find(p => p.id === player1.id);
     const p2Snap = snapshot.players.find(p => p.id === player2.id);
@@ -167,8 +167,8 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     assert.ok(guestPos && typeof guestPos.x === "number" && typeof guestPos.y === "number");
 
     // Host should be offset to the left, guest to the right of center
-    const expectedCenterX = ctx.COOP_WORLD_WIDTH / 2;
-    const expectedCenterY = ctx.COOP_WORLD_HEIGHT / 2;
+    const expectedCenterX = ctx.ROOM_WORLD_WIDTH / 2;
+    const expectedCenterY = ctx.ROOM_WORLD_HEIGHT / 2;
 
     assert.equal(hostPos.x, expectedCenterX - 70, "Host spawn X should be center - 70");
     assert.equal(hostPos.y, expectedCenterY, "Host spawn Y should be center Y");
@@ -191,7 +191,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 500 + radius + 5;
     player2.y = 500;
 
-    ctx.updateServerCoopWorld(room, 1.0, Date.now());
+    ctx.updateServerRoomWorld(room, 1.0, Date.now());
     if (player1.reviveBeacon) {
       assert.equal(
         player1.reviveBeacon.progress,
@@ -204,7 +204,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 500 + radius - 5;
     player2.y = 500;
 
-    ctx.updateServerCoopWorld(room, 1.0, Date.now());
+    ctx.updateServerRoomWorld(room, 1.0, Date.now());
     if (player1.reviveBeacon) {
       assert.ok(
         player1.reviveBeacon.progress > 0.9,
@@ -223,7 +223,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 320;
     player2.y = 300;
     for (let i = 0; i < 60; i++) {
-      ctx.updateServerCoopWorld(room, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room, 1 / 60, Date.now());
     }
     const progressAfterStepIn = player1.reviveBeacon ? player1.reviveBeacon.progress : 0;
     assert.ok(Math.abs(progressAfterStepIn - 1.0) < 0.05);
@@ -232,7 +232,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 800;
     player2.y = 800;
     for (let i = 0; i < 60; i++) {
-      ctx.updateServerCoopWorld(room, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room, 1 / 60, Date.now());
     }
     if (player1.reviveBeacon) {
       assert.ok(
@@ -245,7 +245,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 320;
     player2.y = 300;
     for (let i = 0; i < 125; i++) {
-      ctx.updateServerCoopWorld(room, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room, 1 / 60, Date.now());
     }
 
     assert.equal(player1.alive, true, "Player should be revived after completing total 3.0s");
@@ -266,7 +266,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     assert.equal(world.gameOver, true, "Game must be over when both players die");
 
     // Update world ticks should do nothing when gameOver is true
-    ctx.updateServerCoopWorld(room, 1.0, Date.now());
+    ctx.updateServerRoomWorld(room, 1.0, Date.now());
     assert.equal(player1.alive, false);
     assert.equal(player2.alive, false);
   });
@@ -302,7 +302,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     if (player1.reviveBeacon) player1.reviveBeacon.progress = 0;
 
     // Tick world
-    ctx.updateServerCoopWorld(room, 1.0, Date.now());
+    ctx.updateServerRoomWorld(room, 1.0, Date.now());
 
     // Progress on player1's beacon must not increase because player2 is not alive
     if (player1.reviveBeacon) {
@@ -344,7 +344,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
 
     // Revive player1 by standing nearby for 3.0s
     for (let i = 0; i < 185; i++) {
-      ctx.updateServerCoopWorld(room, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room, 1 / 60, Date.now());
     }
 
     assert.equal(player1.alive, true, "Player 1 must be revived");
@@ -375,7 +375,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 310;
     player2.y = 300;
     for (let i = 0; i < 185; i++) {
-      ctx.updateServerCoopWorld(room, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room, 1 / 60, Date.now());
     }
 
     assert.equal(player1.alive, true);
@@ -399,12 +399,12 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
 
     // Simulate 2.0s at 60Hz (120 frames with dt = 1/60)
     for (let i = 0; i < 120; i++) {
-      ctx.updateServerCoopWorld(room60, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room60, 1 / 60, Date.now());
     }
 
     // Simulate 2.0s at 30Hz (60 frames with dt = 1/30)
     for (let i = 0; i < 60; i++) {
-      ctx.updateServerCoopWorld(room30, 1 / 30, Date.now());
+      ctx.updateServerRoomWorld(room30, 1 / 30, Date.now());
     }
 
     const prog60 = p1_60.reviveBeacon ? p1_60.reviveBeacon.progress : 0;
@@ -443,7 +443,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     player2.x = 260;
     player2.y = 250;
     for (let i = 0; i < 185; i++) {
-      ctx.updateServerCoopWorld(room, 1 / 60, Date.now());
+      ctx.updateServerRoomWorld(room, 1 / 60, Date.now());
     }
     assert.equal(player1.alive, true, "Player 1 manually revived in Wave 1");
     assert.equal(player1.hp, Math.ceil(player1.maxHp * 0.3));
@@ -454,7 +454,7 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     world.waveClearTimer = 0.05;
 
     // --- Wave 2: Player 2 dies, but wave clears before manual revive -> Fallback revive triggered ---
-    ctx.updateServerCoopWorld(room, 0.1, Date.now()); // Transitions to wave 2
+    ctx.updateServerRoomWorld(room, 0.1, Date.now()); // Transitions to wave 2
     assert.equal(world.wave, 2);
 
     player2.hp = 1;
@@ -467,13 +467,13 @@ test("R2 Co-op Teammate Revival Beacon Suite", async (t) => {
     world.waveClearTimer = 0.05;
 
     // Ticking triggers wave transition and fallback auto-revive
-    ctx.updateServerCoopWorld(room, 0.1, Date.now());
+    ctx.updateServerRoomWorld(room, 0.1, Date.now());
     assert.equal(world.wave, 3, "Wave advanced to 3");
     assert.equal(player2.alive, true, "Player 2 auto-revived at wave transition");
     assert.equal(player2.hp, Math.ceil(player2.maxHp / 2), "Fallback auto-revive gives 50% HP");
 
     // Final room state snapshot check
-    const finalSnapshot = ctx.createServerCoopSnapshot(room);
+    const finalSnapshot = ctx.createServerRoomSnapshot(room);
     assert.equal(finalSnapshot.wave, 3);
     assert.equal(finalSnapshot.players.every(p => p.alive), true);
     assert.equal(finalSnapshot.players.every(p => !p.reviveBeacon), true);

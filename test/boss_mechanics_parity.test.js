@@ -14,16 +14,16 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     cleanup();
   });
 
-  await t.test("1. Boss scaling formulas across Tiers 1-6 (HP, Coop multiplier, Speed, Radius)", () => {
+  await t.test("1. Boss scaling formulas across Tiers 1-6 (HP, Room multiplier, Speed, Radius)", () => {
     const { world } = createTestWorld(ctx);
 
     const expectedTiers = [
-      { wave: 5, tier: 1, baseHp: 7600, coopHp: 8360, speed: 38, radius: 46 },
-      { wave: 10, tier: 2, baseHp: 12000, coopHp: 13200, speed: 40.86, radius: 46 },
-      { wave: 15, tier: 3, baseHp: 18000, coopHp: 19800, speed: 43.72, radius: 46 },
-      { wave: 20, tier: 4, baseHp: 25600, coopHp: 28160, speed: 46.58, radius: 46 },
-      { wave: 25, tier: 5, baseHp: 34800, coopHp: 38280, speed: 49.44, radius: 46 },
-      { wave: 30, tier: 6, baseHp: 45600, coopHp: 50160, speed: 52.3, radius: 46 }
+      { wave: 5, tier: 1, baseHp: 7600, roomHp: 8360, speed: 38, radius: 46 },
+      { wave: 10, tier: 2, baseHp: 12000, roomHp: 13200, speed: 40.86, radius: 46 },
+      { wave: 15, tier: 3, baseHp: 18000, roomHp: 19800, speed: 43.72, radius: 46 },
+      { wave: 20, tier: 4, baseHp: 25600, roomHp: 28160, speed: 46.58, radius: 46 },
+      { wave: 25, tier: 5, baseHp: 34800, roomHp: 38280, speed: 49.44, radius: 46 },
+      { wave: 30, tier: 6, baseHp: 45600, roomHp: 50160, speed: 52.3, radius: 46 }
     ];
 
     for (const exp of expectedTiers) {
@@ -31,8 +31,8 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
       const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
 
       assert.equal(boss.bossTier, exp.tier, `Wave ${exp.wave} should produce tier ${exp.tier}`);
-      assert.equal(boss.hp, exp.coopHp, `Tier ${exp.tier} coop HP should be ${exp.coopHp} (got ${boss.hp})`);
-      assert.equal(boss.maxHp, exp.coopHp);
+      assert.equal(boss.hp, exp.roomHp, `Tier ${exp.tier} run HP should be ${exp.roomHp} (got ${boss.hp})`);
+      assert.equal(boss.maxHp, exp.roomHp);
       assert.equal(boss.r, exp.radius);
       assert.ok(
         Math.abs(boss.speed - exp.speed) < 0.01,
@@ -126,19 +126,19 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     );
   });
 
-  await t.test("3.1 Boss Shield Pylon HP Scaling across tiers (wave 10, 20, 30, 50) for Coop and Solo", () => {
+  await t.test("3.1 Boss Shield Pylon HP Scaling across tiers (wave 10, 20, 30, 50) for Room and Solo", () => {
     const expectedTiers = [
-      { wave: 10, tier: 2, coopHp: 1750, soloHp: 875 },
-      { wave: 15, tier: 3, coopHp: 2625, soloHp: 1313 },
-      { wave: 20, tier: 4, coopHp: 3733, soloHp: 1867 },
-      { wave: 30, tier: 6, coopHp: 6650, soloHp: 3325 },
-      { wave: 40, tier: 8, coopHp: 10500, soloHp: 5250 },
-      { wave: 50, tier: 10, coopHp: 15283, soloHp: 7642 },
+      { wave: 10, tier: 2, roomHp: 1750, soloHp: 875 },
+      { wave: 15, tier: 3, roomHp: 2625, soloHp: 1313 },
+      { wave: 20, tier: 4, roomHp: 3733, soloHp: 1867 },
+      { wave: 30, tier: 6, roomHp: 6650, soloHp: 3325 },
+      { wave: 40, tier: 8, roomHp: 10500, soloHp: 5250 },
+      { wave: 50, tier: 10, roomHp: 15283, soloHp: 7642 },
     ];
 
     for (const exp of expectedTiers) {
       const base = ctx.createEnemyBase("boss_drone", exp.wave);
-      assert.equal(base.hp, exp.coopHp, `Wave ${exp.wave} (Tier ${exp.tier}) base pylon HP should be ${exp.coopHp}`);
+      assert.equal(base.hp, exp.roomHp, `Wave ${exp.wave} (Tier ${exp.tier}) base pylon HP should be ${exp.roomHp}`);
 
       // Verify spawnServerBossDrones adheres to the wave/tier scaling
       const { world } = createTestWorld(ctx);
@@ -151,8 +151,8 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
       const drones = [...world.enemies.values()].filter(e => (e.type === "boss_drone" || e.type === "boss_pylon") && e.bossId === boss.id);
       assert.equal(drones.length, 4);
       for (const drone of drones) {
-        assert.equal(drone.hp, exp.coopHp, `Coop pylon HP on wave ${exp.wave} should be ${exp.coopHp}`);
-        assert.equal(drone.maxHp, exp.coopHp);
+        assert.equal(drone.hp, exp.roomHp, `Room pylon HP on wave ${exp.wave} should be ${exp.roomHp}`);
+        assert.equal(drone.maxHp, exp.roomHp);
       }
 
       // Solo HP calculation: Math.max(1, Math.round(base.hp * 0.5))
@@ -161,7 +161,7 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
     }
   });
 
-  await t.test("3.2 Solo raid balance applies 1.5x XP and 0.5x boss-unit HP in the real client", () => {
+  await t.test("3.2 Menu preview consumes the shared one-player room profile", () => {
     const clientHtml = fs.readFileSync(
       path.resolve(__dirname, "../public/index.html"),
       "utf8"
@@ -169,34 +169,34 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
 
     assert.match(
       clientHtml,
-      /const SOLO_RUN_BALANCE = GameShared\.getRunBalance\(1\);/,
-      "Legacy local simulation must consume the same shared one-player profile"
+      /const PREVIEW_ROOM_BALANCE = GameShared\.getRoomBalance\(1\);/,
+      "The non-interactive menu preview must consume the shared one-player profile"
     );
     assert.match(
       clientHtml,
       /GameShared\.scaleEnemyHp\(base\.hp, type, 1\)/,
-      "Enemy HP must use shared run-balance math"
+      "Enemy HP must use shared room-balance math"
     );
     assert.match(
       clientHtml,
       /GameShared\.scaleExperience\([\s\S]{0,80}getEnemyExperienceAmount\(enemy\),[\s\S]{0,30}1[\s\S]{0,10}\)/,
-      "Enemy crystal drops must use shared run-balance math"
+      "Enemy crystal drops must use shared room-balance math"
     );
     assert.match(
       clientHtml,
       /isBossLike\(enemy\) && enemy\.shieldActive[\s\S]{0,120}damage = Math\.max\(1, Math\.floor\(damage \* 0\.1\)\)/,
-      "Solo shield must reduce incoming boss damage by 90%"
+      "Menu preview shield must reduce incoming boss damage by 90%"
     );
     assert.match(
       clientHtml,
-      /if \(isBossOrMini\) \{\s*destroySoloBossPylons\(enemy\);\s*\}/,
-      "Solo boss death must immediately destroy its remaining pylons"
+      /if \(isBossOrMini\) \{\s*destroyPreviewBossPylons\(enemy\);\s*\}/,
+      "Menu preview boss death must immediately destroy its remaining pylons"
     );
 
     const damageStart = clientHtml.indexOf("function damageEnemy");
     const damageEnd = clientHtml.indexOf("function registerRepairKill", damageStart);
     const damageSource = clientHtml.slice(damageStart, damageEnd);
-    const soloBoss = {
+    const previewBoss = {
       id: 100,
       type: "boss",
       hp: 1000,
@@ -208,7 +208,7 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
       color: "#fff"
     };
     const damageContext = vm.createContext({
-      enemies: [soloBoss],
+      enemies: [previewBoss],
       stats: {},
       isBossLike: enemy => enemy.type === "boss" || enemy.type === "mini_boss",
       createParticles() {},
@@ -221,27 +221,27 @@ test("R2 Boss Mechanics & Parity Validation Suite", async (t) => {
       Number
     });
     vm.runInContext(`${damageSource}; this.damageEnemy = damageEnemy;`, damageContext);
-    damageContext.damageEnemy(soloBoss, 100);
-    assert.equal(soloBoss.hp, 990, "Real solo damage path must let only 10% through the shield");
+    damageContext.damageEnemy(previewBoss, 100);
+    assert.equal(previewBoss.hp, 990, "Real preview damage path must let only 10% through the shield");
 
-    const destroyStart = clientHtml.indexOf("function destroySoloBossPylons");
+    const destroyStart = clientHtml.indexOf("function destroyPreviewBossPylons");
     const destroyEnd = clientHtml.indexOf("function damageEnemy", destroyStart);
     const destroySource = clientHtml.slice(destroyStart, destroyEnd);
-    const pylonA = { id: 101, type: "boss_drone", bossId: soloBoss.id, x: 1, y: 1 };
-    const pylonB = { id: 102, type: "boss_pylon", bossId: soloBoss.id, x: 2, y: 2 };
+    const pylonA = { id: 101, type: "boss_drone", bossId: previewBoss.id, x: 1, y: 1 };
+    const pylonB = { id: 102, type: "boss_pylon", bossId: previewBoss.id, x: 2, y: 2 };
     const unrelated = { id: 103, type: "boss_drone", bossId: 999, x: 3, y: 3 };
     const destroyContext = vm.createContext({
-      enemies: [soloBoss, pylonA, unrelated, pylonB],
+      enemies: [previewBoss, pylonA, unrelated, pylonB],
       createParticles() {},
       createRing() {},
       screenShake: 0,
       Math
     });
-    vm.runInContext(`${destroySource}; this.destroySoloBossPylons = destroySoloBossPylons;`, destroyContext);
-    assert.equal(destroyContext.destroySoloBossPylons(soloBoss), 2);
+    vm.runInContext(`${destroySource}; this.destroyPreviewBossPylons = destroyPreviewBossPylons;`, destroyContext);
+    assert.equal(destroyContext.destroyPreviewBossPylons(previewBoss), 2);
     assert.deepEqual(
       destroyContext.enemies.map(enemy => enemy.id),
-      [soloBoss.id, unrelated.id],
+      [previewBoss.id, unrelated.id],
       "Solo cleanup must remove only pylons owned by the dead boss"
     );
 

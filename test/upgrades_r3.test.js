@@ -695,7 +695,7 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       bullet.vx = 250;
       bullet.vy = 150;
 
-      // Run 300 simulation ticks (5.0s at 60 FPS)
+      // Room 300 simulation ticks (5.0s at 60 FPS)
       for (let tick = 0; tick < 300; tick++) {
         const dt = 1 / 60;
         if (bullet.state === "flying" || bullet.state === "ground") {
@@ -733,9 +733,9 @@ test("R3 New Upgrades Comprehensive Suite (Boomerang, Splinter, Stun, Reactive A
       assert.ok(player2.stats.stun);
 
       // Verify serialization snapshot includes valid state for both players
-      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapshot = ctx.createServerRoomSnapshot(room);
       assert.equal(snapshot.players.length, 2, "Snapshot should contain 2 players");
-      assert.equal(snapshot.type, "coop-server-v4");
+      assert.equal(snapshot.type, "room-server-v1");
     });
   });
 });

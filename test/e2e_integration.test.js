@@ -29,17 +29,17 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
       if (wave % 5 === 0) {
         const tier = Math.floor(wave / 5);
         const polynomialBaseHp = 4800 + tier * 2000 + tier * tier * 800;
-        const coopHp = Math.round(polynomialBaseHp * 1.1);
+        const roomHp = Math.round(polynomialBaseHp * 1.1);
         const bossXp = 1050 + tier * 275;
 
         assert.ok(tier >= 1, `Wave ${wave} produces valid boss tier`);
-        assert.ok(coopHp >= 8360, `Tier ${tier} Boss coop HP must be >= 8360`);
+        assert.ok(roomHp >= 8360, `Tier ${tier} Boss run HP must be >= 8360`);
         assert.ok(bossXp >= 1325, `Tier ${tier} Boss XP must be >= 1325`);
 
         if (wave === 30) {
           // Requirement: Wave 30 Boss HP >= 50000
-          assert.ok(coopHp >= 50000, `Wave 30 Boss HP must be >= 50000 (calculated ${coopHp})`);
-          assert.equal(coopHp, 50160, "Wave 30 Boss HP with polynomial formula & 1.1x multiplier is exactly 50160");
+          assert.ok(roomHp >= 50000, `Wave 30 Boss HP must be >= 50000 (calculated ${roomHp})`);
+          assert.equal(roomHp, 50160, "Wave 30 Boss HP with polynomial formula & 1.1x multiplier is exactly 50160");
           assert.equal(bossXp, 2700, "Wave 30 Boss XP should be 2700");
         }
       }
@@ -287,7 +287,7 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
         // Milestone Boss Wave
         const bossTier = Math.floor(currentWave / 5);
         const polynomialBaseHp = (48 + bossTier * 20 + bossTier * bossTier * 8) * 100;
-        const coopHp = Math.round(polynomialBaseHp * 1.1);
+        const roomHp = Math.round(polynomialBaseHp * 1.1);
         const bossXp = 1050 + bossTier * 275;
 
         const boss = ctx.createServerEnemy(world, "boss", 640, 360, true);
@@ -297,12 +297,12 @@ test("Full Game End-to-End Integration & Multi-Wave Scenario Suite", async (t) =
         bossTiersRecorded.push({
           wave: currentWave,
           tier: bossTier,
-          hp: coopHp,
+          hp: roomHp,
           xp: bossXp
         });
 
         // Simulate combat defeating boss
-        ctx.damageServerEnemy(world, boss.id, coopHp, player1);
+        ctx.damageServerEnemy(world, boss.id, roomHp, player1);
         assert.equal(world.enemies.has(boss.id), false, `Boss on wave ${currentWave} should be eliminated`);
       } else {
         // Regular Wave

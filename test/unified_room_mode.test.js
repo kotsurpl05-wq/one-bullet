@@ -2,11 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadServerInstance } = require("./helpers/server_loader.js");
 const {
-  getRunBalance,
+  getRoomBalance,
   scaleEnemyHp,
   scaleEnemyCount,
   scaleExperience
-} = require("../shared/run-balance");
+} = require("../shared/room-balance");
 const { createEnemyBase } = require("../shared/enemy-factory");
 
 function emitAck(socket, event, payload = {}) {
@@ -22,7 +22,7 @@ test("Unified 1-2 player room mode", async t => {
 
   await t.test("common balance math is deterministic for one and two players", () => {
     assert.deepEqual(
-      JSON.parse(JSON.stringify(getRunBalance(1))),
+      JSON.parse(JSON.stringify(getRoomBalance(1))),
       {
         playerCount: 1,
         enemyCountMultiplier: 1,
@@ -33,9 +33,9 @@ test("Unified 1-2 player room mode", async t => {
         maxWaveEnemies: 44
       }
     );
-    assert.equal(getRunBalance(2).enemyCountMultiplier, 2);
-    assert.equal(getRunBalance(2).bossHpMultiplier, 1.1);
-    assert.equal(getRunBalance(2).experienceMultiplier, 1.7);
+    assert.equal(getRoomBalance(2).enemyCountMultiplier, 2);
+    assert.equal(getRoomBalance(2).bossHpMultiplier, 1.1);
+    assert.equal(getRoomBalance(2).experienceMultiplier, 1.7);
     assert.equal(scaleEnemyHp(100, "boss", 1), 50);
     assert.equal(scaleEnemyHp(100, "boss_pylon", 1), 50);
     assert.equal(scaleEnemyHp(100, "boss_pylon", 2), 100);

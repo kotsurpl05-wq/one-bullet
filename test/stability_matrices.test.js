@@ -13,7 +13,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   let socketCounter = 100;
-  function setupActiveCoopGame() {
+  function setupActiveRoomGame() {
     const hostSocket = simulateSocketConnection(`host_sock_${socketCounter++}`);
     const guestSocket = simulateSocketConnection(`guest_sock_${socketCounter++}`);
 
@@ -31,13 +31,13 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
     });
 
     room.started = true;
-    room.world = ctx.createCoopWorld(room);
+    room.world = ctx.createRoomWorld(room);
 
     return { hostSocket, guestSocket, hostAck, guestAck, room, code };
   }
 
   await t.test("N04: Reconnect token survives past 2 minutes without expiring during active match", () => {
-    const { guestAck, room, code } = setupActiveCoopGame();
+    const { guestAck, room, code } = setupActiveRoomGame();
     // Simulate match lasting 3 minutes (180 seconds)
     room.world.gameTime = 180;
 
@@ -65,7 +65,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N05: Reconnect during manual pause preserves manual pause", () => {
-    const { hostSocket, guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const { hostSocket, guestSocket, guestAck, room, code } = setupActiveRoomGame();
 
     // Host pauses manually
     hostSocket.emit("net:toggle-pause");
@@ -94,7 +94,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N06: Disconnect before upgrade choice: re-offers identical offerId, cards, and rerolls", () => {
-    const { guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const { guestSocket, guestAck, room, code } = setupActiveRoomGame();
 
     // Start upgrade round with pending level-up
     room.world.pendingLevelUps = 1;
@@ -130,7 +130,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N07: Disconnect after upgrade choice: sends upgrade-waiting, does not grant duplicate upgrade", () => {
-    const { hostSocket, guestSocket, hostAck, guestAck, room, code } = setupActiveCoopGame();
+    const { hostSocket, guestSocket, hostAck, guestAck, room, code } = setupActiveRoomGame();
 
     // Start upgrade round with pending level-up
     room.world.pendingLevelUps = 1;
@@ -176,14 +176,14 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N08: Disconnect during unpause countdown immediately cancels countdown and returns to waiting", () => {
-    const { hostSocket, guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const { hostSocket, guestSocket, guestAck, room, code } = setupActiveRoomGame();
 
     // Trigger unpause countdown
     room.world.unpauseCountdown = 3.0;
     room.world.reconnectState = { unfreezing: true, countdown: 3, countdownSec: 3 };
 
     // Advance 1 second
-    ctx.updateServerCoopWorld(room, 1.0);
+    ctx.updateServerRoomWorld(room, 1.0);
     assert.ok(room.world.unpauseCountdown <= 2.1);
 
     // Host disconnects while countdown is running
@@ -196,7 +196,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N09: Stale commands and disconnect from old socket are discarded after reconnect", () => {
-    const { guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const { guestSocket, guestAck, room, code } = setupActiveRoomGame();
     const guestPlayer = room.world.players.get(guestAck.playerId);
     const startX = guestPlayer.x;
     const startY = guestPlayer.y;
@@ -218,7 +218,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N10: 120-second wait expiration removes room cleanly", () => {
-    const { guestSocket, room, code } = setupActiveCoopGame();
+    const { guestSocket, room, code } = setupActiveRoomGame();
 
     // Guest disconnects
     guestSocket.emit("disconnect");
@@ -233,7 +233,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
   });
 
   await t.test("N11: Static enemy fields included on full snapshot and dropped on regular snapshots", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
 
     // Spawn an enemy
     const enemy = ctx.createServerEnemy(room.world, "boss", 500, 300, true);
@@ -241,7 +241,7 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
     room.world.enemies.set(enemy.id, enemy);
 
     // First snapshot carries static fields
-    const snap1 = ctx.createServerCoopSnapshot(room, {});
+    const snap1 = ctx.createServerRoomSnapshot(room, {});
     const enemy1 = snap1.enemies.find(e => e.id === enemy.id);
     assert.ok(enemy1);
     assert.equal(enemy1.type, "boss");
@@ -250,42 +250,42 @@ test("Network Stability Matrix (N04 - N12)", async (t) => {
     assert.ok(enemy1.color);
 
     // Second snapshot drops static fields for existing enemy
-    const snap2 = ctx.createServerCoopSnapshot(room, {});
+    const snap2 = ctx.createServerRoomSnapshot(room, {});
     const enemy2 = snap2.enemies.find(e => e.id === enemy.id);
     assert.ok(enemy2);
     assert.equal(enemy2.type, undefined, "Later snapshot must drop static fields for existing enemy");
 
     // Full snapshot requested: static fields included again
-    const fullSnap = ctx.createServerCoopSnapshot(room, { full: true });
+    const fullSnap = ctx.createServerRoomSnapshot(room, { full: true });
     const enemyFull = fullSnap.enemies.find(e => e.id === enemy.id);
     assert.ok(enemyFull);
     assert.equal(enemyFull.type, "boss", "Full snapshot must include static fields");
 
     // The regular simulation loop uses this clock to replace one volatile
     // update with a reliable full snapshot every ten seconds.
-    assert.equal(ctx.COOP_FULL_SNAPSHOT_INTERVAL, 10);
+    assert.equal(ctx.ROOM_FULL_SNAPSHOT_INTERVAL, 10);
     assert.equal(ctx.advanceFullSnapshotClock(room.world, 9.99), false);
     assert.equal(ctx.advanceFullSnapshotClock(room.world, 0.01), true);
-    assert.ok(room.world.fullSnapshotAccumulator < ctx.COOP_FULL_SNAPSHOT_INTERVAL);
+    assert.ok(room.world.fullSnapshotAccumulator < ctx.ROOM_FULL_SNAPSHOT_INTERVAL);
   });
 
   await t.test("N12: matchSeq is incremented on room restart and older snapshots are rejected", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
     assert.equal(room.world.matchSeq, 1);
 
     // Snapshot seq 1
-    const snap1 = ctx.createServerCoopSnapshot(room, {});
+    const snap1 = ctx.createServerRoomSnapshot(room, {});
     assert.equal(snap1.matchSeq, 1);
 
     // Simulate match restart inside room
     room.matchSeq = 2;
     room.world.matchSeq = 2;
-    const snap2 = ctx.createServerCoopSnapshot(room, {});
+    const snap2 = ctx.createServerRoomSnapshot(room, {});
     assert.equal(snap2.matchSeq, 2);
 
     // Client sequence checking rule: snap1 has matchSeq 1 < current matchSeq 2 -> must be dropped
-    const clientCoopSession = { matchSeq: 2, lastSnapshotSeq: 10 };
-    const shouldDrop = snap1.matchSeq < clientCoopSession.matchSeq;
+    const clientRoomSession = { matchSeq: 2, lastSnapshotSeq: 10 };
+    const shouldDrop = snap1.matchSeq < clientRoomSession.matchSeq;
     assert.equal(shouldDrop, true, "Snapshots from older matchSeq must be dropped");
   });
 });
@@ -299,7 +299,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
   });
 
   let socketCounter = 200;
-  function setupActiveCoopGame() {
+  function setupActiveRoomGame() {
     const hostSocket = simulateSocketConnection(`host_c_${socketCounter++}`);
     const guestSocket = simulateSocketConnection(`guest_c_${socketCounter++}`);
 
@@ -317,14 +317,14 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     });
 
     room.started = true;
-    room.world = ctx.createCoopWorld(room);
+    room.world = ctx.createRoomWorld(room);
 
     return { hostSocket, guestSocket, hostAck, guestAck, room, code };
   }
 
   await t.test("B01: Boss beam deals exactly 40 base damage once across different dt (1/30, 1/60, 1/120)", () => {
     for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
-      const { room } = setupActiveCoopGame();
+      const { room } = setupActiveRoomGame();
       const player = [...room.world.players.values()][0];
       player.hp = 100;
       player.x = 400;
@@ -342,10 +342,10 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
       };
       room.world.gasterBlasters.set(blaster.id, blaster);
 
-      // Run multiple simulation steps covering the entire 0.25s beam duration
+      // Room multiple simulation steps covering the entire 0.25s beam duration
       const steps = Math.ceil(0.25 / dt);
       for (let s = 0; s < steps; s++) {
-        ctx.updateServerCoopWorld(room, dt);
+        ctx.updateServerRoomWorld(room, dt);
       }
 
       // Player must have taken exactly 40 damage: hp = 60
@@ -355,7 +355,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
   });
 
   await t.test("B02: Two separate beams deal independent damage; dash invulnerability postpones but doesn't consume beam hit", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
     const player = [...room.world.players.values()][0];
     player.hp = 100;
     player.x = 400;
@@ -376,7 +376,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     room.world.gasterBlasters.set(blaster1.id, blaster1);
 
     // Tick 0.05s: player is still in dash, damage must be blocked and NOT recorded as consumed
-    ctx.updateServerCoopWorld(room, 0.05);
+    ctx.updateServerRoomWorld(room, 0.05);
     assert.equal(player.hp, 100, "Player must take no damage during dash");
     assert.equal(blaster1.hitPlayerIds.has(player.id), false, "Blocked hit must not be recorded as consumed");
 
@@ -384,7 +384,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     player.dashTimer = 0;
 
     // Tick 0.05s: beam is still firing, now player takes the 40 damage!
-    ctx.updateServerCoopWorld(room, 0.05);
+    ctx.updateServerRoomWorld(room, 0.05);
     assert.equal(player.hp, 60, "Player must take 40 damage when dash ends inside active beam");
     assert.equal(blaster1.hitPlayerIds.has(player.id), true);
 
@@ -400,13 +400,13 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     };
     room.world.gasterBlasters.set(blaster2.id, blaster2);
 
-    ctx.updateServerCoopWorld(room, 0.05);
+    ctx.updateServerRoomWorld(room, 0.05);
     assert.equal(player.hp, 20, "Second beam must deal separate 40 damage despite standard hit invulnerability");
     assert.equal(blaster2.hitPlayerIds.has(player.id), true);
   });
 
   await t.test("B03: Boss repeating shield cycles: 60s cooldown from last pylon destruction", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
     room.world.wave = 10;
     const boss = ctx.createServerEnemy(room.world, "boss", 640, 360, true);
     boss.bossTier = 2;
@@ -416,7 +416,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     room.world.enemies.set(boss.id, boss);
 
     // 1st trigger: AI triggers shield and spawns 4 pylons
-    ctx.updateServerCoopWorld(room, 0.033);
+    ctx.updateServerRoomWorld(room, 0.033);
     assert.equal(boss.shieldActive, true);
     assert.equal(boss.shieldTriggered, true);
 
@@ -427,14 +427,14 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     for (const p of pylons1) {
       p.hp = 0;
     }
-    ctx.updateServerCoopWorld(room, 0.033);
+    ctx.updateServerRoomWorld(room, 0.033);
 
     assert.equal(boss.shieldActive, false, "Shield must be removed");
     assert.ok(boss.stunTimer > 1.9 && boss.stunTimer <= 2.0, "Boss must be stunned for ~2.0s");
     assert.ok(boss.armorRespawnCooldown > 59.9 && boss.armorRespawnCooldown <= 60, "Cooldown must be set to 60s");
 
     // Advance 30s: shield must not respawn yet
-    ctx.updateServerCoopWorld(room, 30.0);
+    ctx.updateServerRoomWorld(room, 30.0);
     assert.equal(boss.shieldActive, false);
     assert.ok(boss.armorRespawnCooldown > 0);
 
@@ -444,14 +444,14 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     }
 
     // Advance 31s (total > 60s): cooldown expires, shield & 4 new pylons respawn
-    ctx.updateServerCoopWorld(room, 31.0);
+    ctx.updateServerRoomWorld(room, 31.0);
     assert.equal(boss.shieldActive, true, "Shield must respawn after 60s");
     const pylons2 = [...room.world.enemies.values()].filter(e => e.type === "boss_drone" && e.bossId === boss.id && e.hp > 0);
     assert.equal(pylons2.length, 4, "Must have exactly 4 new active pylons");
   });
 
   await t.test("B04: Boss shield delayed restore when 60s expires during turret mode, nothing spawns after boss dies", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
     room.world.wave = 10;
     const boss = ctx.createServerEnemy(room.world, "boss", 640, 360, true);
     boss.bossTier = 2;
@@ -461,11 +461,11 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     room.world.enemies.set(boss.id, boss);
 
     // Trigger & remove initial shield
-    ctx.updateServerCoopWorld(room, 0.033);
+    ctx.updateServerRoomWorld(room, 0.033);
     for (const [id, e] of room.world.enemies) {
       if (e.type === "boss_drone") room.world.enemies.delete(id);
     }
-    ctx.updateServerCoopWorld(room, 0.033);
+    ctx.updateServerRoomWorld(room, 0.033);
     assert.equal(boss.shieldActive, false);
 
     // Clear stun so turret mode logic can run cleanly
@@ -477,26 +477,26 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     boss.armorRespawnCooldown = 1.0;
 
     // Advance 2 seconds (cooldown expires while in turret mode)
-    ctx.updateServerCoopWorld(room, 2.0);
+    ctx.updateServerRoomWorld(room, 2.0);
     assert.equal(boss.shieldActive, false, "Shield must NOT spawn while in turret mode");
     assert.equal(boss.shieldTriggered, false, "shieldTriggered must be reset upon expiry");
 
     // Exit turret mode
     boss.turretMode = false;
     boss.turretCooldown = 10; // prevent immediate re-entry into turret
-    ctx.updateServerCoopWorld(room, 0.033);
+    ctx.updateServerRoomWorld(room, 0.033);
     assert.equal(boss.shieldActive, true, "Shield must spawn immediately upon exiting turret mode");
 
     // Dead boss spawns no shield or pylons
     boss.hp = 0;
     boss.shieldActive = false;
     boss.armorRespawnCooldown = 0;
-    ctx.updateServerCoopWorld(room, 0.033);
+    ctx.updateServerRoomWorld(room, 0.033);
     assert.equal(boss.shieldActive, false);
   });
 
   await t.test("B05: Real mark duration (owner.stats.markDuration) and stun duration", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
     const player = [...room.world.players.values()][0];
     player.stats = {
       ...player.stats,
@@ -531,7 +531,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
   });
 
   await t.test("B06: Poison DoT ticks continuously with 0.5s hits and tickTimer resets on expiry", () => {
-    const { room } = setupActiveCoopGame();
+    const { room } = setupActiveRoomGame();
     const player = [...room.world.players.values()][0];
     player.stats = {
       ...player.stats,
@@ -552,7 +552,7 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
     enemy.poisonDamage = 50;
 
     // Advance 0.5s
-    ctx.updateServerCoopWorld(room, 0.5);
+    ctx.updateServerRoomWorld(room, 0.5);
     assert.ok(Math.abs(enemy.poisonTickTimer - 0.5) < 0.05);
 
     // Second hit at 0.5s: refreshes duration to 3.0 without resetting tickTimer to 1.0
@@ -562,17 +562,17 @@ test("Combat Mechanics Matrix (B01 - B07)", async (t) => {
 
     // Advance 0.55s: tick should fire!
     const hpBeforeTick = enemy.hp;
-    ctx.updateServerCoopWorld(room, 0.55);
+    ctx.updateServerRoomWorld(room, 0.55);
     assert.ok(enemy.hp < hpBeforeTick, "Poison tick damage must be inflicted");
 
     // Let poison expire
-    ctx.updateServerCoopWorld(room, 4.0);
+    ctx.updateServerRoomWorld(room, 4.0);
     assert.equal(enemy.poisonTimer, 0);
     assert.equal(enemy.poisonTickTimer, 0, "poisonTickTimer must reset to 0 upon expiry");
   });
 
   await t.test("B07: Debug command accessible to both players; bounded operations reject overflow safely", () => {
-    const { hostSocket, guestSocket, room } = setupActiveCoopGame();
+    const { hostSocket, guestSocket, room } = setupActiveRoomGame();
 
     // Normal command from guest succeeds
     guestSocket.emit("net:debug-command", { action: "set-hp", data: { hp: 500 } });

@@ -4,7 +4,7 @@
  * Единый источник множителей забега. Число игроков фиксируется сервером
  * при старте комнаты, поэтому состав лобби не может изменить уже идущий бой.
  */
-const RUN_BALANCE_BY_PLAYER_COUNT = Object.freeze({
+const ROOM_BALANCE_BY_PLAYER_COUNT = Object.freeze({
   1: Object.freeze({
     playerCount: 1,
     enemyCountMultiplier: 1,
@@ -32,19 +32,19 @@ const BOSS_UNIT_TYPES = new Set([
   "boss_pylon"
 ]);
 
-function normalizeRunPlayerCount(value) {
+function normalizeRoomPlayerCount(value) {
   const count = Number.isFinite(Number(value))
     ? Math.trunc(Number(value))
     : 1;
   return count >= 2 ? 2 : 1;
 }
 
-function getRunBalance(playerCount) {
-  return RUN_BALANCE_BY_PLAYER_COUNT[normalizeRunPlayerCount(playerCount)];
+function getRoomBalance(playerCount) {
+  return ROOM_BALANCE_BY_PLAYER_COUNT[normalizeRoomPlayerCount(playerCount)];
 }
 
 function getEnemyHpMultiplier(type, playerCount) {
-  const balance = getRunBalance(playerCount);
+  const balance = getRoomBalance(playerCount);
   if (PRIMARY_BOSS_TYPES.has(type)) return balance.bossHpMultiplier;
   if (BOSS_UNIT_TYPES.has(type)) return balance.bossUnitHpMultiplier;
   return balance.enemyHpMultiplier;
@@ -55,20 +55,20 @@ function scaleEnemyHp(baseHp, type, playerCount) {
 }
 
 function scaleEnemyCount(baseCount, playerCount, maximum) {
-  const balance = getRunBalance(playerCount);
+  const balance = getRoomBalance(playerCount);
   const cap = Number.isFinite(maximum) ? maximum : balance.maxWaveEnemies;
   return Math.max(0, Math.min(Math.round(Number(baseCount || 0) * balance.enemyCountMultiplier), cap));
 }
 
 function scaleExperience(baseExperience, playerCount) {
-  const balance = getRunBalance(playerCount);
+  const balance = getRoomBalance(playerCount);
   return Math.max(0, Math.round(Number(baseExperience || 0) * balance.experienceMultiplier));
 }
 
 module.exports = {
-  RUN_BALANCE_BY_PLAYER_COUNT,
-  normalizeRunPlayerCount,
-  getRunBalance,
+  ROOM_BALANCE_BY_PLAYER_COUNT,
+  normalizeRoomPlayerCount,
+  getRoomBalance,
   getEnemyHpMultiplier,
   scaleEnemyHp,
   scaleEnemyCount,

@@ -36,7 +36,7 @@ test("R3.1 - R3.3 Authorization & Difficulty Hardening Suite", async (t) => {
   await t.test("1. room:restart vote: both players must vote to restart", () => {
     const { hostSocket, guestSocket, room } = setupRoomWithSockets("REST01");
     room.started = true;
-    room.world = ctx.createCoopWorld(room);
+    room.world = ctx.createRoomWorld(room);
     const originalWorld = room.world;
 
     // 1a. Guest votes for restart — not enough votes yet
@@ -62,7 +62,7 @@ test("R3.1 - R3.3 Authorization & Difficulty Hardening Suite", async (t) => {
   await t.test("2. room:return-to-lobby authorization: guest rejected, host accepted", () => {
     const { hostSocket, guestSocket, room } = setupRoomWithSockets("LOBBY1");
     room.started = true;
-    room.world = ctx.createCoopWorld(room);
+    room.world = ctx.createRoomWorld(room);
 
     // 2a. Guest attempts return to lobby
     let guestAck;

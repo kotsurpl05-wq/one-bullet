@@ -32,11 +32,11 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
       return 4800 + tier * 2000 + tier * tier * 800;
     }
 
-    function oracleCoopHp(baseHp) {
+    function oracleRoomHp(baseHp) {
       return Math.max(1, Math.round(baseHp * 1.1));
     }
 
-    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.1, "COOP_BOSS_HP_MULTIPLIER must be exactly 1.1");
+    assert.equal(ctx.ROOM_BOSS_HP_MULTIPLIER, 1.1, "ROOM_BOSS_HP_MULTIPLIER must be exactly 1.1");
 
     // Test every single wave from 1 to 100
     let previousHp = 0;
@@ -44,7 +44,7 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
       world.wave = wave;
       const expectedTier = Math.max(1, Math.floor(wave / 5));
       const expectedBase = oracleBaseHp(expectedTier);
-      const expectedCoop = oracleCoopHp(expectedBase);
+      const expectedRoom = oracleRoomHp(expectedBase);
 
       const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
 
@@ -58,10 +58,10 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
       // Verify HP calculation
       assert.equal(
         boss.hp,
-        expectedCoop,
-        `Wave ${wave}: Boss HP mismatch. Expected ${expectedCoop}, got ${boss.hp}`
+        expectedRoom,
+        `Wave ${wave}: Boss HP mismatch. Expected ${expectedRoom}, got ${boss.hp}`
       );
-      assert.equal(boss.maxHp, expectedCoop, `Wave ${wave}: maxHp must match hp`);
+      assert.equal(boss.maxHp, expectedRoom, `Wave ${wave}: maxHp must match hp`);
 
       // Verify integer safety & positive bounds
       assert.ok(Number.isInteger(boss.hp), `Wave ${wave}: Boss HP must be an integer`);
@@ -110,15 +110,15 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
     }
   });
 
-  await t.test("Focus 1.3: Wave 30 Coop Boss HP Critical Target Verification (HP >= 800 and exactly 50160)", () => {
+  await t.test("Focus 1.3: Wave 30 Room Boss HP Critical Target Verification (HP >= 800 and exactly 50160)", () => {
     const { world } = createTestWorld(ctx);
     world.wave = 30;
 
     const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
 
     assert.equal(boss.bossTier, 6, "Wave 30 must yield bossTier = 6");
-    assert.ok(boss.hp >= 800, `Wave 30 Coop Boss HP must be >= 800 (actual: ${boss.hp})`);
-    assert.equal(boss.hp, 50160, `Wave 30 Coop Boss HP must be exactly 50160`);
+    assert.ok(boss.hp >= 800, `Wave 30 Room Boss HP must be >= 800 (actual: ${boss.hp})`);
+    assert.equal(boss.hp, 50160, `Wave 30 Room Boss HP must be exactly 50160`);
     assert.equal(boss.maxHp, 50160);
   });
 
@@ -142,14 +142,14 @@ test("Adversarial Empirical Stress Testing & Mathematical Oracle Suite for Miles
 
     for (let wave = 1; wave <= 50; wave++) {
       world.wave = wave;
-      const coopBoss = ctx.createServerEnemy(world, "boss", 500, 500, true);
-      const expectedCoopHp = Math.round(serverBaseHp(wave) * 1.1);
+      const roomBoss = ctx.createServerEnemy(world, "boss", 500, 500, true);
+      const expectedRoomHp = Math.round(serverBaseHp(wave) * 1.1);
 
-      // Verify coop HP is exactly Math.round(serverBaseHp * 1.1)
+      // Verify run HP is exactly Math.round(serverBaseHp * 1.1)
       assert.equal(
-        coopBoss.hp,
-        expectedCoopHp,
-        `Wave ${wave} client-server HP calculation discrepancy: serverBase ${serverBaseHp(wave)} -> coop ${coopBoss.hp} vs expected ${expectedCoopHp}`
+        roomBoss.hp,
+        expectedRoomHp,
+        `Wave ${wave} client-server HP calculation discrepancy: serverBase ${serverBaseHp(wave)} -> run ${roomBoss.hp} vs expected ${expectedRoomHp}`
       );
     }
   });

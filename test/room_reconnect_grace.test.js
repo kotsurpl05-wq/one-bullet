@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadServerInstance } = require("./helpers/server_loader.js");
 
-test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
+test("Room 2-Minute Reconnect Grace Period Suite", async (t) => {
   const inst = loadServerInstance();
   const { ctx, cleanup, simulateSocketConnection } = inst;
 
@@ -11,7 +11,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   let socketCounter = 1;
-  function setupActiveCoopGame() {
+  function setupActiveRoomGame() {
     const hostSocket = simulateSocketConnection(`host_sock_${socketCounter++}`);
     const guestSocket = simulateSocketConnection(`guest_sock_${socketCounter++}`);
 
@@ -30,7 +30,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
 
     // Start active game
     room.started = true;
-    room.world = ctx.createCoopWorld(room);
+    room.world = ctx.createRoomWorld(room);
 
     return {
       hostSocket,
@@ -43,7 +43,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   }
 
   await t.test("1. room:create and room:join generate valid 16-hex reconnectToken", () => {
-    const { hostAck, guestAck, room } = setupActiveCoopGame();
+    const { hostAck, guestAck, room } = setupActiveRoomGame();
 
     assert.ok(hostAck.reconnectToken, "Host must receive reconnectToken");
     assert.equal(typeof hostAck.reconnectToken, "string");
@@ -61,7 +61,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("2. Disconnecting during active game pauses world and sets 120s timeout without closing room", () => {
-    const { guestSocket, room, code } = setupActiveCoopGame();
+    const { guestSocket, room, code } = setupActiveRoomGame();
 
     // Guest disconnects
     guestSocket.emit("disconnect");
@@ -80,7 +80,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("3. Successful reconnect waits for sync acknowledgement before countdown", () => {
-    const { guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const { guestSocket, guestAck, room, code } = setupActiveRoomGame();
 
     // Guest disconnects
     guestSocket.emit("disconnect");
@@ -105,7 +105,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
 
     assert.equal(room.world.reconnectState?.syncing, true, "World must wait for the restored client to apply its full snapshot");
     assert.equal(room.world.unpauseCountdown, null, "Countdown must not start before sync acknowledgement");
-    ctx.updateServerCoopWorld(room, 4);
+    ctx.updateServerRoomWorld(room, 4);
     assert.equal(room.world.reconnectState?.syncing, true, "Simulation must remain paused even after the normal countdown duration");
 
     newGuestSocket.emit("net:sync-ack");
@@ -119,7 +119,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("4. Reconnect fails if token is invalid or room does not exist", () => {
-    const { code } = setupActiveCoopGame();
+    const { code } = setupActiveRoomGame();
 
     const strangerSocket = simulateSocketConnection(`stranger_sock_${socketCounter++}`);
 
@@ -137,7 +137,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("5. Remaining player can cancel waiting via room:cancel-reconnect-wait", () => {
-    const { hostSocket, guestSocket, room, code } = setupActiveCoopGame();
+    const { hostSocket, guestSocket, room, code } = setupActiveRoomGame();
 
     // Guest disconnects
     guestSocket.emit("disconnect");
@@ -154,7 +154,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("6. repeated reconnect preserves identity, state and rejects the old transport", () => {
-    const { guestSocket, guestAck, room, code } = setupActiveCoopGame();
+    const { guestSocket, guestAck, room, code } = setupActiveRoomGame();
     const playerId = guestAck.playerId;
     const worldPlayer = room.world.players.get(playerId);
     worldPlayer.hp = 37;
@@ -184,7 +184,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("7. one returning player cannot resume while the other is still missing", () => {
-    const { hostSocket, guestSocket, hostAck, guestAck, room, code } = setupActiveCoopGame();
+    const { hostSocket, guestSocket, hostAck, guestAck, room, code } = setupActiveRoomGame();
     hostSocket.emit("disconnect");
     guestSocket.emit("disconnect");
 
@@ -204,7 +204,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("8. room:join cannot claim a disconnected active slot without its token", () => {
-    const { guestSocket, room, code } = setupActiveCoopGame();
+    const { guestSocket, room, code } = setupActiveRoomGame();
     guestSocket.emit("disconnect");
     const stranger = simulateSocketConnection(`stranger_${socketCounter++}`);
     let ack;
@@ -214,7 +214,7 @@ test("Co-op 2-Minute Reconnect Grace Period Suite", async (t) => {
   });
 
   await t.test("9. explicit room:leave is final and does not leave a reconnect ghost slot", () => {
-    const { guestSocket, room, code } = setupActiveCoopGame();
+    const { guestSocket, room, code } = setupActiveRoomGame();
     let ack;
     guestSocket.emit("room:leave", {}, result => { ack = result; });
 

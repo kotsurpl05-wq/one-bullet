@@ -14,7 +14,7 @@ const { getEnemyExperience, getContactDamage, getEnemyDamageMultiplier } = requi
 const { createPlayerStats } = require("./shared/player-stats");
 const { createEnemyBase } = require("./shared/enemy-factory");
 const { UPGRADE_DEFS, applyUpgrade, getUpgradeProgress } = require("./shared/upgrades");
-const { getRunBalance, scaleEnemyHp, scaleEnemyCount, scaleExperience } = require("./shared/run-balance");
+const { getRoomBalance, scaleEnemyHp, scaleEnemyCount, scaleExperience } = require("./shared/room-balance");
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -248,7 +248,7 @@ function handlePlayerReconnect(room, matchedPlayer, socket, acknowledge) {
 
   refreshReconnectState(room, true);
 
-  const snapshot = createServerCoopSnapshot(room, { full: true });
+  const snapshot = createServerRoomSnapshot(room, { full: true });
 
   acknowledge?.({
     success: true,
@@ -354,7 +354,7 @@ function startRoomCountdown(room) {
       for (const p of room.players.values()) {
         p.ready = false;
       }
-      room.world = createCoopWorld(room);
+      room.world = createRoomWorld(room);
 
       io.to(room.code).emit("room:started", {
         difficulty: room.difficulty || "normal"
@@ -362,7 +362,7 @@ function startRoomCountdown(room) {
 
       io.to(room.code).emit(
         "net:snapshot",
-        createServerCoopSnapshot(room, { full: true })
+        createServerRoomSnapshot(room, { full: true })
       );
 
       emitRoomState(room);
@@ -433,7 +433,7 @@ function closeRoom(room, reason) {
 function handlePlayerDisconnectDuringMatch(socket, room) {
   const player = getRoomPlayer(socket, room);
   if (markPlayerDisconnected(room, player, socket)) {
-    io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+    io.to(room.code).emit("net:snapshot", createServerRoomSnapshot(room));
     emitRoomState(room);
   }
 }
@@ -510,66 +510,66 @@ function sanitizeInput(input) {
   };
 }
 
-const COOP_WORLD_WIDTH = WORLD_WIDTH;
-const COOP_WORLD_HEIGHT = WORLD_HEIGHT;
+const ROOM_WORLD_WIDTH = WORLD_WIDTH;
+const ROOM_WORLD_HEIGHT = WORLD_HEIGHT;
 
-const COOP_PLAYER_SPEED = PLAYER_SPEED;
-const COOP_SIMULATION_RATE = 60;
+const ROOM_PLAYER_SPEED = PLAYER_SPEED;
+const ROOM_SIMULATION_RATE = 60;
 /*
  * 60 Hz снапшоты синхронны с симуляцией физики (60 Hz):
  * снижает задержку буферизации снапшотов с 33мс до 16.6мс.
  */
-const COOP_SNAPSHOT_RATE = 60;
+const ROOM_SNAPSHOT_RATE = 60;
 // Reliable safety net for state that may have first appeared in a dropped
 // volatile snapshot. At ten seconds the extra traffic stays negligible while
 // unknown entities and missed stat/upgrade changes cannot remain stale.
-const COOP_FULL_SNAPSHOT_INTERVAL = 10;
+const ROOM_FULL_SNAPSHOT_INTERVAL = 10;
 
-const COOP_INPUT_TIMEOUT = 1200;
+const ROOM_INPUT_TIMEOUT = 1200;
 
-const COOP_SHOOT_MAX_POSITION_DRIFT = 45;
-const COOP_REPAIR_HEAL_COOLDOWN = 1.75;
+const ROOM_SHOOT_MAX_POSITION_DRIFT = 45;
+const ROOM_REPAIR_HEAL_COOLDOWN = 1.75;
 const ROOM_INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
 const ROOM_CLEANUP_INTERVAL_MS = 60 * 1000;
 
-const COOP_BULLET_SPEED = BULLET_SPEED;
-const COOP_BULLET_RADIUS = BULLET_RADIUS;
-const COOP_BULLET_BOUNCES = BULLET_BOUNCES;
-const COOP_BULLET_MAX_AGE = 6;
-const COOP_BULLET_CATCH_DELAY = 0.24;
+const ROOM_BULLET_SPEED = BULLET_SPEED;
+const ROOM_BULLET_RADIUS = BULLET_RADIUS;
+const ROOM_BULLET_BOUNCES = BULLET_BOUNCES;
+const ROOM_BULLET_MAX_AGE = 6;
+const ROOM_BULLET_CATCH_DELAY = 0.24;
 
 // Совместимые имена для существующих диагностик; сами значения принадлежат
-// общей таблице баланса, а не отдельной co-op формуле.
-const TWO_PLAYER_RUN_BALANCE = getRunBalance(2);
-const COOP_ENEMY_COUNT_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.enemyCountMultiplier;
-const COOP_ENEMY_HP_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.enemyHpMultiplier;
-const COOP_BOSS_HP_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.bossHpMultiplier;
+// общей таблице баланса комнаты, а не отдельной формуле режима.
+const TWO_PLAYER_ROOM_BALANCE = getRoomBalance(2);
+const ROOM_ENEMY_COUNT_MULTIPLIER = TWO_PLAYER_ROOM_BALANCE.enemyCountMultiplier;
+const ROOM_ENEMY_HP_MULTIPLIER = TWO_PLAYER_ROOM_BALANCE.enemyHpMultiplier;
+const ROOM_BOSS_HP_MULTIPLIER = TWO_PLAYER_ROOM_BALANCE.bossHpMultiplier;
 
-const COOP_WAVE_BREAK = 3.5;
+const ROOM_WAVE_BREAK = 3.5;
 
-const COOP_PLAYER_INVULNERABILITY = 0.22;
+const ROOM_PLAYER_INVULNERABILITY = 0.22;
 /*
  * Неуязвимость при любом возвращении в бой (восстановление
  * между волнами, спасение маяком, успешное воскрешение QTE) —
  * даёт игроку 2 секунды, чтобы уйти от врагов, а не умереть повторно мгновенно.
  */
-const COOP_RESPAWN_INVULNERABILITY = 2.0;
+const ROOM_RESPAWN_INVULNERABILITY = 2.0;
 /*
  * Легендарное "Воскрешение": сколько раз нужно нажать пробел за 5 секунд,
  * чтобы выжить при смертельном уроне.
  */
-const COOP_RESURRECTION_REQUIRED_PRESSES = 3;
-const COOP_ENEMY_CONTACT_COOLDOWN = 0.85;
+const ROOM_RESURRECTION_REQUIRED_PRESSES = 3;
+const ROOM_ENEMY_CONTACT_COOLDOWN = 0.85;
 
-const COOP_EXPERIENCE_MULTIPLIER = TWO_PLAYER_RUN_BALANCE.experienceMultiplier;
+const ROOM_EXPERIENCE_MULTIPLIER = TWO_PLAYER_ROOM_BALANCE.experienceMultiplier;
 
-const COOP_CRYSTAL_RADIUS = CRYSTAL_RADIUS;
-const COOP_CRYSTAL_ATTRACTION_RADIUS = 180;
-const COOP_CRYSTAL_ATTRACTION_SPEED = 430;
-const COOP_CRYSTAL_CLEAR_SPEED = 900;
+const ROOM_CRYSTAL_RADIUS = CRYSTAL_RADIUS;
+const ROOM_CRYSTAL_ATTRACTION_RADIUS = 180;
+const ROOM_CRYSTAL_ATTRACTION_SPEED = 430;
+const ROOM_CRYSTAL_CLEAR_SPEED = 900;
 
 
-const COOP_DIFFICULTY = {
+const ROOM_DIFFICULTY = {
   easy: {
     playerHp: 700,
     enemySpeed: 0.86,
@@ -664,7 +664,7 @@ function createServerBullet(
           direction.x *
             (
               player.r +
-              COOP_BULLET_RADIUS +
+              ROOM_BULLET_RADIUS +
               2
             ),
 
@@ -675,7 +675,7 @@ function createServerBullet(
           direction.y *
             (
               player.r +
-              COOP_BULLET_RADIUS +
+              ROOM_BULLET_RADIUS +
               2
             ),
 
@@ -684,13 +684,13 @@ function createServerBullet(
 
     r:
       player.stats?.bulletRadius ??
-      COOP_BULLET_RADIUS,
+      ROOM_BULLET_RADIUS,
     state: "held",
     age: 0,
 
     bouncesLeft:
       player.stats?.maxBounces ??
-      COOP_BULLET_BOUNCES,
+      ROOM_BULLET_BOUNCES,
 
     hitsLeft:
       1 +
@@ -759,8 +759,8 @@ function dropServerBullet(bullet) {
   bullet.vx = 0;
   bullet.vy = 0;
   bullet.age = 0;
-  bullet.x = Math.max(bullet.r || 8, Math.min(COOP_WORLD_WIDTH - (bullet.r || 8), bullet.x));
-  bullet.y = Math.max(bullet.r || 8, Math.min(COOP_WORLD_HEIGHT - (bullet.r || 8), bullet.y));
+  bullet.x = Math.max(bullet.r || 8, Math.min(ROOM_WORLD_WIDTH - (bullet.r || 8), bullet.x));
+  bullet.y = Math.max(bullet.r || 8, Math.min(ROOM_WORLD_HEIGHT - (bullet.r || 8), bullet.y));
 }
 
 function catchServerBullet(
@@ -780,7 +780,7 @@ function catchServerBullet(
   bullet.x = Math.max(
     bullet.r,
     Math.min(
-      COOP_WORLD_WIDTH - bullet.r,
+      ROOM_WORLD_WIDTH - bullet.r,
       owner.x +
         direction.x *
           (
@@ -794,7 +794,7 @@ function catchServerBullet(
   bullet.y = Math.max(
     bullet.r,
     Math.min(
-      COOP_WORLD_HEIGHT - bullet.r,
+      ROOM_WORLD_HEIGHT - bullet.r,
       owner.y +
         direction.y *
           (
@@ -856,9 +856,9 @@ function shootServerBullet(
 
   if (Number.isFinite(clientShootX) && Number.isFinite(clientShootY)) {
     const dist = Math.hypot(clientShootX - owner.x, clientShootY - owner.y);
-    if (dist <= COOP_SHOOT_MAX_POSITION_DRIFT) {
-      owner.x = clamp(clientShootX, owner.r, COOP_WORLD_WIDTH - owner.r);
-      owner.y = clamp(clientShootY, owner.r, COOP_WORLD_HEIGHT - owner.r);
+    if (dist <= ROOM_SHOOT_MAX_POSITION_DRIFT) {
+      owner.x = clamp(clientShootX, owner.r, ROOM_WORLD_WIDTH - owner.r);
+      owner.y = clamp(clientShootY, owner.r, ROOM_WORLD_HEIGHT - owner.r);
     }
   }
 
@@ -866,7 +866,7 @@ function shootServerBullet(
     owner.aimX = clamp(
       Number(aimX),
       0,
-      COOP_WORLD_WIDTH
+      ROOM_WORLD_WIDTH
     );
   }
 
@@ -874,7 +874,7 @@ function shootServerBullet(
     owner.aimY = clamp(
       Number(aimY),
       0,
-      COOP_WORLD_HEIGHT
+      ROOM_WORLD_HEIGHT
     );
   }
 
@@ -910,7 +910,7 @@ function shootServerBullet(
   bullet.x = Math.max(
     bullet.r || 7,
     Math.min(
-      COOP_WORLD_WIDTH - (bullet.r || 7),
+      ROOM_WORLD_WIDTH - (bullet.r || 7),
       owner.x +
         direction.x *
           (
@@ -924,7 +924,7 @@ function shootServerBullet(
   bullet.y = Math.max(
     bullet.r || 7,
     Math.min(
-      COOP_WORLD_HEIGHT - (bullet.r || 7),
+      ROOM_WORLD_HEIGHT - (bullet.r || 7),
       owner.y +
         direction.y *
           (
@@ -937,7 +937,7 @@ function shootServerBullet(
 
   const bulletSpeed =
     owner.stats?.bulletSpeed ??
-    COOP_BULLET_SPEED;
+    ROOM_BULLET_SPEED;
 
   bullet.vx =
     direction.x *
@@ -949,11 +949,11 @@ function shootServerBullet(
 
   bullet.r =
     owner.stats?.bulletRadius ??
-    COOP_BULLET_RADIUS;
+    ROOM_BULLET_RADIUS;
       
   bullet.bouncesLeft =
     owner.stats?.maxBounces ??
-    COOP_BULLET_BOUNCES;
+    ROOM_BULLET_BOUNCES;
       
   bullet.hitsLeft =
     1 +
@@ -1178,7 +1178,7 @@ function updateServerBullet(
        * Эффект Бумеранга: возвращающаяся пуля
        * наносит урон врагам, находящимся рядом с ней.
        * Проверяем точку — текущую позицию пули,
-       * как и в соло-режиме.
+       * как и в однопользовательской комнате.
        */
       if (owner.stats?.boomerang && (owner.stats?.boomerangPercent || 0) > 0) {
         for (const enemy of world.enemies.values()) {
@@ -1300,10 +1300,10 @@ function updateServerBullet(
     hitHorizontal = true;
   } else if (
     bullet.x >=
-    COOP_WORLD_WIDTH - bullet.r
+    ROOM_WORLD_WIDTH - bullet.r
   ) {
     bullet.x =
-      COOP_WORLD_WIDTH - bullet.r;
+      ROOM_WORLD_WIDTH - bullet.r;
 
     hitHorizontal = true;
   }
@@ -1313,10 +1313,10 @@ function updateServerBullet(
     hitVertical = true;
   } else if (
     bullet.y >=
-    COOP_WORLD_HEIGHT - bullet.r
+    ROOM_WORLD_HEIGHT - bullet.r
   ) {
     bullet.y =
-      COOP_WORLD_HEIGHT - bullet.r;
+      ROOM_WORLD_HEIGHT - bullet.r;
 
     hitVertical = true;
   }
@@ -1625,7 +1625,7 @@ function updateServerBullet(
    */
   if (
     owner.alive &&
-    bullet.age > COOP_BULLET_CATCH_DELAY &&
+    bullet.age > ROOM_BULLET_CATCH_DELAY &&
     distToSegment(
       owner.x,
       owner.y,
@@ -1650,7 +1650,7 @@ function updateServerBullet(
    */
   if (
     bullet.age >=
-    COOP_BULLET_MAX_AGE
+    ROOM_BULLET_MAX_AGE
   ) {
     dropServerBullet(bullet);
   }
@@ -1661,8 +1661,8 @@ function getPlayerSpawnPosition(
   index,
   totalPlayers
 ) {
-  const centerX = COOP_WORLD_WIDTH / 2;
-  const centerY = COOP_WORLD_HEIGHT / 2;
+  const centerX = ROOM_WORLD_WIDTH / 2;
+  const centerY = ROOM_WORLD_HEIGHT / 2;
 
   if (totalPlayers <= 1) {
     return { x: centerX, y: centerY };
@@ -1680,28 +1680,28 @@ function reviveServerPlayers(world) {
   let index = 0;
 
   for (
-    const coopPlayer of
+    const worldPlayer of
     world.players.values()
   ) {
-    if (!coopPlayer.alive) {
+    if (!worldPlayer.alive) {
       const position = getPlayerSpawnPosition(
         index,
         world.players.size
       );
 
-      coopPlayer.alive = true;
+      worldPlayer.alive = true;
 
-      coopPlayer.hp = Math.max(
+      worldPlayer.hp = Math.max(
         1,
         Math.ceil(
-          coopPlayer.maxHp / 2
+          worldPlayer.maxHp / 2
         )
       );
 
-      coopPlayer.x = position.x;
-      coopPlayer.y = position.y;
-      coopPlayer.invulnerability = COOP_RESPAWN_INVULNERABILITY;
-      coopPlayer.reviveBeacon = null;
+      worldPlayer.x = position.x;
+      worldPlayer.y = position.y;
+      worldPlayer.invulnerability = ROOM_RESPAWN_INVULNERABILITY;
+      worldPlayer.reviveBeacon = null;
 
       for (
         const bullet of
@@ -1709,11 +1709,11 @@ function reviveServerPlayers(world) {
       ) {
         if (
           bullet.ownerId ===
-          coopPlayer.id
+          worldPlayer.id
         ) {
           catchServerBullet(
             bullet,
-            coopPlayer,
+            worldPlayer,
             world
           );
         }
@@ -1734,7 +1734,7 @@ function updateServerWave(world, dt) {
       world.wavePending = true;
 
       world.waveClearTimer =
-        COOP_WAVE_BREAK;
+        ROOM_WAVE_BREAK;
     } else {
       world.waveClearTimer =
         Math.max(
@@ -1791,9 +1791,9 @@ function updateServerParasites(world, dt) {
     // Паразиты исчезают ТОЛЬКО когда улетают за пределы арены
     if (
       spore.x < -80 ||
-      spore.x > COOP_WORLD_WIDTH + 80 ||
+      spore.x > ROOM_WORLD_WIDTH + 80 ||
       spore.y < -80 ||
-      spore.y > COOP_WORLD_HEIGHT + 80
+      spore.y > ROOM_WORLD_HEIGHT + 80
     ) {
       world.parasites.delete(parasiteId);
       continue;
@@ -1857,7 +1857,7 @@ function updateServerSplinters(world, dt) {
   }
 }
 
-function updateServerCoopWorld(
+function updateServerRoomWorld(
   room,
   dt,
   currentTime
@@ -1907,45 +1907,45 @@ function updateServerCoopWorld(
   }
 
   for (
-    const coopPlayer of
+    const worldPlayer of
     world.players.values()
   ) {
-    coopPlayer.invulnerability =
+    worldPlayer.invulnerability =
       Math.max(
         0,
-        coopPlayer.invulnerability - dt
+        worldPlayer.invulnerability - dt
       );
 
-    coopPlayer.repairHealCooldown =
+    worldPlayer.repairHealCooldown =
       Math.max(
         0,
-        (coopPlayer.repairHealCooldown || 0) - dt
+        (worldPlayer.repairHealCooldown || 0) - dt
       );
 
     /*
      * Реактивная Броня: декремент кулдауна.
      */
-    if (coopPlayer.reactiveArmorCooldown > 0) {
-      coopPlayer.reactiveArmorCooldown = Math.max(
+    if (worldPlayer.reactiveArmorCooldown > 0) {
+      worldPlayer.reactiveArmorCooldown = Math.max(
         0,
-        coopPlayer.reactiveArmorCooldown - dt
+        worldPlayer.reactiveArmorCooldown - dt
       );
     }
 
-    if (!coopPlayer.alive) {
+    if (!worldPlayer.alive) {
       /*
        * Маяк воскрешения: живой партнёр в радиусе
        * накапливает прогресс. При 3.0с → воскрешение.
        */
       if (
-        coopPlayer.reviveBeacon &&
-        coopPlayer.reviveBeacon.active
+        worldPlayer.reviveBeacon &&
+        worldPlayer.reviveBeacon.active
       ) {
-        const beacon = coopPlayer.reviveBeacon;
+        const beacon = worldPlayer.reviveBeacon;
         let rescuerNearby = false;
 
         for (const otherPlayer of world.players.values()) {
-          if (otherPlayer.id === coopPlayer.id) continue;
+          if (otherPlayer.id === worldPlayer.id) continue;
           if (!otherPlayer.alive) continue;
 
           const dist = distance(
@@ -1963,18 +1963,18 @@ function updateServerCoopWorld(
           beacon.progress += dt;
 
           if (beacon.progress >= beacon.requiredTime) {
-            coopPlayer.alive = true;
-            coopPlayer.hp = Math.max(
+            worldPlayer.alive = true;
+            worldPlayer.hp = Math.max(
               1,
-              Math.ceil(coopPlayer.maxHp * 0.3)
+              Math.ceil(worldPlayer.maxHp * 0.3)
             );
-            coopPlayer.invulnerability = COOP_RESPAWN_INVULNERABILITY;
-            coopPlayer.x = beacon.x;
-            coopPlayer.y = beacon.y;
-            coopPlayer.reviveBeacon = null;
+            worldPlayer.invulnerability = ROOM_RESPAWN_INVULNERABILITY;
+            worldPlayer.x = beacon.x;
+            worldPlayer.y = beacon.y;
+            worldPlayer.reviveBeacon = null;
 
             for (const bullet of world.bullets.values()) {
-              if (bullet.ownerId === coopPlayer.id) {
+              if (bullet.ownerId === worldPlayer.id) {
                 bullet.state = "held";
                 bullet.x = beacon.x;
                 bullet.y = beacon.y;
@@ -1990,9 +1990,9 @@ function updateServerCoopWorld(
       continue;
     }
 
-    updateServerCoopPlayer(
+    updateServerRoomPlayer(
       world,
-      coopPlayer,
+      worldPlayer,
       dt,
       currentTime
     );
@@ -2175,7 +2175,7 @@ function randomServerSpawnPoint() {
   if (side === 0) {
     const x = random(
       edgePadding,
-      COOP_WORLD_WIDTH - edgePadding
+      ROOM_WORLD_WIDTH - edgePadding
     );
 
     return {
@@ -2190,14 +2190,14 @@ function randomServerSpawnPoint() {
   if (side === 1) {
     const y = random(
       edgePadding,
-      COOP_WORLD_HEIGHT - edgePadding
+      ROOM_WORLD_HEIGHT - edgePadding
     );
 
     return {
-      x: COOP_WORLD_WIDTH + margin,
+      x: ROOM_WORLD_WIDTH + margin,
       y,
       side: "right",
-      warningX: COOP_WORLD_WIDTH,
+      warningX: ROOM_WORLD_WIDTH,
       warningY: y
     };
   }
@@ -2205,21 +2205,21 @@ function randomServerSpawnPoint() {
   if (side === 2) {
     const x = random(
       edgePadding,
-      COOP_WORLD_WIDTH - edgePadding
+      ROOM_WORLD_WIDTH - edgePadding
     );
 
     return {
       x,
-      y: COOP_WORLD_HEIGHT + margin,
+      y: ROOM_WORLD_HEIGHT + margin,
       side: "bottom",
       warningX: x,
-      warningY: COOP_WORLD_HEIGHT
+      warningY: ROOM_WORLD_HEIGHT
     };
   }
 
   const y = random(
     edgePadding,
-    COOP_WORLD_HEIGHT - edgePadding
+    ROOM_WORLD_HEIGHT - edgePadding
   );
 
   return {
@@ -2270,10 +2270,10 @@ function spawnServerEnemyFromEdge(
 
 function spawnServerWave(world) {
   const difficulty =
-    COOP_DIFFICULTY[
+    ROOM_DIFFICULTY[
       world.difficulty
     ] ||
-    COOP_DIFFICULTY.normal;
+    ROOM_DIFFICULTY.normal;
 
   const isBossWave =
     world.wave % 5 === 0;
@@ -2579,7 +2579,7 @@ function createServerUpgradeOffers(player) {
     });
 }
 
-function createCoopWorld(room) {
+function createRoomWorld(room) {
   const roomPlayers = [
     ...room.players.values()
   ].sort((first, second) => {
@@ -2595,13 +2595,13 @@ function createCoopWorld(room) {
   });
 
   const difficulty =
-    COOP_DIFFICULTY[
+    ROOM_DIFFICULTY[
       room.difficulty
     ] ||
-    COOP_DIFFICULTY.normal;
+    ROOM_DIFFICULTY.normal;
 
   const playerCount = Math.max(1, Math.min(2, roomPlayers.length));
-  const balance = getRunBalance(playerCount);
+  const balance = getRoomBalance(playerCount);
 
   const world = {
     matchId: crypto.randomBytes(8).toString("hex"),
@@ -2660,7 +2660,7 @@ function createCoopWorld(room) {
       const position =
         getPlayerSpawnPosition(index, roomPlayers.length);
 
-      const coopPlayer = {
+      const worldPlayer = {
         id: roomPlayer.id,
         name: roomPlayer.name,
         bulletSkin: roomPlayer.bulletSkin || "neon",
@@ -2669,8 +2669,8 @@ function createCoopWorld(room) {
         x: position.x,
         y: position.y,
       
-        aimX: COOP_WORLD_WIDTH / 2,
-        aimY: COOP_WORLD_HEIGHT / 2,
+        aimX: ROOM_WORLD_WIDTH / 2,
+        aimY: ROOM_WORLD_HEIGHT / 2,
       
         r: 18,
         colorIndex: index,
@@ -2691,19 +2691,19 @@ function createCoopWorld(room) {
       };
 
       world.players.set(
-        coopPlayer.id,
-        coopPlayer
+        worldPlayer.id,
+        worldPlayer
       );
     }
   );
 
   for (
-    const coopPlayer of
+    const worldPlayer of
     world.players.values()
   ) {
     createServerBullet(
       world,
-      coopPlayer
+      worldPlayer
     );
   }
 
@@ -2717,11 +2717,11 @@ function createCoopWorld(room) {
  * и не находится в состоянии "падения" (QTE воскрешения). Это отдаёт
  * ему агро сразу при смерти/падении, давая шанс убежать после подъёма.
  */
-function isServerPlayerTargetable(coopPlayer) {
+function isServerPlayerTargetable(worldPlayer) {
   return Boolean(
-    coopPlayer &&
-    coopPlayer.alive &&
-    !coopPlayer.revivePrompt?.active
+    worldPlayer &&
+    worldPlayer.alive &&
+    !worldPlayer.revivePrompt?.active
   );
 }
 
@@ -2744,10 +2744,10 @@ function getNearestAliveServerPlayer(
   let nearestDistance = Infinity;
 
   for (
-    const coopPlayer of
+    const worldPlayer of
     world.players.values()
   ) {
-    if (!isServerPlayerTargetable(coopPlayer)) {
+    if (!isServerPlayerTargetable(worldPlayer)) {
       continue;
     }
 
@@ -2755,8 +2755,8 @@ function getNearestAliveServerPlayer(
       distance(
         enemy.x,
         enemy.y,
-        coopPlayer.x,
-        coopPlayer.y
+        worldPlayer.x,
+        worldPlayer.y
       );
 
     if (
@@ -2767,7 +2767,7 @@ function getNearestAliveServerPlayer(
         currentDistance;
 
       nearestPlayer =
-        coopPlayer;
+        worldPlayer;
     }
   }
 
@@ -2778,10 +2778,10 @@ function isServerEnemyInside(enemy) {
   return (
     enemy.x - enemy.r >= 0 &&
     enemy.x + enemy.r <=
-      COOP_WORLD_WIDTH &&
+      ROOM_WORLD_WIDTH &&
     enemy.y - enemy.r >= 0 &&
     enemy.y + enemy.r <=
-      COOP_WORLD_HEIGHT
+      ROOM_WORLD_HEIGHT
   );
 }
 
@@ -2794,7 +2794,7 @@ function getServerEnemyEntryTarget(enemy) {
 
   if (enemy.spawnEdge === "right") {
     return {
-      x: COOP_WORLD_WIDTH - inset,
+      x: ROOM_WORLD_WIDTH - inset,
       y: enemy.spawnWarningY
     };
   }
@@ -2802,7 +2802,7 @@ function getServerEnemyEntryTarget(enemy) {
   if (enemy.spawnEdge === "bottom") {
     return {
       x: enemy.spawnWarningX,
-      y: COOP_WORLD_HEIGHT - inset
+      y: ROOM_WORLD_HEIGHT - inset
     };
   }
 
@@ -2811,55 +2811,55 @@ function getServerEnemyEntryTarget(enemy) {
 
 function damageServerPlayer(
   world,
-  coopPlayer,
+  worldPlayer,
   amount,
   options
 ) {
   if (
-    coopPlayer._godMode ||
-    !coopPlayer.alive ||
+    worldPlayer._godMode ||
+    !worldPlayer.alive ||
     world.gameOver
   ) {
     return false;
   }
 
   const isBeam = Boolean(options?.isBeam);
-  const hasSpecialInvuln = (coopPlayer.dashTimer > 0) || Boolean(coopPlayer.revivePrompt?.active) || (coopPlayer.invulnerability > COOP_PLAYER_INVULNERABILITY);
-  if (isBeam ? hasSpecialInvuln : (coopPlayer.invulnerability > 0)) {
+  const hasSpecialInvuln = (worldPlayer.dashTimer > 0) || Boolean(worldPlayer.revivePrompt?.active) || (worldPlayer.invulnerability > ROOM_PLAYER_INVULNERABILITY);
+  if (isBeam ? hasSpecialInvuln : (worldPlayer.invulnerability > 0)) {
     return false;
   }
 
-  coopPlayer.hp = Math.max(
+  worldPlayer.hp = Math.max(
     0,
-    Math.round(coopPlayer.hp - amount * (1 - (coopPlayer.stats?.damageResistance || 0)))
+    Math.round(worldPlayer.hp - amount * (1 - (worldPlayer.stats?.damageResistance || 0)))
   );
 
-  coopPlayer.invulnerability =
-    COOP_PLAYER_INVULNERABILITY;
+  worldPlayer.invulnerability =
+    ROOM_PLAYER_INVULNERABILITY;
 
   /*
    * Реактивная Броня: взрыв, отбрасывающий врагов
    * в радиусе reactiveArmorRadius (базово 120px). Кулдаун 3 секунды.
    */
   if (
-    coopPlayer.stats?.reactiveArmor &&
-    (coopPlayer.reactiveArmorCooldown || 0) <= 0
+    worldPlayer.stats?.reactiveArmor &&
+    (worldPlayer.reactiveArmorCooldown || 0) <= 0
   ) {
-    coopPlayer.reactiveArmorCooldown = coopPlayer.stats?.reactiveArmorCooldownBase || 3.0;
-    const armorRadius = coopPlayer.stats?.reactiveArmorRadius || 120;
+    worldPlayer.reactiveArmorCooldown = worldPlayer.stats?.reactiveArmorCooldownBase || 3.0;
+    const armorRadius = worldPlayer.stats?.reactiveArmorRadius || 120;
 
     for (const enemy of world.enemies.values()) {
       if (!enemy.hasEnteredArena) continue;
 
       const dist = distance(
-        coopPlayer.x, coopPlayer.y,
+        worldPlayer.x, worldPlayer.y,
         enemy.x, enemy.y
       );
 
       if (dist <= armorRadius && dist > 0) {
         const pushForce = 180;
-        const dx = enemy.x - coopPlayer.x;
-        const dy = enemy.y - coopPlayer.y;
+        const dx = enemy.x - worldPlayer.x;
+        const dy = enemy.y - worldPlayer.y;
 
         enemy.x += (dx / dist) * pushForce;
         enemy.y += (dy / dist) * pushForce;
@@ -2867,43 +2867,43 @@ function damageServerPlayer(
     }
   }
 
-  if (coopPlayer.hp <= 0) {
+  if (worldPlayer.hp <= 0) {
     /*
      * Воскрешение: если у игрока есть бонус и он ещё не использован,
      * вместо мгновенной смерти входим в состояние revive-prompt.
      * Клиент показывает QTE (3× пробел за 5 сек).
      */
     if (
-      coopPlayer.stats?.resurrection &&
-      !coopPlayer.stats?.resurrectionUsed &&
-      !coopPlayer.revivePrompt
+      worldPlayer.stats?.resurrection &&
+      !worldPlayer.stats?.resurrectionUsed &&
+      !worldPlayer.revivePrompt
     ) {
-      coopPlayer.hp = 0;
-      coopPlayer.revivePrompt = {
+      worldPlayer.hp = 0;
+      worldPlayer.revivePrompt = {
         active: true,
         presses: 0,
-        required: COOP_RESURRECTION_REQUIRED_PRESSES,
+        required: ROOM_RESURRECTION_REQUIRED_PRESSES,
         timer: 5.0,
         startedAt: Date.now()
       };
-      coopPlayer.invulnerability = 5.5;
+      worldPlayer.invulnerability = 5.5;
       return true;
     }
 
-    coopPlayer.alive = false;
+    worldPlayer.alive = false;
 
     /*
      * Маяк воскрешения: появляется на месте гибели,
-     * но только если есть живой партнёр (не в соло).
+     * но только если в комнате есть живой партнёр.
      */
     const remainingAlive = [
       ...world.players.values()
     ].filter(player => player.alive);
 
     if (remainingAlive.length > 0) {
-      coopPlayer.reviveBeacon = {
-        x: coopPlayer.x,
-        y: coopPlayer.y,
+      worldPlayer.reviveBeacon = {
+        x: worldPlayer.x,
+        y: worldPlayer.y,
         progress: 0,
         requiredTime: 3.0,
         radius: 70,
@@ -2926,7 +2926,7 @@ function damageServerPlayer(
         for (const p of r.players.values()) {
           p.ready = false;
         }
-        io.to(r.code).emit("net:snapshot", createServerCoopSnapshot(r));
+        io.to(r.code).emit("net:snapshot", createServerRoomSnapshot(r));
         emitRoomState(r);
       }
     }
@@ -2971,7 +2971,7 @@ function createServerExperienceCrystal(
       Math.sin(angle) * speed,
 
     value,
-    r: COOP_CRYSTAL_RADIUS,
+    r: ROOM_CRYSTAL_RADIUS,
     age: 0
   };
 
@@ -3015,7 +3015,7 @@ function registerServerRepairKill(player) {
       player.stats.repairKillProgress = Math.max(0, player.stats.healEvery - 1);
     } else {
       player.stats.repairKillProgress = 0;
-      player.repairHealCooldown = COOP_REPAIR_HEAL_COOLDOWN;
+      player.repairHealCooldown = ROOM_REPAIR_HEAL_COOLDOWN;
       player.hp = Math.min(player.maxHp, player.hp + 100);
     }
   }
@@ -3513,7 +3513,7 @@ function getBorderPoint(cx, cy, W, H, angle) {
 
 function spawnServerBlasterPattern(world, boss) {
   // Find nearest alive player as aim target
-  let px = COOP_WORLD_WIDTH / 2, py = COOP_WORLD_HEIGHT / 2;
+  let px = ROOM_WORLD_WIDTH / 2, py = ROOM_WORLD_HEIGHT / 2;
   let minDist = Infinity;
   for (const p of world.players.values()) {
     if (!p.alive) continue;
@@ -3521,8 +3521,8 @@ function spawnServerBlasterPattern(world, boss) {
     if (d < minDist) { minDist = d; px = p.x; py = p.y; }
   }
 
-  const W = COOP_WORLD_WIDTH;
-  const H = COOP_WORLD_HEIGHT;
+  const W = ROOM_WORLD_WIDTH;
+  const H = ROOM_WORLD_HEIGHT;
   const patType = SERVER_BLASTER_PATTERN_TYPES[boss.turretBlasterPatternIdx % SERVER_BLASTER_PATTERN_TYPES.length];
   const spread = (Math.random() - 0.5) * 0.35;
   const posSpread = () => (Math.random() - 0.5) * 250; // ±125px
@@ -3806,8 +3806,8 @@ function spawnServerZonePattern(world, boss, targetPlayer) {
     ox = Math.cos(rAngle) * offsetDist;
     oy = Math.sin(rAngle) * offsetDist;
   }
-  const ax = Math.max(240, Math.min(COOP_WORLD_WIDTH - 240, px + ox));
-  const ay = Math.max(240, Math.min(COOP_WORLD_HEIGHT - 240, py + oy));
+  const ax = Math.max(240, Math.min(ROOM_WORLD_WIDTH - 240, px + ox));
+  const ay = Math.max(240, Math.min(ROOM_WORLD_HEIGHT - 240, py + oy));
 
   const patIdx = boss.serverZonePatternIdx || 0;
   const patternType = SERVER_ZONE_PATTERNS[patIdx % SERVER_ZONE_PATTERNS.length];
@@ -3922,9 +3922,9 @@ function spawnServerBossDrones(world, boss) {
   const cornerMargin = 180;
   const corners = [
     { x: cornerMargin, y: cornerMargin },
-    { x: COOP_WORLD_WIDTH - cornerMargin, y: cornerMargin },
-    { x: cornerMargin, y: COOP_WORLD_HEIGHT - cornerMargin },
-    { x: COOP_WORLD_WIDTH - cornerMargin, y: COOP_WORLD_HEIGHT - cornerMargin }
+    { x: ROOM_WORLD_WIDTH - cornerMargin, y: cornerMargin },
+    { x: cornerMargin, y: ROOM_WORLD_HEIGHT - cornerMargin },
+    { x: ROOM_WORLD_WIDTH - cornerMargin, y: ROOM_WORLD_HEIGHT - cornerMargin }
   ];
 
   const bossTier = boss?.bossTier || Math.max(2, Math.floor((world?.wave || 10) / 5));
@@ -3957,9 +3957,9 @@ function updateServerEnemyProjectiles(world, dt) {
 
     if (
       projectile.x < -60 ||
-      projectile.x > COOP_WORLD_WIDTH + 60 ||
+      projectile.x > ROOM_WORLD_WIDTH + 60 ||
       projectile.y < -60 ||
-      projectile.y > COOP_WORLD_HEIGHT + 60
+      projectile.y > ROOM_WORLD_HEIGHT + 60
     ) {
       world.enemyProjectiles.delete(projectile.id);
       continue;
@@ -3987,10 +3987,10 @@ function updateServerEnemies(
   dt
 ) {
   const difficulty =
-    COOP_DIFFICULTY[
+    ROOM_DIFFICULTY[
       world.difficulty
     ] ||
-    COOP_DIFFICULTY.normal;
+    ROOM_DIFFICULTY.normal;
 
   const enemyPrevPositions = new Map();
   for (const e of world.enemies.values()) {
@@ -4002,8 +4002,8 @@ function updateServerEnemies(
     world.enemies.values()
   ) {
     if (!Number.isFinite(enemy.x) || !Number.isFinite(enemy.y)) {
-      enemy.x = COOP_WORLD_WIDTH / 2;
-      enemy.y = COOP_WORLD_HEIGHT / 2;
+      enemy.x = ROOM_WORLD_WIDTH / 2;
+      enemy.y = ROOM_WORLD_HEIGHT / 2;
       enemy.hasEnteredArena = true;
     }
 
@@ -4036,8 +4036,8 @@ function updateServerEnemies(
       const entryTarget =
         getServerEnemyEntryTarget(enemy);
 
-      const targetX = Number.isFinite(entryTarget.x) ? entryTarget.x : COOP_WORLD_WIDTH / 2;
-      const targetY = Number.isFinite(entryTarget.y) ? entryTarget.y : COOP_WORLD_HEIGHT / 2;
+      const targetX = Number.isFinite(entryTarget.x) ? entryTarget.x : ROOM_WORLD_WIDTH / 2;
+      const targetY = Number.isFinite(entryTarget.y) ? entryTarget.y : ROOM_WORLD_HEIGHT / 2;
 
       const entryDx = targetX - enemy.x;
       const entryDy = targetY - enemy.y;
@@ -4132,8 +4132,8 @@ function updateServerEnemies(
           enemy.sporesCount = Math.max(0, (enemy.sporesCount ?? 5) - 1);
           const angle = Math.random() * Math.PI * 2;
           const dist = 28 + Math.random() * 16;
-          const mx = clamp(enemy.x + Math.cos(angle) * dist, 20, COOP_WORLD_WIDTH - 20);
-          const my = clamp(enemy.y + Math.sin(angle) * dist, 20, COOP_WORLD_HEIGHT - 20);
+          const mx = clamp(enemy.x + Math.cos(angle) * dist, 20, ROOM_WORLD_WIDTH - 20);
+          const my = clamp(enemy.y + Math.sin(angle) * dist, 20, ROOM_WORLD_HEIGHT - 20);
           const minion = createServerEnemy(world, "minion", mx, my, true);
           minion.hasEnteredArena = true;
           minion.spawnDelay = 0;
@@ -4247,8 +4247,8 @@ function updateServerEnemies(
 
       // Enter turret mode (only possible from boss phase 2 onwards: phase >= 1)
       if (!enemy.turretMode && enemy.turretCooldown <= 0 && enemy.hasEnteredArena && !enemy.shieldActive && phase >= 1) {
-        enemy.x = COOP_WORLD_WIDTH / 2;
-        enemy.y = COOP_WORLD_HEIGHT / 2;
+        enemy.x = ROOM_WORLD_WIDTH / 2;
+        enemy.y = ROOM_WORLD_HEIGHT / 2;
         enemy.turretMode = true;
         enemy.turretTimer = 20;
         enemy.dashState = "none";
@@ -4295,8 +4295,8 @@ function updateServerEnemies(
           enemy.dashTimer -= dt;
           enemy.x += enemy.dashDx * 430 * dt;
           enemy.y += enemy.dashDy * 430 * dt;
-          enemy.x = clamp(enemy.x, enemy.r, COOP_WORLD_WIDTH - enemy.r);
-          enemy.y = clamp(enemy.y, enemy.r, COOP_WORLD_HEIGHT - enemy.r);
+          enemy.x = clamp(enemy.x, enemy.r, ROOM_WORLD_WIDTH - enemy.r);
+          enemy.y = clamp(enemy.y, enemy.r, ROOM_WORLD_HEIGHT - enemy.r);
 
           if (enemy.dashTimer <= 0) {
             enemy.dashState = "none";
@@ -4542,13 +4542,13 @@ function updateServerEnemies(
     enemy.x = clamp(
       enemy.x,
       enemy.r,
-      COOP_WORLD_WIDTH - enemy.r
+      ROOM_WORLD_WIDTH - enemy.r
     );
 
     enemy.y = clamp(
       enemy.y,
       enemy.r,
-      COOP_WORLD_HEIGHT - enemy.r
+      ROOM_WORLD_HEIGHT - enemy.r
     );
 
     if (
@@ -4587,7 +4587,7 @@ function updateServerEnemies(
 
         if (damageApplied) {
           enemy.contactCooldown =
-            COOP_ENEMY_CONTACT_COOLDOWN;
+            ROOM_ENEMY_CONTACT_COOLDOWN;
         }
       }
     }
@@ -4646,36 +4646,36 @@ function updateServerEnemies(
   }
 }
 
-function updateServerCoopPlayer(
+function updateServerRoomPlayer(
   world,
-  coopPlayer,
+  worldPlayer,
   dt,
   currentTime
 ) {
   /*
    * Воскрешение QTE: отсчёт таймера. Если время вышло — смерть.
    */
-  if (coopPlayer.revivePrompt?.active) {
-    coopPlayer.revivePrompt.timer -= dt;
-    if (coopPlayer.revivePrompt.timer <= 0) {
+  if (worldPlayer.revivePrompt?.active) {
+    worldPlayer.revivePrompt.timer -= dt;
+    if (worldPlayer.revivePrompt.timer <= 0) {
       /*
        * QTE провален (или проигнорирован) — бонус воскрешения
        * НЕ считается потраченным, чтобы он остался доступен
        * при следующей смерти. Игрок просто погибает как обычно
        * и получает маяк воскрешения от напарника.
        */
-      coopPlayer.revivePrompt = null;
-      coopPlayer.invulnerability = 0;
-      coopPlayer.alive = false;
+      worldPlayer.revivePrompt = null;
+      worldPlayer.invulnerability = 0;
+      worldPlayer.alive = false;
 
       const alivePlayers = [
         ...world.players.values()
       ].filter(player => player.alive);
 
       if (alivePlayers.length > 0) {
-        coopPlayer.reviveBeacon = {
-          x: coopPlayer.x,
-          y: coopPlayer.y,
+        worldPlayer.reviveBeacon = {
+          x: worldPlayer.x,
+          y: worldPlayer.y,
           progress: 0,
           requiredTime: 3.0,
           radius: 70,
@@ -4693,7 +4693,7 @@ function updateServerCoopPlayer(
     return;
   }
 
-  let input = coopPlayer.input;
+  let input = worldPlayer.input;
 
   /*
    * Если клиент перестал отправлять управление,
@@ -4701,16 +4701,16 @@ function updateServerCoopPlayer(
    * зажатой клавиши после сворачивания или обрыва.
    */
   if (
-    currentTime - coopPlayer.lastInputAt >
-    COOP_INPUT_TIMEOUT
+    currentTime - worldPlayer.lastInputAt >
+    ROOM_INPUT_TIMEOUT
   ) {
     input = sanitizeInput({});
   }
 
-  coopPlayer.dashCooldown = Math.max(0, (coopPlayer.dashCooldown || 0) - dt);
-  coopPlayer.dashTimer = Math.max(0, (coopPlayer.dashTimer || 0) - dt);
+  worldPlayer.dashCooldown = Math.max(0, (worldPlayer.dashCooldown || 0) - dt);
+  worldPlayer.dashTimer = Math.max(0, (worldPlayer.dashTimer || 0) - dt);
 
-  if (input.dash && coopPlayer.stats?.dash && (coopPlayer.dashCooldown || 0) <= 0) {
+  if (input.dash && worldPlayer.stats?.dash && (worldPlayer.dashCooldown || 0) <= 0) {
     let ddx = 0;
     let ddy = 0;
     if (input.up) ddy -= 1;
@@ -4722,34 +4722,34 @@ function updateServerCoopPlayer(
       ddx /= dlen;
       ddy /= dlen;
     } else {
-      const angle = Math.atan2((input.aimY || coopPlayer.y) - coopPlayer.y, (input.aimX || coopPlayer.x) - coopPlayer.x);
+      const angle = Math.atan2((input.aimY || worldPlayer.y) - worldPlayer.y, (input.aimX || worldPlayer.x) - worldPlayer.x);
       ddx = Math.cos(angle);
       ddy = Math.sin(angle);
     }
-    const dashSpeed = (coopPlayer.stats?.dashDistance || 120) / 0.18;
-    coopPlayer.dashCooldown = coopPlayer.stats?.dashCooldownBase || 10.0;
-    coopPlayer.dashTimer = 0.18;
-    coopPlayer.dashVx = ddx * dashSpeed;
-    coopPlayer.dashVy = ddy * dashSpeed;
-    coopPlayer.invulnerability = Math.max(coopPlayer.invulnerability || 0, 0.18 + 0.3);
-    coopPlayer.dashHitEnemies = new Set();
+    const dashSpeed = (worldPlayer.stats?.dashDistance || 120) / 0.18;
+    worldPlayer.dashCooldown = worldPlayer.stats?.dashCooldownBase || 10.0;
+    worldPlayer.dashTimer = 0.18;
+    worldPlayer.dashVx = ddx * dashSpeed;
+    worldPlayer.dashVy = ddy * dashSpeed;
+    worldPlayer.invulnerability = Math.max(worldPlayer.invulnerability || 0, 0.18 + 0.3);
+    worldPlayer.dashHitEnemies = new Set();
     input.dash = false;
   }
 
   if (Number.isFinite(input.x) && Number.isFinite(input.y)) {
-    const drift = Math.hypot(input.x - coopPlayer.x, coopPlayer.y - input.y);
+    const drift = Math.hypot(input.x - worldPlayer.x, worldPlayer.y - input.y);
     if (drift < 300) {
-      coopPlayer.x = input.x;
-      coopPlayer.y = input.y;
+      worldPlayer.x = input.x;
+      worldPlayer.y = input.y;
     } else {
       const lerp = Math.min(1, dt * 12);
-      coopPlayer.x += (input.x - coopPlayer.x) * lerp;
-      coopPlayer.y += (input.y - coopPlayer.y) * lerp;
+      worldPlayer.x += (input.x - worldPlayer.x) * lerp;
+      worldPlayer.y += (input.y - worldPlayer.y) * lerp;
     }
   } else {
-    if (coopPlayer.dashTimer > 0) {
-      coopPlayer.x += (coopPlayer.dashVx || 0) * dt;
-      coopPlayer.y += (coopPlayer.dashVy || 0) * dt;
+    if (worldPlayer.dashTimer > 0) {
+      worldPlayer.x += (worldPlayer.dashVx || 0) * dt;
+      worldPlayer.y += (worldPlayer.dashVy || 0) * dt;
     }
 
     let movementX = 0;
@@ -4771,80 +4771,80 @@ function updateServerCoopPlayer(
       movementY /= movementLength;
 
       const movementSpeed =
-        coopPlayer.stats?.playerSpeed ??
-        COOP_PLAYER_SPEED;
+        worldPlayer.stats?.playerSpeed ??
+        ROOM_PLAYER_SPEED;
 
-      coopPlayer.x +=
+      worldPlayer.x +=
         movementX *
         movementSpeed *
         dt;
 
-      coopPlayer.y +=
+      worldPlayer.y +=
         movementY *
         movementSpeed *
         dt;
     }
   }
 
-  coopPlayer.x = clamp(
-    coopPlayer.x,
-    coopPlayer.r,
-    COOP_WORLD_WIDTH -
-      coopPlayer.r
+  worldPlayer.x = clamp(
+    worldPlayer.x,
+    worldPlayer.r,
+    ROOM_WORLD_WIDTH -
+      worldPlayer.r
   );
 
-  coopPlayer.y = clamp(
-    coopPlayer.y,
-    coopPlayer.r,
-    COOP_WORLD_HEIGHT -
-      coopPlayer.r
+  worldPlayer.y = clamp(
+    worldPlayer.y,
+    worldPlayer.r,
+    ROOM_WORLD_HEIGHT -
+      worldPlayer.r
   );
 
   /*
    * Разящий рывок: урон 100% от damage всем
    * врагам на траектории рывка.
    * Проверка выполняется независимо от типа ввода,
-   * так как в коопе клиент всегда шлёт координаты.
+   * так как клиент комнаты всегда шлёт координаты.
    */
-  if (coopPlayer.dashTimer > 0 && coopPlayer.stats?.dashDamage) {
-    const prevDashX = coopPlayer.x - (coopPlayer.dashVx || 0) * dt;
-    const prevDashY = coopPlayer.y - (coopPlayer.dashVy || 0) * dt;
-    if (!coopPlayer.dashHitEnemies) coopPlayer.dashHitEnemies = new Set();
+  if (worldPlayer.dashTimer > 0 && worldPlayer.stats?.dashDamage) {
+    const prevDashX = worldPlayer.x - (worldPlayer.dashVx || 0) * dt;
+    const prevDashY = worldPlayer.y - (worldPlayer.dashVy || 0) * dt;
+    if (!worldPlayer.dashHitEnemies) worldPlayer.dashHitEnemies = new Set();
     for (const enemy of world.enemies.values()) {
       if (!enemy.hasEnteredArena) continue;
       if (enemy.type === "phantom" && enemy.isPhased) continue;
-      if (coopPlayer.dashHitEnemies.has(enemy.id)) continue;
+      if (worldPlayer.dashHitEnemies.has(enemy.id)) continue;
 
       const segDist = distToSegment(
         enemy.x, enemy.y,
         prevDashX, prevDashY,
-        coopPlayer.x, coopPlayer.y
+        worldPlayer.x, worldPlayer.y
       );
 
-      if (segDist <= (coopPlayer.r + enemy.r) * 1.03) {
-        coopPlayer.dashHitEnemies.add(enemy.id);
+      if (segDist <= (worldPlayer.r + enemy.r) * 1.03) {
+        worldPlayer.dashHitEnemies.add(enemy.id);
         damageServerEnemy(
           world,
           enemy.id,
-          coopPlayer.stats?.damage || 100,
-          coopPlayer
+          worldPlayer.stats?.damage || 100,
+          worldPlayer
         );
       }
     }
   }
 
-  coopPlayer.aimX = clamp(
+  worldPlayer.aimX = clamp(
     Number(input.aimX) ||
-      COOP_WORLD_WIDTH / 2,
+      ROOM_WORLD_WIDTH / 2,
     0,
-    COOP_WORLD_WIDTH
+    ROOM_WORLD_WIDTH
   );
 
-  coopPlayer.aimY = clamp(
+  worldPlayer.aimY = clamp(
     Number(input.aimY) ||
-      COOP_WORLD_HEIGHT / 2,
+      ROOM_WORLD_HEIGHT / 2,
     0,
-    COOP_WORLD_HEIGHT
+    ROOM_WORLD_HEIGHT
   );
 }
 
@@ -4910,7 +4910,7 @@ function applyServerUpgrade(
 
 function recalculateServerPlayerStats(world, player) {
   if (!player) return;
-  const difficulty = (world && COOP_DIFFICULTY[world.difficulty]) || COOP_DIFFICULTY.normal;
+  const difficulty = (world && ROOM_DIFFICULTY[world.difficulty]) || ROOM_DIFFICULTY.normal;
   const baseHp = difficulty.playerHp || 500;
   player.stats = createServerPlayerStats();
   player.maxHp = baseHp;
@@ -5194,7 +5194,7 @@ function updateServerExperienceCrystals(
     }
 
     const attractionRadius =
-      COOP_CRYSTAL_ATTRACTION_RADIUS +
+      ROOM_CRYSTAL_ATTRACTION_RADIUS +
       (target.stats?.pickupRadius || 0) *
         0.5;
 
@@ -5224,8 +5224,8 @@ function updateServerExperienceCrystals(
 
       const attractionSpeed =
         waveIsClear
-          ? COOP_CRYSTAL_CLEAR_SPEED
-          : COOP_CRYSTAL_ATTRACTION_SPEED;
+          ? ROOM_CRYSTAL_CLEAR_SPEED
+          : ROOM_CRYSTAL_ATTRACTION_SPEED;
 
       crystal.vx +=
         dx *
@@ -5289,21 +5289,21 @@ function updateServerExperienceCrystals(
  * Без этого флага статика отправляется один раз на
  * сущность, чтобы не гнать её 20 раз в секунду.
  */
-function createServerCoopSnapshot(room, options) {
+function createServerRoomSnapshot(room, options) {
   const world = room.world;
   const fullSnapshot = Boolean(options && options.full);
 
   return {
-    type: "coop-server-v4",
+    type: "room-server-v1",
     serverTime: Date.now(),
     matchSeq: world.matchSeq || 1,
     matchId: world.matchId,
     snapshotSeq: (world.snapshotSeq = (world.snapshotSeq || 0) + 1),
 
-    worldWidth: COOP_WORLD_WIDTH,
-    worldHeight: COOP_WORLD_HEIGHT,
+    worldWidth: ROOM_WORLD_WIDTH,
+    worldHeight: ROOM_WORLD_HEIGHT,
     playerCount: world.playerCount || world.players.size,
-    balance: world.balance || getRunBalance(world.playerCount || world.players.size),
+    balance: world.balance || getRoomBalance(world.playerCount || world.players.size),
 
     wave: world.wave,
     kills: world.kills,
@@ -5351,50 +5351,50 @@ function createServerCoopSnapshot(room, options) {
 
     players: [
       ...world.players.values()
-    ].map(coopPlayer => ({
-      id: coopPlayer.id,
-      name: coopPlayer.name,
+    ].map(worldPlayer => ({
+      id: worldPlayer.id,
+      name: worldPlayer.name,
 
-      x: Math.round(coopPlayer.x * 100) / 100,
-      y: Math.round(coopPlayer.y * 100) / 100,
+      x: Math.round(worldPlayer.x * 100) / 100,
+      y: Math.round(worldPlayer.y * 100) / 100,
 
-      aimX: Math.round(coopPlayer.aimX),
-      aimY: Math.round(coopPlayer.aimY),
+      aimX: Math.round(worldPlayer.aimX),
+      aimY: Math.round(worldPlayer.aimY),
 
-      r: coopPlayer.r,
-      colorIndex: coopPlayer.colorIndex,
+      r: worldPlayer.r,
+      colorIndex: worldPlayer.colorIndex,
 
-      hp: Math.round(coopPlayer.hp),
-      maxHp: coopPlayer.maxHp,
+      hp: Math.round(worldPlayer.hp),
+      maxHp: worldPlayer.maxHp,
 
-      alive: coopPlayer.alive,
-      bulletSkin: coopPlayer.bulletSkin || "neon",
-      playerSkin: coopPlayer.playerSkin || "cyan",
-      invulnerability: coopPlayer.invulnerability > 0 ? Number(coopPlayer.invulnerability.toFixed(2)) : 0,
+      alive: worldPlayer.alive,
+      bulletSkin: worldPlayer.bulletSkin || "neon",
+      playerSkin: worldPlayer.playerSkin || "cyan",
+      invulnerability: worldPlayer.invulnerability > 0 ? Number(worldPlayer.invulnerability.toFixed(2)) : 0,
 
-      reviveBeacon: coopPlayer.reviveBeacon
+      reviveBeacon: worldPlayer.reviveBeacon
         ? {
-            x: Math.round(coopPlayer.reviveBeacon.x),
-            y: Math.round(coopPlayer.reviveBeacon.y),
-            progress: Number(coopPlayer.reviveBeacon.progress.toFixed(2)),
-            requiredTime: coopPlayer.reviveBeacon.requiredTime,
-            radius: coopPlayer.reviveBeacon.radius,
-            active: coopPlayer.reviveBeacon.active
+            x: Math.round(worldPlayer.reviveBeacon.x),
+            y: Math.round(worldPlayer.reviveBeacon.y),
+            progress: Number(worldPlayer.reviveBeacon.progress.toFixed(2)),
+            requiredTime: worldPlayer.reviveBeacon.requiredTime,
+            radius: worldPlayer.reviveBeacon.radius,
+            active: worldPlayer.reviveBeacon.active
           }
         : undefined,
 
-      revivePrompt: coopPlayer.revivePrompt?.active
+      revivePrompt: worldPlayer.revivePrompt?.active
         ? {
             active: true,
-            presses: coopPlayer.revivePrompt.presses,
-            required: coopPlayer.revivePrompt.required,
-            timer: Number(coopPlayer.revivePrompt.timer.toFixed(2))
+            presses: worldPlayer.revivePrompt.presses,
+            required: worldPlayer.revivePrompt.required,
+            timer: Number(worldPlayer.revivePrompt.timer.toFixed(2))
           }
         : undefined,
 
-      stats: (fullSnapshot || coopPlayer.statsDirty) ? coopPlayer.stats : undefined,
-      selectedUpgrades: (fullSnapshot || coopPlayer.upgradesDirty) ? coopPlayer.selectedUpgrades : undefined,
-      totalDamageDealt: coopPlayer.totalDamageDealt || 0
+      stats: (fullSnapshot || worldPlayer.statsDirty) ? worldPlayer.stats : undefined,
+      selectedUpgrades: (fullSnapshot || worldPlayer.upgradesDirty) ? worldPlayer.selectedUpgrades : undefined,
+      totalDamageDealt: worldPlayer.totalDamageDealt || 0
     })),
 
     bullets: [
@@ -5426,7 +5426,7 @@ function createServerCoopSnapshot(room, options) {
        *
        * Враги — 90% трафика снапшота, поэтому здесь
        * отправляется только то, что клиент реально
-       * читает в applyCoopSnapshot, и только когда
+       * читает в applyRoomSnapshot, и только когда
        * значение отличается от предполагаемого по
        * умолчанию. Клиент восстанавливает опущенные
        * поля из дефолтов, поэтому любое новое поле
@@ -5632,11 +5632,11 @@ function advanceFullSnapshotClock(world, dt) {
   world.fullSnapshotAccumulator =
     (world.fullSnapshotAccumulator || 0) + Math.max(0, dt || 0);
 
-  if (world.fullSnapshotAccumulator < COOP_FULL_SNAPSHOT_INTERVAL) {
+  if (world.fullSnapshotAccumulator < ROOM_FULL_SNAPSHOT_INTERVAL) {
     return false;
   }
 
-  world.fullSnapshotAccumulator %= COOP_FULL_SNAPSHOT_INTERVAL;
+  world.fullSnapshotAccumulator %= ROOM_FULL_SNAPSHOT_INTERVAL;
   return true;
 }
 
@@ -5669,7 +5669,7 @@ io.on("connection", socket => {
   
     socket.emit(
       "net:snapshot",
-      createServerCoopSnapshot(room, { full: true })
+      createServerRoomSnapshot(room, { full: true })
     );
   });
 
@@ -5894,7 +5894,7 @@ io.on("connection", socket => {
     if (room.restartVotes.size >= room.players.size) {
       room.restartVotes = null;
       room.matchSeq = (room.matchSeq || 0) + 1;
-      room.world = createCoopWorld(room);
+      room.world = createRoomWorld(room);
       room.world.matchSeq = room.matchSeq;
 
       io.to(room.code).emit("room:started", {
@@ -5905,7 +5905,7 @@ io.on("connection", socket => {
 
       io.to(room.code).emit(
         "net:snapshot",
-        createServerCoopSnapshot(room, { full: true })
+        createServerRoomSnapshot(room, { full: true })
       );
 
       emitRoomState(room);
@@ -5970,7 +5970,7 @@ io.on("connection", socket => {
     sendAcknowledgement(acknowledge, { success: true, ready: player.ready });
   });
 
-  const ALLOWED_COOP_DIFFICULTIES = ["easy", "normal", "hard"];
+  const ALLOWED_ROOM_DIFFICULTIES = ["easy", "normal", "hard"];
 
   socket.on("room:set-difficulty", (payload, acknowledge) => {
     const room = getRoomForSocket(socket);
@@ -5985,7 +5985,7 @@ io.on("connection", socket => {
     touchRoom(room);
 
     const diff = String(payload?.difficulty);
-    if (!ALLOWED_COOP_DIFFICULTIES.includes(diff)) {
+    if (!ALLOWED_ROOM_DIFFICULTIES.includes(diff)) {
       acknowledge?.({ success: false, message: "Недопустимый уровень сложности" });
       return;
     }
@@ -6021,12 +6021,12 @@ io.on("connection", socket => {
 
       cancelRoomCountdown(room);
       const diff = String(payload?.difficulty || room.difficulty || "normal");
-      room.difficulty = ALLOWED_COOP_DIFFICULTIES.includes(diff) ? diff : "normal";
+      room.difficulty = ALLOWED_ROOM_DIFFICULTIES.includes(diff) ? diff : "normal";
       room.started = true;
       for (const p of room.players.values()) p.ready = false;
       
       room.world =
-        createCoopWorld(room);
+        createRoomWorld(room);
       
       io.to(room.code).emit("room:started", {
         difficulty: room.difficulty
@@ -6034,7 +6034,7 @@ io.on("connection", socket => {
       
       io.to(room.code).emit(
         "net:snapshot",
-        createServerCoopSnapshot(room, { full: true })
+        createServerRoomSnapshot(room, { full: true })
       );
 
       emitRoomState(room);
@@ -6062,19 +6062,19 @@ io.on("connection", socket => {
     }
     touchRoom(room);
   
-    const coopPlayer =
+    const worldPlayer =
       room.world.players.get(
         getPlayerIdForSocket(room, socket)
       );
   
-    if (!coopPlayer) {
+    if (!worldPlayer) {
       return;
     }
   
-    coopPlayer.input =
+    worldPlayer.input =
       sanitizeInput(input);
   
-    coopPlayer.lastInputAt =
+    worldPlayer.lastInputAt =
       Date.now();
   });
 
@@ -6085,12 +6085,12 @@ io.on("connection", socket => {
     }
     touchRoom(room);
 
-    const coopPlayer = room.world.players.get(getPlayerIdForSocket(room, socket));
-    if (!coopPlayer || !coopPlayer.revivePrompt?.active) {
+    const worldPlayer = room.world.players.get(getPlayerIdForSocket(room, socket));
+    if (!worldPlayer || !worldPlayer.revivePrompt?.active) {
       return;
     }
 
-    const prompt = coopPlayer.revivePrompt;
+    const prompt = worldPlayer.revivePrompt;
     prompt.presses = Math.min(prompt.required, prompt.presses + 1);
 
     if (prompt.presses >= prompt.required) {
@@ -6099,14 +6099,14 @@ io.on("connection", socket => {
        * и 2 секундами неуязвимости, чтобы успеть отбежать.
        */
       prompt.active = false;
-      coopPlayer.alive = true;
-      coopPlayer.hp = Math.max(1, Math.ceil(coopPlayer.maxHp * 0.1));
-      coopPlayer.invulnerability = COOP_RESPAWN_INVULNERABILITY;
-      coopPlayer.stats.resurrectionUsed = true;
+      worldPlayer.alive = true;
+      worldPlayer.hp = Math.max(1, Math.ceil(worldPlayer.maxHp * 0.1));
+      worldPlayer.invulnerability = ROOM_RESPAWN_INVULNERABILITY;
+      worldPlayer.stats.resurrectionUsed = true;
 
       for (const bullet of room.world.bullets.values()) {
-        if (bullet.ownerId === coopPlayer.id) {
-          catchServerBullet(bullet, coopPlayer, room.world);
+        if (bullet.ownerId === worldPlayer.id) {
+          catchServerBullet(bullet, worldPlayer, room.world);
         }
       }
     }
@@ -6125,7 +6125,7 @@ io.on("connection", socket => {
     if (player.stateSynced !== false) return;
     player.stateSynced = true;
     refreshReconnectState(room, true);
-    io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+    io.to(room.code).emit("net:snapshot", createServerRoomSnapshot(room));
     emitRoomState(room);
   });
 
@@ -6160,7 +6160,7 @@ io.on("connection", socket => {
     const now = Date.now();
     if (now - (socket._lastFullSnapshotRequestAt || 0) < 1000) return;
     socket._lastFullSnapshotRequestAt = now;
-    socket.emit("net:snapshot", createServerCoopSnapshot(room, { full: true }));
+    socket.emit("net:snapshot", createServerRoomSnapshot(room, { full: true }));
   });
 
   socket.on("net:toggle-pause", () => {
@@ -6396,7 +6396,7 @@ io.on("connection", socket => {
 
     io.to(room.code).emit(
       "net:snapshot",
-      createServerCoopSnapshot(room)
+      createServerRoomSnapshot(room)
     );
   });
 
@@ -6653,7 +6653,7 @@ io.on("connection", socket => {
 
     const player = room.players.get(getPlayerIdForSocket(room, socket));
     if (markPlayerDisconnected(room, player, socket)) {
-      io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+      io.to(room.code).emit("net:snapshot", createServerRoomSnapshot(room));
       emitRoomState(room);
     }
   });
@@ -6665,7 +6665,7 @@ io.on("connection", socket => {
     if (room.started && room.world) {
       const player = room.players.get(getPlayerIdForSocket(room, socket));
       if (markPlayerDisconnected(room, player, socket)) {
-        io.to(room.code).emit("net:snapshot", createServerCoopSnapshot(room));
+        io.to(room.code).emit("net:snapshot", createServerRoomSnapshot(room));
         emitRoomState(room);
         return;
       }
@@ -6691,16 +6691,16 @@ io.on("connection", socket => {
  * надолго), не пытаемся наверстать все пропущенные тики — просто
  * ресинхронизируемся, чтобы не создавать "лавину" догоняющих кадров.
  */
-let lastCoopSimulationTime =
+let lastRoomSimulationTime =
   Date.now();
 
-const COOP_TICK_INTERVAL_NS =
-  BigInt(Math.round(1e9 / COOP_SIMULATION_RATE));
+const ROOM_TICK_INTERVAL_NS =
+  BigInt(Math.round(1e9 / ROOM_SIMULATION_RATE));
 
-let nextCoopTickExpected =
+let nextRoomTickExpected =
   process.hrtime.bigint();
 
-function runCoopSimulationTick() {
+function runRoomSimulationTick() {
   try {
     const currentTime = Date.now();
 
@@ -6708,14 +6708,14 @@ function runCoopSimulationTick() {
       Math.max(
         (
           currentTime -
-          lastCoopSimulationTime
+          lastRoomSimulationTime
         ) / 1000,
         0
       ),
       0.05
     );
 
-    lastCoopSimulationTime = currentTime;
+    lastRoomSimulationTime = currentTime;
 
     for (const room of rooms.values()) {
       if (
@@ -6726,7 +6726,7 @@ function runCoopSimulationTick() {
       }
 
       try {
-        updateServerCoopWorld(
+        updateServerRoomWorld(
           room,
           dt,
           currentTime
@@ -6736,10 +6736,10 @@ function runCoopSimulationTick() {
 
         if (
           room.world.snapshotAccumulator >=
-          1 / COOP_SNAPSHOT_RATE
+          1 / ROOM_SNAPSHOT_RATE
         ) {
           room.world.snapshotAccumulator = Math.min(
-            room.world.snapshotAccumulator - 1 / COOP_SNAPSHOT_RATE,
+            room.world.snapshotAccumulator - 1 / ROOM_SNAPSHOT_RATE,
             0.1
           );
 
@@ -6747,7 +6747,7 @@ function runCoopSimulationTick() {
             room.world,
             dt
           );
-          const snapshot = createServerCoopSnapshot(
+          const snapshot = createServerRoomSnapshot(
             room,
             sendFullSnapshot ? { full: true } : undefined
           );
@@ -6768,25 +6768,25 @@ function runCoopSimulationTick() {
       }
     }
   } catch (loopErr) {
-    console.error("[Simulation] Critical error in runCoopSimulationTick:", loopErr);
+    console.error("[Simulation] Critical error in runRoomSimulationTick:", loopErr);
   } finally {
-    nextCoopTickExpected += COOP_TICK_INTERVAL_NS;
+    nextRoomTickExpected += ROOM_TICK_INTERVAL_NS;
     const now = process.hrtime.bigint();
-    let delayNs = nextCoopTickExpected - now;
+    let delayNs = nextRoomTickExpected - now;
 
     // Слишком большое отставание (лаг event loop, GC-пауза и т.д.) — ресинк без догонки.
-    const maxLagNs = COOP_TICK_INTERVAL_NS * 4n;
+    const maxLagNs = ROOM_TICK_INTERVAL_NS * 4n;
     if (delayNs < -maxLagNs) {
-      nextCoopTickExpected = now + COOP_TICK_INTERVAL_NS;
-      delayNs = COOP_TICK_INTERVAL_NS;
+      nextRoomTickExpected = now + ROOM_TICK_INTERVAL_NS;
+      delayNs = ROOM_TICK_INTERVAL_NS;
     }
 
     const delayMs = Math.max(0, Number(delayNs) / 1e6);
-    setTimeout(runCoopSimulationTick, delayMs);
+    setTimeout(runRoomSimulationTick, delayMs);
   }
 }
 
-setTimeout(runCoopSimulationTick, 1000 / COOP_SIMULATION_RATE);
+setTimeout(runRoomSimulationTick, 1000 / ROOM_SIMULATION_RATE);
 
 setInterval(() => {
   const now = Date.now();

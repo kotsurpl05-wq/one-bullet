@@ -56,7 +56,7 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     assert.equal(b1.skin, "plasma", "Bullet 1 must have plasma skin");
     assert.equal(b2.skin, "ruby", "Bullet 2 must have ruby skin");
 
-    const snapshot = ctx.createServerCoopSnapshot({ world, players: world.players });
+    const snapshot = ctx.createServerRoomSnapshot({ world, players: world.players });
     assert.ok(snapshot.bullets.some(b => b.id === "b1" && b.skin === "plasma"), "Snapshot must include b1 with plasma skin");
     assert.ok(snapshot.bullets.some(b => b.id === "b2" && b.skin === "ruby"), "Snapshot must include b2 with ruby skin");
   });
@@ -73,12 +73,12 @@ test("Expanded Bullet Skins (12 Skins) & Damage Vignette Screen Redness Suite", 
     // Solo damagePlayer contains triggerDamageVignette
     assert.ok(indexHtml.includes("triggerDamageVignette(Math.min(1.0, 0.55 + (actualDamage / 100) * 0.35))"), "damagePlayer must trigger vignette");
 
-    // Coop snapshot hurt contains triggerDamageVignette
-    assert.ok(indexHtml.includes("triggerDamageVignette(Math.min(1.0, 0.55 + (dmg / 100) * 0.35))"), "Coop player hurt must trigger vignette");
+    // Room snapshot hurt contains triggerDamageVignette
+    assert.ok(indexHtml.includes("triggerDamageVignette(Math.min(1.0, 0.55 + (dmg / 100) * 0.35))"), "Room player hurt must trigger vignette");
 
-    // Both draw() and drawCoopScene() invoke drawDamageVignette()
+    // Both draw() and drawRoomScene() invoke drawDamageVignette()
     const drawMatches = indexHtml.match(/drawDamageVignette\(\);/g) || [];
-    assert.ok(drawMatches.length >= 2, `drawDamageVignette() must be called in both Solo and Coop scenes (found ${drawMatches.length})`);
+    assert.ok(drawMatches.length >= 2, `drawDamageVignette() must be called in both Solo and Room scenes (found ${drawMatches.length})`);
   });
 
   await t.test("6. In-game Settings modal uses fullscreen cyber layout with opaque solid background", () => {

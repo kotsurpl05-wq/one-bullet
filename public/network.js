@@ -140,19 +140,15 @@ class OneBulletNetwork extends EventTarget {
 
     const handleUpgradeOffers = (payload) => this.emit("upgrade-offers", payload);
     this.socket.on("net:upgrade-offers", handleUpgradeOffers);
-    this.socket.on("coop:upgrade-offers", handleUpgradeOffers);
 
     const handleUpgradeApplied = (payload) => this.emit("upgrade-applied", payload);
     this.socket.on("net:upgrade-applied", handleUpgradeApplied);
-    this.socket.on("coop:upgrade-applied", handleUpgradeApplied);
 
     const handleUpgradeWaiting = (payload) => this.emit("upgrade-waiting", payload);
     this.socket.on("net:upgrade-waiting", handleUpgradeWaiting);
-    this.socket.on("coop:upgrade-waiting", handleUpgradeWaiting);
 
     const handleGameEvent = (payload) => this.emit("game-event", payload);
     this.socket.on("net:game-event", handleGameEvent);
-    this.socket.on("coop:game-event", handleGameEvent);
   }
 
   startPingLoop() {

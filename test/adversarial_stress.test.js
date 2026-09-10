@@ -66,7 +66,7 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
     );
   });
 
-  await t.test("1.2 Input Packet Drop & COOP_INPUT_TIMEOUT (500ms) Behavior", () => {
+  await t.test("1.2 Input Packet Drop & ROOM_INPUT_TIMEOUT (500ms) Behavior", () => {
     const { world, player1 } = createTestWorld(ctx);
     player1.lastInputAt = Date.now();
     player1.input = { up: false, down: false, left: false, right: true, aimX: 0, aimY: 0 };
@@ -407,7 +407,7 @@ test("Adversarial Stress & Edge Case Test Suite", async (t) => {
 
     // Start game
     room.started = true;
-    room.world = ctx.createCoopWorld(room);
+    room.world = ctx.createRoomWorld(room);
 
     // Simulate Game Over: all players dead
     room.world.gameOver = true;

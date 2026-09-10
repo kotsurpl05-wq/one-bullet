@@ -444,7 +444,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       twin.isEnraged = true;
       world.enemies.set(twin.id, twin);
 
-      const snapshot = ctx.createServerCoopSnapshot(room);
+      const snapshot = ctx.createServerRoomSnapshot(room);
       assert.ok(snapshot.enemies.length >= 3, "Snapshot should contain serialized enemies");
 
       const snapPhantom = snapshot.enemies.find(e => e.id === phantom.id);
@@ -502,7 +502,7 @@ test("R4 New Enemy Types Comprehensive Suite (Phantom, Magnetizer, Connected Twi
       bullet.vx = 200;
       bullet.vy = -200;
 
-      // Run 600 ticks (10.0s simulation)
+      // Room 600 ticks (10.0s simulation)
       for (let tick = 0; tick < 600; tick++) {
         const dt = 1 / 60;
         if (bullet.state === "flying" || bullet.state === "ground") {

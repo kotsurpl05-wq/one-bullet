@@ -32,11 +32,11 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
 
     assert.equal(bullet.x, expectedX, `Muzzle X should be ${expectedX}, got ${bullet.x}`);
     assert.equal(bullet.y, expectedY, `Muzzle Y should be ${expectedY}, got ${bullet.y}`);
-    assert.equal(bullet.vx, ctx.COOP_BULLET_SPEED);
+    assert.equal(bullet.vx, ctx.ROOM_BULLET_SPEED);
     assert.equal(bullet.vy, 0);
   });
 
-  await t.test("2. Client position drift tolerance (COOP_SHOOT_MAX_POSITION_DRIFT = 45px)", () => {
+  await t.test("2. Client position drift tolerance (ROOM_SHOOT_MAX_POSITION_DRIFT = 45px)", () => {
     // 2a. Drift within tolerance (<=45px, e.g. 30px) updates server player pos
     {
       const { room, world, player1: player } = createTestWorld(ctx);
@@ -68,7 +68,7 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
     const { room, world, player1: player } = createTestWorld(ctx);
     const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
     bullet.state = "flying";
-    bullet.x = ctx.COOP_WORLD_WIDTH - 2; // Close to right wall
+    bullet.x = ctx.ROOM_WORLD_WIDTH - 2; // Close to right wall
     bullet.y = 300;
     bullet.vx = 400; // moving right towards right boundary
     bullet.vy = 0;
@@ -86,7 +86,7 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
     const { room, world, player1: player } = createTestWorld(ctx);
     const bullet = [...world.bullets.values()].find(b => b.ownerId === player.id);
     bullet.state = "flying";
-    bullet.x = ctx.COOP_WORLD_WIDTH - 2;
+    bullet.x = ctx.ROOM_WORLD_WIDTH - 2;
     bullet.y = 300;
     bullet.vx = 500;
     bullet.vy = 0;
@@ -169,7 +169,7 @@ test("R1 Bullet Physics, Muzzle Origin & Sync Integrity Suite", async (t) => {
 
     // Simulate bullet hitting a wall and bouncing
     bullet.hitEnemies.add(enemy.id); // was hit again
-    bullet.x = ctx.COOP_WORLD_WIDTH;
+    bullet.x = ctx.ROOM_WORLD_WIDTH;
     bullet.y = 500;
     bullet.vx = 400;
     bullet.vy = 0;

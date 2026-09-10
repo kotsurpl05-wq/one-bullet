@@ -46,9 +46,9 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
 
   await t.test("Tier 1 - Unit 2: Co-op Boss HP Multiplier (1.1x) & Wave 30 HP >= 800", () => {
     const { world } = createTestWorld(ctx);
-    assert.equal(ctx.COOP_BOSS_HP_MULTIPLIER, 1.1, "COOP_BOSS_HP_MULTIPLIER must be 1.1");
+    assert.equal(ctx.ROOM_BOSS_HP_MULTIPLIER, 1.1, "ROOM_BOSS_HP_MULTIPLIER must be 1.1");
 
-    // Wave 30 -> tier 6 -> baseHp = 45600 -> coopHp = Math.round(45600 * 1.1) = 50160
+    // Wave 30 -> tier 6 -> baseHp = 45600 -> roomHp = Math.round(45600 * 1.1) = 50160
     world.wave = 30;
     const bossWave30 = ctx.createServerEnemy(world, "boss", 400, 300, true);
     assert.ok(bossWave30.hp >= 800, `Wave 30 Boss HP must be >= 800 (got ${bossWave30.hp})`);
@@ -171,22 +171,22 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
   await t.test("Tier 2 - Boundary 1: Boss HP Scaling Across Wave Boundaries (4 vs 5, 9 vs 10, 29 vs 30)", () => {
     const { world } = createTestWorld(ctx);
 
-    // Wave 5 spawns Tier 1 Boss (base 7600, coop 8360).
+    // Wave 5 spawns Tier 1 Boss (base 7600, run 8360).
     world.wave = 5;
     const bossTier1 = ctx.createServerEnemy(world, "boss", 500, 500, true);
     assert.equal(bossTier1.hp, 8360);
 
-    // Wave 10 (Tier 2: base 12000, coop 13200)
+    // Wave 10 (Tier 2: base 12000, run 13200)
     world.wave = 10;
     const bossTier2 = ctx.createServerEnemy(world, "boss", 500, 500, true);
     assert.equal(bossTier2.hp, 13200);
 
-    // Wave 25 (Tier 5: base 34800, coop 38280)
+    // Wave 25 (Tier 5: base 34800, run 38280)
     world.wave = 25;
     const bossTier5 = ctx.createServerEnemy(world, "boss", 500, 500, true);
     assert.equal(bossTier5.hp, 38280);
 
-    // Wave 30 (Tier 6: base 45600, coop 50160)
+    // Wave 30 (Tier 6: base 45600, run 50160)
     world.wave = 30;
     const bossTier6 = ctx.createServerEnemy(world, "boss", 500, 500, true);
     assert.equal(bossTier6.hp, 50160);
@@ -242,7 +242,7 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     assert.equal(ctx.getServerEnemyExperience(normal), 125, "Normal enemy XP must be 125");
 
     const runner = ctx.createServerEnemy(world, "runner", 100, 100, true);
-    assert.equal(ctx.getServerEnemyExperience(runner), 115, "Runner enemy XP must be 115");
+    assert.equal(ctx.getServerEnemyExperience(runner), 115, "Roomner enemy XP must be 115");
 
     const tank = ctx.createServerEnemy(world, "tank", 100, 100, true);
     assert.equal(ctx.getServerEnemyExperience(tank), 275, "Tank enemy XP must be 275");
@@ -347,12 +347,12 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
     let bossesEncountered = 0;
 
     const expectedBossStats = {
-      5:  { tier: 1, baseHp: 7600,  coopHp: 8360, xp: 1325 },
-      10: { tier: 2, baseHp: 12000, coopHp: 13200, xp: 1600 },
-      15: { tier: 3, baseHp: 18000, coopHp: 19800, xp: 1875 },
-      20: { tier: 4, baseHp: 25600, coopHp: 28160, xp: 2150 },
-      25: { tier: 5, baseHp: 34800, coopHp: 38280, xp: 2425 },
-      30: { tier: 6, baseHp: 45600, coopHp: 50160, xp: 2700 }
+      5:  { tier: 1, baseHp: 7600,  roomHp: 8360, xp: 1325 },
+      10: { tier: 2, baseHp: 12000, roomHp: 13200, xp: 1600 },
+      15: { tier: 3, baseHp: 18000, roomHp: 19800, xp: 1875 },
+      20: { tier: 4, baseHp: 25600, roomHp: 28160, xp: 2150 },
+      25: { tier: 5, baseHp: 34800, roomHp: 38280, xp: 2425 },
+      30: { tier: 6, baseHp: 45600, roomHp: 50160, xp: 2700 }
     };
 
     for (let wave = 1; wave <= 30; wave++) {
@@ -363,8 +363,8 @@ test("R1 Rebalance: Boss HP/XP, Upgrades & XP Progression Suite", async (t) => {
         const boss = ctx.createServerEnemy(world, "boss", 500, 500, true);
         const expected = expectedBossStats[wave];
 
-        assert.equal(boss.hp, expected.coopHp, `Wave ${wave} Boss HP mismatch`);
-        assert.equal(boss.maxHp, expected.coopHp);
+        assert.equal(boss.hp, expected.roomHp, `Wave ${wave} Boss HP mismatch`);
+        assert.equal(boss.maxHp, expected.roomHp);
 
         const xp = ctx.getServerEnemyExperience(boss);
         assert.equal(xp, expected.xp, `Wave ${wave} Boss XP mismatch`);

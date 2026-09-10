@@ -12,15 +12,15 @@ console.log(" Timestamp:", new Date().toISOString());
 console.log("================================================================================\n");
 
 const summary = {
-  harnessesRun: 0,
+  harnessesRoom: 0,
   harnessesPassed: 0,
   harnessesFailed: 0,
   findings: []
 };
 
 function runHarness(name, fn) {
-  summary.harnessesRun++;
-  console.log(`\n>>> HARNESS ${summary.harnessesRun}: ${name}`);
+  summary.harnessesRoom++;
+  console.log(`\n>>> HARNESS ${summary.harnessesRoom}: ${name}`);
   const start = Date.now();
   try {
     fn();
@@ -51,8 +51,8 @@ runHarness("Repeated Determinism Benchmark (20 Iterations)", () => {
     });
     const dur = Date.now() - t0;
     times.push(dur);
-    assert.ok(out.includes("pass 58"), `Run ${i} must pass all 58 tests`);
-    assert.ok(!out.includes("fail [^0]"), `Run ${i} must have 0 fails`);
+    assert.ok(out.includes("pass 58"), `Room ${i} must pass all 58 tests`);
+    assert.ok(!out.includes("fail [^0]"), `Room ${i} must have 0 fails`);
   }
   const avg = times.reduce((a, b) => a + b, 0) / times.length;
   const min = Math.min(...times);
@@ -67,14 +67,14 @@ runHarness("VM Isolation & Context Leakage Stress (50 Instances)", () => {
   const instances = [];
   // 1. Create instance 0 and pollute its environment
   const inst0 = loadServerInstance();
-  inst0.ctx.COOP_WORLD_WIDTH = 999999;
+  inst0.ctx.ROOM_WORLD_WIDTH = 999999;
   inst0.ctx.CUSTOM_LEAK_VAR = "LEAKED_STATE";
   inst0.ctx.SERVER_UPGRADES.push({ id: "hacked_upgrade", power: 999 });
 
   // 2. Load 50 fresh instances and ensure none received leaked properties
   for (let i = 1; i <= 50; i++) {
     const inst = loadServerInstance();
-    assert.equal(inst.ctx.COOP_WORLD_WIDTH, 2560, `Instance ${i} COOP_WORLD_WIDTH must remain authoritative 2560`);
+    assert.equal(inst.ctx.ROOM_WORLD_WIDTH, 2560, `Instance ${i} ROOM_WORLD_WIDTH must remain authoritative 2560`);
     assert.equal(inst.ctx.CUSTOM_LEAK_VAR, undefined, `Instance ${i} must not see CUSTOM_LEAK_VAR`);
     const hasHacked = inst.ctx.SERVER_UPGRADES.some(u => u.id === "hacked_upgrade");
     assert.equal(hasHacked, false, `Instance ${i} SERVER_UPGRADES must not contain hacked_upgrade`);
@@ -112,30 +112,30 @@ runHarness("Extreme Wave Scaling Boundaries (Waves 0, 1, 5, 30, 50, 100, 1000, 1
       if (wave > 0 && wave % 5 === 0) {
         const tier = Math.floor(wave / 5);
         const polyHp = 48 + tier * 20 + tier * tier * 8;
-        const coopHp = Math.round(polyHp * 1.1);
+        const roomHp = Math.round(polyHp * 1.1);
         const bossXp = 1050 + tier * 275;
 
         assert.ok(Number.isFinite(polyHp) && polyHp > 0);
-        assert.ok(Number.isFinite(coopHp) && coopHp > 0);
+        assert.ok(Number.isFinite(roomHp) && roomHp > 0);
         assert.ok(Number.isFinite(bossXp) && bossXp > 0);
 
         if (wave === 30) {
           assert.equal(tier, 6);
           assert.equal(polyHp, 456);
-          assert.equal(coopHp, 502, "Wave 30 boss HP must be 502");
-          assert.ok(coopHp >= 500, "Wave 30 boss HP must satisfy >= 500 requirement");
+          assert.equal(roomHp, 502, "Wave 30 boss HP must be 502");
+          assert.ok(roomHp >= 500, "Wave 30 boss HP must satisfy >= 500 requirement");
           assert.equal(bossXp, 2700, "Wave 30 boss XP must be 2700");
         }
         if (wave === 50) {
           assert.equal(tier, 10);
           assert.equal(polyHp, 1048);
-          assert.equal(coopHp, 1153);
+          assert.equal(roomHp, 1153);
           assert.equal(bossXp, 3800);
         }
         if (wave === 100) {
           assert.equal(tier, 20);
           assert.equal(polyHp, 3648);
-          assert.equal(coopHp, 4013);
+          assert.equal(roomHp, 4013);
           assert.equal(bossXp, 6550);
         }
       }
@@ -167,7 +167,7 @@ runHarness("Extreme Player Count World Simulation (0, 1, 2, 10, 50 Players)", ()
           maxHp: 3,
           alive: true,
           invulnerability: 0,
-          stats: { ...ctx.COOP_BASE_STATS },
+          stats: { ...ctx.ROOM_BASE_STATS },
           input: ctx.sanitizeInput ? ctx.sanitizeInput({}) : { up: false, down: false, left: false, right: false },
           lastInputAt: Date.now()
         });
@@ -178,7 +178,7 @@ runHarness("Extreme Player Count World Simulation (0, 1, 2, 10, 50 Players)", ()
       world.enemies.set(enemy.id, enemy);
 
       // Advance world simulation step with proper signature (room, dt, currentTime)
-      ctx.updateServerCoopWorld(room, 0.016, Date.now());
+      ctx.updateServerRoomWorld(room, 0.016, Date.now());
 
       if (count === 0) {
         assert.ok(world.enemies.has(enemy.id));
@@ -205,7 +205,7 @@ runHarness("Pathological dt Intervals (0, Negative, Subnormal, Huge, NaN, Infini
     const pathologicalDts = [0, -0.016, -100, 1e-12, 100, 10000];
 
     for (const dt of pathologicalDts) {
-      ctx.updateServerCoopWorld(room, dt, Date.now());
+      ctx.updateServerRoomWorld(room, dt, Date.now());
 
       // Verify finite coordinates
       assert.ok(Number.isFinite(enemy.x), `Enemy x must be finite for dt=${dt}`);
@@ -423,7 +423,7 @@ runHarness("Chaos Monkey Simulation (1,000 Randomized World Cycles)", () => {
           }
           break;
         case 5: // Step world simulation
-          ctx.updateServerCoopWorld(room, 0.016, Date.now());
+          ctx.updateServerRoomWorld(room, 0.016, Date.now());
           break;
       }
     }
@@ -450,7 +450,7 @@ runHarness("Heap Memory Stability Check (2,000 Ticks with 50 Entities)", () => {
     const memBefore = process.memoryUsage().heapUsed;
 
     for (let tick = 0; tick < 2000; tick++) {
-      ctx.updateServerCoopWorld(room, 0.016, Date.now());
+      ctx.updateServerRoomWorld(room, 0.016, Date.now());
     }
 
     if (global.gc) global.gc();
@@ -468,7 +468,7 @@ runHarness("Heap Memory Stability Check (2,000 Ticks with 50 Entities)", () => {
 // SUMMARY & VERDICT
 // -----------------------------------------------------------------------------
 console.log("\n================================================================================");
-console.log(` SUMMARY: ${summary.harnessesPassed} / ${summary.harnessesRun} HARNESSES PASSED`);
+console.log(` SUMMARY: ${summary.harnessesPassed} / ${summary.harnessesRoom} HARNESSES PASSED`);
 if (summary.harnessesFailed > 0) {
   console.log(` FAILURES (${summary.harnessesFailed}):`);
   for (const f of summary.findings) {

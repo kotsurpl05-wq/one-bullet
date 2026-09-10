@@ -39,14 +39,14 @@ function reconcilePlayerPosition(player, dt) {
 }
 
 // Input timer logic matching public/index.html lines 8386-8397
-const COOP_INPUT_INTERVAL = 1 / 60;
+const ROOM_INPUT_INTERVAL = 1 / 60;
 
 function simulateInputTimerStep(session, dt, onEmit) {
   session.inputTimer += dt;
-  if (session.inputTimer >= COOP_INPUT_INTERVAL) {
+  if (session.inputTimer >= ROOM_INPUT_INTERVAL) {
     session.inputTimer = Math.max(
       0,
-      session.inputTimer - COOP_INPUT_INTERVAL
+      session.inputTimer - ROOM_INPUT_INTERVAL
     );
     if (onEmit) onEmit();
   }
@@ -55,7 +55,7 @@ function simulateInputTimerStep(session, dt, onEmit) {
 // Comparison buggy version (= 0 instead of -= interval)
 function simulateBuggyInputTimerStep(session, dt, onEmit) {
   session.inputTimer += dt;
-  if (session.inputTimer >= COOP_INPUT_INTERVAL) {
+  if (session.inputTimer >= ROOM_INPUT_INTERVAL) {
     session.inputTimer = 0;
     if (onEmit) onEmit();
   }
@@ -300,10 +300,10 @@ describe("Empirical Stress Suite: Client-Side Sync, Input, and Networking", () =
 
   describe("2. InputTimer Accumulator Under Variable / Irregular Framerate", () => {
 
-    it("verifies index.html uses subtraction (coopSession.inputTimer - COOP_INPUT_INTERVAL)", () => {
+    it("verifies index.html uses subtraction (roomSession.inputTimer - ROOM_INPUT_INTERVAL)", () => {
       assert.match(
         indexHtmlContent,
-        /coopSession\.inputTimer\s*=\s*Math\.max\(\s*0\s*,\s*coopSession\.inputTimer\s*-\s*COOP_INPUT_INTERVAL\s*\)/
+        /roomSession\.inputTimer\s*=\s*Math\.max\(\s*0\s*,\s*roomSession\.inputTimer\s*-\s*ROOM_INPUT_INTERVAL\s*\)/
       );
     });
 

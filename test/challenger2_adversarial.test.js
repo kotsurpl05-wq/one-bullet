@@ -101,7 +101,7 @@ test("Challenger 2: Adversarial Verification of Card Drafting, Magnetic Field, a
         assert.equal(upgrade.available(player1), true, `Boomerang should be available for build: ${build.name}`);
       }
 
-      // Run 50 offer generation batches and verify 'boomerang' appears with non-zero probability
+      // Room 50 offer generation batches and verify 'boomerang' appears with non-zero probability
       let appearances = 0;
       const iterations = 50;
       for (let i = 0; i < iterations; i++) {

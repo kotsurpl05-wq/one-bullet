@@ -39,19 +39,19 @@ function loadServerInstance() {
   if (typeof io !== 'undefined') this.io = io;
   if (typeof server !== 'undefined') this.server = server;
   if (typeof app !== 'undefined') this.app = app;
-  if (typeof COOP_SHOOT_MAX_POSITION_DRIFT !== 'undefined') this.COOP_SHOOT_MAX_POSITION_DRIFT = COOP_SHOOT_MAX_POSITION_DRIFT;
-  if (typeof COOP_REPAIR_HEAL_COOLDOWN !== 'undefined') this.COOP_REPAIR_HEAL_COOLDOWN = COOP_REPAIR_HEAL_COOLDOWN;
-  if (typeof COOP_WORLD_WIDTH !== 'undefined') this.COOP_WORLD_WIDTH = COOP_WORLD_WIDTH;
-  if (typeof COOP_WORLD_HEIGHT !== 'undefined') this.COOP_WORLD_HEIGHT = COOP_WORLD_HEIGHT;
+  if (typeof ROOM_SHOOT_MAX_POSITION_DRIFT !== 'undefined') this.ROOM_SHOOT_MAX_POSITION_DRIFT = ROOM_SHOOT_MAX_POSITION_DRIFT;
+  if (typeof ROOM_REPAIR_HEAL_COOLDOWN !== 'undefined') this.ROOM_REPAIR_HEAL_COOLDOWN = ROOM_REPAIR_HEAL_COOLDOWN;
+  if (typeof ROOM_WORLD_WIDTH !== 'undefined') this.ROOM_WORLD_WIDTH = ROOM_WORLD_WIDTH;
+  if (typeof ROOM_WORLD_HEIGHT !== 'undefined') this.ROOM_WORLD_HEIGHT = ROOM_WORLD_HEIGHT;
   if (typeof ROOM_INACTIVITY_TIMEOUT_MS !== 'undefined') this.ROOM_INACTIVITY_TIMEOUT_MS = ROOM_INACTIVITY_TIMEOUT_MS;
-  if (typeof COOP_ENEMY_HP_MULTIPLIER !== 'undefined') this.COOP_ENEMY_HP_MULTIPLIER = COOP_ENEMY_HP_MULTIPLIER;
-  if (typeof COOP_BOSS_HP_MULTIPLIER !== 'undefined') this.COOP_BOSS_HP_MULTIPLIER = COOP_BOSS_HP_MULTIPLIER;
-  if (typeof COOP_BULLET_SPEED !== 'undefined') this.COOP_BULLET_SPEED = COOP_BULLET_SPEED;
-  if (typeof COOP_BULLET_RADIUS !== 'undefined') this.COOP_BULLET_RADIUS = COOP_BULLET_RADIUS;
-  if (typeof COOP_BULLET_BOUNCES !== 'undefined') this.COOP_BULLET_BOUNCES = COOP_BULLET_BOUNCES;
-  if (typeof COOP_CRYSTAL_RADIUS !== 'undefined') this.COOP_CRYSTAL_RADIUS = COOP_CRYSTAL_RADIUS;
-  if (typeof createCoopWorld !== 'undefined') this.createCoopWorld = createCoopWorld;
-  if (typeof createServerCoopPlayer !== 'undefined') this.createServerCoopPlayer = createServerCoopPlayer;
+  if (typeof ROOM_ENEMY_HP_MULTIPLIER !== 'undefined') this.ROOM_ENEMY_HP_MULTIPLIER = ROOM_ENEMY_HP_MULTIPLIER;
+  if (typeof ROOM_BOSS_HP_MULTIPLIER !== 'undefined') this.ROOM_BOSS_HP_MULTIPLIER = ROOM_BOSS_HP_MULTIPLIER;
+  if (typeof ROOM_BULLET_SPEED !== 'undefined') this.ROOM_BULLET_SPEED = ROOM_BULLET_SPEED;
+  if (typeof ROOM_BULLET_RADIUS !== 'undefined') this.ROOM_BULLET_RADIUS = ROOM_BULLET_RADIUS;
+  if (typeof ROOM_BULLET_BOUNCES !== 'undefined') this.ROOM_BULLET_BOUNCES = ROOM_BULLET_BOUNCES;
+  if (typeof ROOM_CRYSTAL_RADIUS !== 'undefined') this.ROOM_CRYSTAL_RADIUS = ROOM_CRYSTAL_RADIUS;
+  if (typeof createRoomWorld !== 'undefined') this.createRoomWorld = createRoomWorld;
+  if (typeof createServerRoomPlayer !== 'undefined') this.createServerRoomPlayer = createServerRoomPlayer;
   if (typeof createServerBullet !== 'undefined') this.createServerBullet = createServerBullet;
   if (typeof createServerEnemy !== 'undefined') this.createServerEnemy = createServerEnemy;
   if (typeof damageServerEnemy !== 'undefined') this.damageServerEnemy = damageServerEnemy;
@@ -60,7 +60,7 @@ function loadServerInstance() {
   if (typeof dropServerBullet !== 'undefined') this.dropServerBullet = dropServerBullet;
   if (typeof shootServerBullet !== 'undefined') this.shootServerBullet = shootServerBullet;
   if (typeof updateServerBullet !== 'undefined') this.updateServerBullet = updateServerBullet;
-  if (typeof updateServerCoopWorld !== 'undefined') this.updateServerCoopWorld = updateServerCoopWorld;
+  if (typeof updateServerRoomWorld !== 'undefined') this.updateServerRoomWorld = updateServerRoomWorld;
   if (typeof applyServerUpgrade !== 'undefined') this.applyServerUpgrade = applyServerUpgrade;
   if (typeof sanitizeName !== 'undefined') this.sanitizeName = sanitizeName;
   if (typeof sanitizeCode !== 'undefined') this.sanitizeCode = sanitizeCode;
@@ -89,21 +89,21 @@ function loadServerInstance() {
   if (typeof getPlayerSpawnPosition !== 'undefined') this.getPlayerSpawnPosition = getPlayerSpawnPosition;
   if (typeof getServerPlayerSpawnPosition !== 'undefined') this.getServerPlayerSpawnPosition = getServerPlayerSpawnPosition;
   if (typeof damageServerPlayer !== 'undefined') this.damageServerPlayer = damageServerPlayer;
-  if (typeof createServerCoopSnapshot !== 'undefined') this.createServerCoopSnapshot = createServerCoopSnapshot;
+  if (typeof createServerRoomSnapshot !== 'undefined') this.createServerRoomSnapshot = createServerRoomSnapshot;
   if (typeof advanceFullSnapshotClock !== 'undefined') this.advanceFullSnapshotClock = advanceFullSnapshotClock;
-  if (typeof COOP_FULL_SNAPSHOT_INTERVAL !== 'undefined') this.COOP_FULL_SNAPSHOT_INTERVAL = COOP_FULL_SNAPSHOT_INTERVAL;
+  if (typeof ROOM_FULL_SNAPSHOT_INTERVAL !== 'undefined') this.ROOM_FULL_SNAPSHOT_INTERVAL = ROOM_FULL_SNAPSHOT_INTERVAL;
   if (typeof updateServerWave !== 'undefined') this.updateServerWave = updateServerWave;
   if (typeof spawnServerWave !== 'undefined') this.spawnServerWave = spawnServerWave;
-  if (typeof COOP_EXPERIENCE_MULTIPLIER !== 'undefined') this.COOP_EXPERIENCE_MULTIPLIER = COOP_EXPERIENCE_MULTIPLIER;
+  if (typeof ROOM_EXPERIENCE_MULTIPLIER !== 'undefined') this.ROOM_EXPERIENCE_MULTIPLIER = ROOM_EXPERIENCE_MULTIPLIER;
   if (typeof startServerUpgradeRound !== 'undefined') this.startServerUpgradeRound = startServerUpgradeRound;
   if (typeof submitServerUpgradeChoice !== 'undefined') this.submitServerUpgradeChoice = submitServerUpgradeChoice;
   if (typeof reviveServerPlayers !== 'undefined') this.reviveServerPlayers = reviveServerPlayers;
   if (typeof SERVER_UPGRADES !== 'undefined') this.SERVER_UPGRADES = SERVER_UPGRADES;
   if (typeof SERVER_UPGRADE_RARITIES !== 'undefined') this.SERVER_UPGRADE_RARITIES = SERVER_UPGRADE_RARITIES;
-  if (typeof COOP_DIFFICULTY !== 'undefined') this.COOP_DIFFICULTY = COOP_DIFFICULTY;
+  if (typeof ROOM_DIFFICULTY !== 'undefined') this.ROOM_DIFFICULTY = ROOM_DIFFICULTY;
   if (typeof getPlayerSpawnPosition !== 'undefined') this.getPlayerSpawnPosition = getPlayerSpawnPosition;
-  if (typeof createCoopSnapshot !== 'undefined') this.createCoopSnapshot = createCoopSnapshot;
-  if (typeof broadcastCoopSnapshot !== 'undefined') this.broadcastCoopSnapshot = broadcastCoopSnapshot;
+  if (typeof createRoomSnapshot !== 'undefined') this.createRoomSnapshot = createRoomSnapshot;
+  if (typeof broadcastRoomSnapshot !== 'undefined') this.broadcastRoomSnapshot = broadcastRoomSnapshot;
   if (typeof updateServerEnemies !== 'undefined') this.updateServerEnemies = updateServerEnemies;
   if (typeof updateServerEnemyProjectiles !== 'undefined') this.updateServerEnemyProjectiles = updateServerEnemyProjectiles;
   if (typeof updateServerWave !== 'undefined') this.updateServerWave = updateServerWave;
@@ -112,7 +112,7 @@ function loadServerInstance() {
   if (typeof distToSegment !== 'undefined') this.distToSegment = distToSegment;
   if (typeof clamp !== 'undefined') this.clamp = clamp;
   if (typeof random !== 'undefined') this.random = random;
-  if (typeof COOP_PLAYER_SPEED !== 'undefined') this.COOP_PLAYER_SPEED = COOP_PLAYER_SPEED;
+  if (typeof ROOM_PLAYER_SPEED !== 'undefined') this.ROOM_PLAYER_SPEED = ROOM_PLAYER_SPEED;
   if (typeof ensureServerMagazine !== 'undefined') this.ensureServerMagazine = ensureServerMagazine;
   if (typeof spawnServerZonePattern !== 'undefined') this.spawnServerZonePattern = spawnServerZonePattern;
   if (typeof updateServerBossTurretAttacks !== 'undefined') this.updateServerBossTurretAttacks = updateServerBossTurretAttacks;
@@ -198,7 +198,7 @@ function loadServerInstance() {
     require("../../shared/player-stats"),
     require("../../shared/enemy-factory"),
     require("../../shared/upgrades"),
-    require("../../shared/run-balance")
+    require("../../shared/room-balance")
   ];
   for (const mod of sharedModules) {
     for (const [key, value] of Object.entries(mod)) {
